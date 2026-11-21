@@ -1,7 +1,7 @@
 {
-  "versionCode": 12,
-  "versionName": "1.9.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v1.9.0/ChamCong_DiemDanh_v1.9.0.apk",
-  "sha256": "f8f04480677b60cf2912ff58791d465dd7f2d3c375b667e11a294d68310e06b1",
-  "notes": "Hỗ trợ tự dò TẤT CẢ mọi dòng máy chấm công Hikvision qua chuẩn đa hướng SADP (239.255.255.250:37020): tự hiện đúng tên model (DS-K1T320MX, DS-K1T320MFWX, DS-K1T341/343, DS-K1T671/673, DS-K1T804...), tự lấy đúng cổng HTTP, lọc bỏ camera IP, tự đọc dung lượng khuôn mặt theo từng đời máy, tự định vị lại IP DHCP không cần thử mật khẩu, và nút Tìm mọi máy Hikvision (SADP) ngay trên Web LAN http://chamcong.local:8080."
+  "versionCode": 13,
+  "versionName": "2.0.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.0.0/ChamCong_DiemDanh_v2.0.0.apk",
+  "sha256": "3dd473315993b57f91f8f58a1210c3a0180457a564069f3af4f2072ecebde83f",
+  "notes": "Phiên bản v2.0.0 hoàn chỉnh 2 chiều chuẩn tuyệt đối cho mọi dòng máy Hikvision & FK: đẩy mọi mã nhân viên từ server tổng xuống Hikvision giữ nguyên mã gốc (kể cả số 0 ở đầu 001, mã chữ NV01, thẻ Mifare 10 số) + họ tên tiếng Việt UTF-8 + tự đẩy ảnh khuôn mặt AI, đồng thời khi quét mặt/thẻ trên máy Hikvision tự đánh thức đẩy thẳng lên server tổng trong < 0.5 giây (chịu lệch đồng hồ ±60s, lưu đệm ngoại tuyến không mất lượt)."
 }
