@@ -1,7 +1,7 @@
 {
-  "versionCode": 14,
-  "versionName": "2.1.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.1.0/ChamCong_DiemDanh_v2.1.0.apk",
-  "sha256": "2018b38d413e80f19c6d12cd1150cfe91a7d891a5336383aa7a8218e642347dc",
-  "notes": "Nâng cấp toàn diện Webhook (HTTP Listening) cho mọi máy chấm công Hikvision: tự hỗ trợ Expect 100-continue + Transfer-Encoding chunked + XML SubscribeEvent chuẩn firmware V3.9.50+, giao diện 1 chạm Gắn Webhook về TV Box / Tuỳ chỉnh máy chủ HTTP-HTTPS / Tắt Webhook, và bộ đếm thời gian thực số lượt quét & heartbeat nhận được (<0.5s)."
+  "versionCode": 15,
+  "versionName": "2.2.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.2.0/ChamCong_DiemDanh_v2.2.0.apk",
+  "sha256": "fecaf340817dea555e820767439425d0f6fbedee11d41ee2008484cece4d0e6e",
+  "notes": "Đăng nhập 1 lần duy nhất — tự động kết nối vĩnh viễn: tự làm mới phiên âm thầm khi token 401 hết hạn (không đá ra màn hình đăng nhập), tự đăng nhập nền khi TV Box có điện lại, nhớ 1 lần tài khoản quản trị Hikvision (AES-256) để tự điền & tự nối luôn các máy Hikvision mới qua SADP (an toàn chống khoá 30p), và giữ phiên đăng nhập Web quản trị LAN xuyên qua khởi động lại/cập nhật OTA."
 }
