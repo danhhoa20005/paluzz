@@ -68,6 +68,8 @@ class AttendanceForegroundService : Service() {
                 onLocalHostChanged = { webConsole?.refreshPublishedUrl() },
             ),
             hostProvider = { "${container.configRepository.getConfig().safeLocalHostName}.local" },
+            onHikvisionWebhook = container::handleHikvisionWebhook,
+            onPortBound = { port -> container.activeWebConsolePort = port },
             onListeningUrlChanged = engine::updateWebConsoleUrl,
         ).also { it.start() }
 

@@ -76,6 +76,8 @@ internal object FkUserNameCodec {
                 if (!resp.isSuccess) FkResult.fail(resp.resultCode)
                 else FkResult.ok(BinaryUtils.decodeAsciiNullTerminated(resp.data, 0, 20))
             }
+
+            FkFirmwareProfile.HIKVISION_ISAPI -> FkResult.fail(FkErrorCode.ERR_BAD_PARAM)
         }
     }
 
@@ -135,6 +137,8 @@ internal object FkUserNameCodec {
             FkFirmwareProfile.GEN, FkFirmwareProfile.PS, FkFirmwareProfile.PS_EXCEL -> {
                 transport.writeData(machineNo, FkCommands.SET_USER_NAME, BinaryUtils.encodeUtf16LeFixed(name, 14), param = enrollNumber)
             }
+
+            FkFirmwareProfile.HIKVISION_ISAPI -> return FkResult.fail(FkErrorCode.ERR_BAD_PARAM)
         }
         return if (resp.isSuccess) FkResult.ok(Unit) else FkResult.fail(resp.resultCode)
     }

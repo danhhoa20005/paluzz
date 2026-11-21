@@ -59,13 +59,17 @@ class DiscoverDevicesUseCase(
         var totalPingAlive = 0
         var usedDirectFallback = false
 
-        // 1. Thử nối thẳng các IP đã biết trước (máy chấm chỉ giữ 1 phiên nên thử tối đa 3 lượt)
-        for (ip in knownIps) {
-            checkedIps.add(ip)
+        // 1. Thử nối thẳng các máy đã lưu trước (hỗ trợ cả máy FK cổng 5005 và Hikvision ISAPI cổng 80/443)
+        for (known in knownDevices) {
+            val ip = known.ip.trim()
+            if (ip.isEmpty() || !checkedIps.add(ip)) continue
             onProgress(DiscoveryProgress("Đang kiểm tra máy đã lưu $ip..."))
-            if (verifyFkTerminal(ip, port, machineNo, password, license, useUdp, tries = 3, timeoutMs = 2_000)) {
-                foundIps.add(ip)
+            val ok = if (known.isHikvision) {
+                verifySavedDevice(known, tries = 1, timeoutMs = 2_500)
+            } else {
+                verifyFkTerminal(ip, known.port, known.machineNo, known.password, known.license, known.useUdp, tries = 3, timeoutMs = 2_000)
             }
+            if (ok) foundIps.add(ip)
         }
 
         // 2. Quét Ping + xác nhận FK song song trên tất cả dải LAN vật lý (eth0/wlan0)
@@ -160,6 +164,18 @@ class DiscoverDevicesUseCase(
                 if (ok) ip else null
             }
         }.awaitAll().filterNotNull()
+    }
+
+    private suspend fun verifySavedDevice(device: DeviceConfig, tries: Int, timeoutMs: Int): Boolean {
+        for (attempt in 1..tries) {
+            val res = deviceGateway.connect(device, timeoutMs)
+            if (res.isSuccess && res.data != null) {
+                deviceGateway.disconnect(res.data.handle)
+                return true
+            }
+            if (attempt < tries) delay(800L)
+        }
+        return false
     }
 
     private suspend fun verifyFkTerminal(

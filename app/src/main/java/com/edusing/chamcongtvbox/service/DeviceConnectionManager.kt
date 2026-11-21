@@ -132,19 +132,11 @@ internal class DeviceConnectionManager(
     /** Nối thử 1 lần rồi ngắt ngay (dùng ở màn Thêm máy để xác minh IP trước khi lưu). */
     suspend fun probeConnect(device: DeviceConfig): Pair<Boolean, String> = runCatching {
         val timeout = configRepository.getConfig().connectTimeoutMs
-        val res = deviceGateway.connect(
-            machineNo = device.machineNo,
-            ip = device.ip,
-            port = device.port,
-            timeoutMs = timeout,
-            netPassword = device.password,
-            license = device.license,
-            useUdp = device.useUdp,
-        )
+        val res = deviceGateway.connect(device = device, timeoutMs = timeout)
         if (res.isSuccess && res.data != null) {
             val label = "${res.data.transportName} / ${res.data.profile.displayName}"
             deviceGateway.disconnect(res.data.handle)
-            delay(700L)
+            if (!device.isHikvision) delay(700L)
             true to "Kết nối thử thành công ($label)"
         } else {
             false to res.message

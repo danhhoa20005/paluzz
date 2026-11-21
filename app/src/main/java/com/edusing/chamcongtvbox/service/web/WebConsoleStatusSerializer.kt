@@ -29,6 +29,7 @@ internal object WebConsoleStatusSerializer {
                         .put("name", d.config.displayName)
                         .put("ip", d.config.ip)
                         .put("port", d.config.port)
+                        .put("protocol", d.config.protocol.code)
                         .put("connected", d.isConnected)
                         .put("statusText", d.statusText)
                 )

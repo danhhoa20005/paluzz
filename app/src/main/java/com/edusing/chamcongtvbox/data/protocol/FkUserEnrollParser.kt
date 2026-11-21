@@ -180,6 +180,8 @@ object FkUserEnrollParser {
             BinaryUtils.putU32LE(buf, 4, if (includeEncryptedCardData) cardNumber else 0)
             buf[8] = 1
         }
+
+        FkFirmwareProfile.HIKVISION_ISAPI -> ByteArray(0)
     }
 
     /** Đóng gói tham số 16-bit `(năm, tháng)` cho lệnh `CMD 0xE8` trên CIF11/CIF12. */

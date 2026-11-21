@@ -20,6 +20,23 @@ interface FkDeviceGateway {
         useUdp: Boolean = false,
     ): FkResult<FkConnectionInfo>
 
+    /** Mở kết nối từ cấu hình đầy đủ (tự định tuyến máy FK cổng 5005 hoặc Hikvision ISAPI cổng 80/443). */
+    suspend fun connect(
+        device: DeviceConfig,
+        timeoutMs: Int = 5_000,
+    ): FkResult<FkConnectionInfo> = connect(
+        machineNo = device.machineNo,
+        ip = device.ip,
+        port = device.port,
+        timeoutMs = timeoutMs,
+        netPassword = device.password,
+        license = device.license,
+        useUdp = device.useUdp,
+    )
+
+    /** Dò nhanh không cần mật khẩu xem IP có chạy giao thức Hikvision ISAPI (DS-K1T320MX...) hay không. */
+    suspend fun probeHikvisionHost(ip: String, port: Int = DeviceConfig.DEFAULT_HIK_PORT): String? = null
+
     /** Ngắt kết nối một phiên máy chấm công theo handle. */
     suspend fun disconnect(handle: Int)
 

@@ -2,6 +2,7 @@ package com.edusing.chamcongtvbox.data.local
 
 import android.content.Context
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
+import com.edusing.chamcongtvbox.domain.model.DeviceProtocol
 import com.edusing.chamcongtvbox.domain.repository.PendingCheckInStorage
 import com.edusing.chamcongtvbox.domain.repository.StoredPendingCheckIn
 import org.json.JSONArray
@@ -38,6 +39,7 @@ class PendingCheckInStoreImpl(
                             password = o.optInt("password", DeviceConfig.DEFAULT_PASSWORD),
                             license = o.optInt("license", DeviceConfig.DEFAULT_LICENSE),
                             useUdp = o.optBoolean("useUdp", false),
+                            protocol = DeviceProtocol.fromCode(o.optString("protocol", "FK")),
                         ),
                         userName = o.optString("userName", ""),
                         queuedAtMs = o.optLong("queuedAtMs", System.currentTimeMillis()),
@@ -61,6 +63,7 @@ class PendingCheckInStoreImpl(
                         put("password", r.device.password)
                         put("license", r.device.license)
                         put("useUdp", r.device.useUdp)
+                        put("protocol", r.device.protocol.code)
                         put("userName", r.userName)
                         put("queuedAtMs", r.queuedAtMs)
                     }

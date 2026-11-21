@@ -151,7 +151,8 @@ private fun TerminalCard(
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(item.config.displayName, fontSize = if (isTv) 16.sp else 15.sp, fontWeight = FontWeight.Bold, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val fw = if (item.firmwareProfile.isNotBlank()) " • ${item.firmwareProfile}" else ""
+                val protoHint = item.firmwareProfile.ifBlank { if (item.config.isHikvision) "Hikvision ISAPI" else "" }
+                val fw = if (protoHint.isNotBlank()) " • $protoHint" else ""
                 Text("${item.config.ip}:${item.config.port}$fw", fontFamily = FontFamily.Monospace, fontSize = if (isTv) 13.sp else 12.sp, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(TammiSpacing.sm))

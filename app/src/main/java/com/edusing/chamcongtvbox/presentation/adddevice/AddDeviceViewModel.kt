@@ -3,9 +3,8 @@ package com.edusing.chamcongtvbox.presentation.adddevice
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
-import com.edusing.chamcongtvbox.domain.model.IpSuggestion
+import com.edusing.chamcongtvbox.domain.model.DeviceProtocol
 import com.edusing.chamcongtvbox.domain.model.LanHostInfo
-import com.edusing.chamcongtvbox.domain.model.SubnetInfo
 import com.edusing.chamcongtvbox.domain.repository.ConfigRepository
 import com.edusing.chamcongtvbox.domain.usecase.ScanLanDevicesUseCase
 import com.edusing.chamcongtvbox.domain.usecase.SuggestFreeIpUseCase
@@ -21,29 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Trạng thái UI màn hình Thêm máy chấm công mới. */
-data class AddDeviceUiState(
-    val name: String = "",
-    val ip: String = "",
-    val port: String = DeviceConfig.DEFAULT_PORT.toString(),
-    val machineNo: String = DeviceConfig.DEFAULT_MACHINE_NO.toString(),
-    val commPassword: String = DeviceConfig.DEFAULT_PASSWORD.toString(),
-    val useUdp: Boolean = false,
-    val subnetInfo: SubnetInfo? = null,
-    val scanPrefix: String = "",
-    val quickPrefixes: List<String> = emptyList(),
-    val ipSuggestion: IpSuggestion? = null,
-    val isLoadingSuggestion: Boolean = false,
-    val isScanning: Boolean = false,
-    val scanCompleted: Int = 0,
-    val scanTotal: Int = 254,
-    val discoveredHosts: List<LanHostInfo> = emptyList(),
-    val isSaving: Boolean = false,
-    val errorMessage: String? = null,
-    val infoMessage: String? = null,
-)
-
-/** ViewModel màn hình Thêm máy: gợi ý IP trống không trùng, quét Ping an toàn và kiểm tra nối thử. */
+/** ViewModel màn hình Thêm máy: hỗ trợ song song FK (5005) & Hikvision DS-K1T320MX (80/443), gợi ý IP và quét LAN. */
 class AddDeviceViewModel(
     private val configRepository: ConfigRepository,
     private val scanLanDevicesUseCase: ScanLanDevicesUseCase,
@@ -74,7 +51,6 @@ class AddDeviceViewModel(
         )
     }
 
-    /** Tìm IP trống tiếp theo trong dải .240..200 và tự nhận diện cả dải LAN thượng nguồn thông tuyến. */
     fun suggestNextFreeIp() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoadingSuggestion = true, errorMessage = null) }
@@ -102,21 +78,54 @@ class AddDeviceViewModel(
         }
     }
 
+    fun onProtocolChange(protocol: DeviceProtocol) {
+        val cfg = configRepository.getConfig()
+        val defaultPort = if (protocol == DeviceProtocol.HIKVISION_ISAPI) {
+            if (_uiState.value.useHttps) DeviceConfig.DEFAULT_HIK_HTTPS_PORT else DeviceConfig.DEFAULT_HIK_PORT
+        } else {
+            cfg.defaultPort
+        }
+        _uiState.update {
+            it.copy(
+                protocol = protocol,
+                port = defaultPort.toString(),
+                errorMessage = null,
+                infoMessage = if (protocol == DeviceProtocol.HIKVISION_ISAPI) {
+                    "Đã chọn cổng Hikvision ISAPI (DS-K1T320MX). Nhập IP, tài khoản admin và mật khẩu kích hoạt thiết bị."
+                } else null,
+            )
+        }
+    }
+
     fun onNameChange(value: String) = _uiState.update { it.copy(name = value, errorMessage = null) }
     fun onIpChange(value: String) = _uiState.update { it.copy(ip = value.trim(), errorMessage = null) }
     fun onPortChange(value: String) = _uiState.update { it.copy(port = value.filter(Char::isDigit), errorMessage = null) }
     fun onMachineNoChange(value: String) = _uiState.update { it.copy(machineNo = value.filter(Char::isDigit), errorMessage = null) }
     fun onCommPasswordChange(value: String) = _uiState.update { it.copy(commPassword = value.filter(Char::isDigit), errorMessage = null) }
     fun onUseUdpChange(useUdp: Boolean) = _uiState.update { it.copy(useUdp = useUdp) }
+    fun onHikUsernameChange(value: String) = _uiState.update { it.copy(hikUsername = value.trim(), errorMessage = null) }
+    fun onHikPasswordChange(value: String) = _uiState.update { it.copy(hikPassword = value, errorMessage = null) }
+    fun onUseHttpsChange(useHttps: Boolean) = _uiState.update {
+        val nextPort = if (useHttps) DeviceConfig.DEFAULT_HIK_HTTPS_PORT else DeviceConfig.DEFAULT_HIK_PORT
+        it.copy(useHttps = useHttps, port = nextPort.toString(), errorMessage = null)
+    }
     fun onScanPrefixChange(value: String) = _uiState.update { it.copy(scanPrefix = value.trim(), errorMessage = null) }
 
     fun selectDiscoveredHost(host: LanHostInfo) {
+        val nextProto = if (host.isHikvisionTerminal) DeviceProtocol.HIKVISION_ISAPI else if (host.isFkTerminal) DeviceProtocol.FK else _uiState.value.protocol
+        val nextPort = if (host.isDetectedTerminal) host.port else _uiState.value.port.toIntOrNull() ?: nextProto.defaultPort
         _uiState.update {
             it.copy(
+                protocol = nextProto,
                 ip = host.ip,
-                port = host.port.toString(),
+                port = nextPort.toString(),
+                useHttps = nextPort == DeviceConfig.DEFAULT_HIK_HTTPS_PORT,
                 errorMessage = null,
-                infoMessage = if (host.alreadyConfigured) "IP ${host.ip} đã có trong danh sách máy." else "Đã chọn IP ${host.ip}.",
+                infoMessage = when {
+                    host.alreadyConfigured -> "IP ${host.ip} đã có trong danh sách máy."
+                    host.isHikvisionTerminal -> "Đã chọn Hikvision ${host.ip}:$nextPort — nhập mật khẩu thiết bị rồi bấm Kết nối & Lưu."
+                    else -> "Đã chọn IP ${host.ip}:$nextPort."
+                },
             )
         }
     }
@@ -130,39 +139,37 @@ class AddDeviceViewModel(
             val stateNow = _uiState.value
             val targetPrefix = (overridePrefix ?: stateNow.scanPrefix).trim().ifBlank { null }
             if (overridePrefix != null) _uiState.update { it.copy(scanPrefix = overridePrefix.trim()) }
-            val port = stateNow.port.toIntOrNull()?.takeIf { it in 1..65535 } ?: cfg.defaultPort
+            val fkPort = if (stateNow.protocol == DeviceProtocol.FK) {
+                stateNow.port.toIntOrNull()?.takeIf { it in 1..65535 } ?: cfg.defaultPort
+            } else cfg.defaultPort
+            val hikPort = if (stateNow.protocol == DeviceProtocol.HIKVISION_ISAPI) {
+                stateNow.port.toIntOrNull()?.takeIf { it in 1..65535 } ?: DeviceConfig.DEFAULT_HIK_PORT
+            } else DeviceConfig.DEFAULT_HIK_PORT
             val machineNo = stateNow.machineNo.toIntOrNull()?.takeIf { it >= 1 } ?: cfg.defaultMachineNo
             val password = stateNow.commPassword.toIntOrNull()?.takeIf { it >= 0 } ?: cfg.defaultPassword
             val label = targetPrefix?.let { "$it.x" } ?: "mạng LAN"
             _uiState.update {
                 it.copy(
-                    isScanning = true,
-                    scanCompleted = 0,
-                    scanTotal = 254,
-                    discoveredHosts = emptyList(),
-                    errorMessage = null,
-                    infoMessage = "Đang quét $label bằng Ping an toàn + xác nhận máy chấm công FK...",
+                    isScanning = true, scanCompleted = 0, scanTotal = 254, discoveredHosts = emptyList(),
+                    errorMessage = null, infoMessage = "Đang quét $label tìm cả máy FK (5005) và Hikvision ($hikPort)...",
                 )
             }
             val hosts = scanLanDevicesUseCase(
-                configuredIps = configuredIps,
-                port = port,
-                customPrefix = targetPrefix,
-                machineNo = machineNo,
-                password = password,
-                license = cfg.defaultLicense,
-                useUdp = stateNow.useUdp,
+                configuredIps = configuredIps, port = fkPort, customPrefix = targetPrefix,
+                machineNo = machineNo, password = password, license = cfg.defaultLicense,
+                useUdp = stateNow.useUdp, hikvisionPort = hikPort,
             ) { scanned, total ->
                 _uiState.update { it.copy(scanCompleted = scanned, scanTotal = total) }
             }
             val fkCount = hosts.count { it.isFkTerminal }
+            val hikCount = hosts.count { it.isHikvisionTerminal }
             _uiState.update {
                 it.copy(
                     isScanning = false,
                     discoveredHosts = hosts,
                     infoMessage = when {
-                        fkCount > 0 -> "Phát hiện $fkCount máy chấm công FK trong ${hosts.size} thiết bị ($label)."
-                        hosts.isNotEmpty() -> "Thấy ${hosts.size} thiết bị ở $label nhưng chưa máy nào mở cổng $port (kiểm tra app PC có đang giữ kết nối không)."
+                        fkCount + hikCount > 0 -> "Phát hiện $hikCount Hikvision + $fkCount máy FK trong ${hosts.size} thiết bị ($label)."
+                        hosts.isNotEmpty() -> "Thấy ${hosts.size} thiết bị ở $label nhưng chưa máy nào mở cổng FK/Hikvision."
                         else -> "Không thấy thiết bị nào đáp Ping ở $label. Thử chọn dải mạng khác hoặc nhập IP thủ công."
                     },
                 )
@@ -170,24 +177,21 @@ class AddDeviceViewModel(
         }
     }
 
-    /** Kiểm tra kết nối thật (nếu `verifyFirst = true`) rồi lưu và nối máy vào danh sách chính. */
     fun saveDevice(verifyFirst: Boolean) {
         val s = _uiState.value
         if (s.isSaving) return
         val device = buildValidatedDevice(s) ?: return
-
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorMessage = null, infoMessage = "Đang kết nối thử tới ${device.ip}:${device.port}...") }
             if (verifyFirst) {
                 val (ok, msg) = attendanceEngine.testConnectDevice(device)
                 if (!ok) {
-                    _uiState.update {
-                        it.copy(
-                            isSaving = false,
-                            errorMessage = "Chưa nối được ($msg). Kiểm tra: (1) Tắt phần mềm chấm công trên máy tính nếu đang giữ kết nối, (2) Đúng IP/cổng 5005, hoặc bấm \"Lưu luôn\" để nối sau.",
-                            infoMessage = null,
-                        )
+                    val hint = if (device.isHikvision) {
+                        "Kiểm tra đúng IP, cổng 80/443 và mật khẩu admin kích hoạt trên DS-K1T320MX (hoặc bấm \"Lưu luôn\")."
+                    } else {
+                        "Kiểm tra tắt phần mềm chấm công trên PC, đúng IP/cổng 5005 hoặc bấm \"Lưu luôn\"."
                     }
+                    _uiState.update { it.copy(isSaving = false, errorMessage = "Chưa nối được ($msg). $hint", infoMessage = null) }
                     return@launch
                 }
             }
@@ -203,14 +207,17 @@ class AddDeviceViewModel(
 
     private fun buildValidatedDevice(s: AddDeviceUiState): DeviceConfig? {
         val parts = s.ip.trim().split('.')
-        val validIp = parts.size == 4 && parts.all { it.toIntOrNull() in 0..255 }
-        if (!validIp) {
-            _uiState.update { it.copy(errorMessage = "Địa chỉ IP không hợp lệ (ví dụ: 192.168.1.201).") }
+        if (parts.size != 4 || !parts.all { it.toIntOrNull() in 0..255 }) {
+            _uiState.update { it.copy(errorMessage = "Địa chỉ IP không hợp lệ (ví dụ: 192.168.1.64).") }
             return null
         }
         val portNum = s.port.toIntOrNull()?.takeIf { it in 1..65535 }
         if (portNum == null) {
-            _uiState.update { it.copy(errorMessage = "Cổng không hợp lệ (mặc định 5005).") }
+            _uiState.update { it.copy(errorMessage = "Cổng không hợp lệ (FK: 5005, Hikvision: 80/443).") }
+            return null
+        }
+        if (s.protocol == DeviceProtocol.HIKVISION_ISAPI && s.hikPassword.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "Vui lòng nhập mật khẩu quản trị máy Hikvision DS-K1T320MX.") }
             return null
         }
         val cfg = configRepository.getConfig()
@@ -222,6 +229,10 @@ class AddDeviceViewModel(
             password = s.commPassword.toIntOrNull()?.takeIf { it >= 0 } ?: cfg.defaultPassword,
             license = cfg.defaultLicense,
             useUdp = s.useUdp,
+            protocol = s.protocol,
+            username = s.hikUsername.trim().ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
+            accessPassword = s.hikPassword,
+            useHttps = s.useHttps,
         )
     }
 

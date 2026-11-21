@@ -86,17 +86,22 @@ class PushMembersToDevicesUseCase(
                 continue
             }
 
-            val existingNames = HashSet<String>(existingIds.size)
-            for (id in existingIds) {
-                val name = deviceGateway.getUserName(target.handle, id).data?.trim().orEmpty()
-                if (name.isNotEmpty()) existingNames.add(name)
+            val isHik = target.device.isHikvision
+            val shortNames = if (isHik) {
+                // Máy Hikvision DS-K1T320MX hỗ trợ tên tiếng Việt UTF-8 đầy đủ (tối đa 32 ký tự), không cần rút gọn 6 byte
+                toPush.map { it.name.trim().take(32) }
+            } else {
+                val existingNames = HashSet<String>(existingIds.size)
+                for (id in existingIds) {
+                    val name = deviceGateway.getUserName(target.handle, id).data?.trim().orEmpty()
+                    if (name.isNotEmpty()) existingNames.add(name)
+                }
+                abbreviateNamesUseCase.abbreviateBatch(
+                    fullNames = toPush.map { it.name },
+                    existingNamesOnDevice = existingNames,
+                    maxNameBytes = maxNameBytes,
+                )
             }
-
-            val shortNames = abbreviateNamesUseCase.abbreviateBatch(
-                fullNames = toPush.map { it.name },
-                existingNamesOnDevice = existingNames,
-                maxNameBytes = maxNameBytes,
-            )
 
             val disableRes = deviceGateway.enableDevice(target.handle, enable = false)
             if (disableRes.isCommError) {
@@ -130,18 +135,21 @@ class PushMembersToDevicesUseCase(
                     val cardInt = member.cardIdInt ?: continue
                     val shortName = shortNames[idx]
                     val putRes = deviceGateway.putCardEnrollData(target.handle, cardInt, cardInt, privilege = 0)
-                    if (putRes.isSuccess) {
-                        if (shortName.isNotEmpty()) {
-                            deviceGateway.setUserName(target.handle, cardInt, shortName)
-                        }
+                    val finalRes = if (putRes.isSuccess && shortName.isNotEmpty()) {
+                        val nameRes = deviceGateway.setUserName(target.handle, cardInt, shortName)
+                        if (isHik) nameRes else putRes
+                    } else {
+                        putRes
+                    }
+                    if (finalRes.isSuccess) {
                         existingCards.add(cardInt)
                         devOk++
                         totalOk++
                     } else {
                         devFail++
                         totalFail++
-                        if (devError == null) devError = putRes.message
-                        if (putRes.isCommError) break
+                        if (devError == null) devError = finalRes.message
+                        if (finalRes.isCommError) break
                     }
 
                     completed++

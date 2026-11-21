@@ -26,6 +26,8 @@ internal class LocalWebConsoleServer(
     private val context: Context,
     private val apiHandler: WebConsoleApiHandler,
     private val hostProvider: () -> String = { MdnsHostnameResponder.DEFAULT_HOSTNAME },
+    private val onHikvisionWebhook: (remoteIp: String, body: String) -> Boolean = { _, _ -> false },
+    private val onPortBound: (Int) -> Unit = {},
     private val onListeningUrlChanged: (String) -> Unit,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -48,6 +50,7 @@ internal class LocalWebConsoleServer(
             val socket = bindFirstAvailablePort() ?: return@launch
             serverSocket = socket
             boundPort = socket.localPort
+            onPortBound(boundPort)
             mdnsResponder.start(boundPort)
             refreshPublishedUrl()
 
@@ -105,6 +108,11 @@ internal class LocalWebConsoleServer(
             val req = parseRequest(input) ?: return
             val response = when {
                 req.path == "/" || req.path == "/index.html" -> WebHttpResponse(200, HTML_TYPE, dashboardHtml)
+                req.path == "/hikvision/event" && req.method == "POST" -> {
+                    val remoteIp = client.inetAddress?.hostAddress.orEmpty()
+                    onHikvisionWebhook(remoteIp, req.body)
+                    WebHttpResponse(200, "application/json; charset=utf-8", """{"status":"ok"}""")
+                }
                 req.path.startsWith("/api/") -> apiHandler.handle(req.method, req.path, req.token, req.body)
                 else -> WebHttpResponse(404, "text/plain; charset=utf-8", "Not Found")
             }
@@ -145,13 +153,14 @@ internal class LocalWebConsoleServer(
 
         var contentLength = 0
         var token: String? = null
+        val bodyLimit = if (path == "/hikvision/event") MAX_WEBHOOK_BODY_BYTES else MAX_BODY_BYTES
         for (line in lines.drop(1)) {
             val idx = line.indexOf(':')
             if (idx <= 0) continue
             val k = line.substring(0, idx).trim().lowercase()
             val v = line.substring(idx + 1).trim()
             when (k) {
-                "content-length" -> contentLength = v.toIntOrNull()?.coerceIn(0, MAX_BODY_BYTES) ?: 0
+                "content-length" -> contentLength = v.toIntOrNull()?.coerceIn(0, bodyLimit) ?: 0
                 "x-console-token" -> token = v
             }
         }
@@ -192,6 +201,7 @@ internal class LocalWebConsoleServer(
         private const val CLIENT_TIMEOUT_MS = 8_000
         private const val MAX_HEADER_BYTES = 8_192
         private const val MAX_BODY_BYTES = 32_768
+        private const val MAX_WEBHOOK_BODY_BYTES = 65_536
         private const val HTML_TYPE = "text/html; charset=utf-8"
         private val CANDIDATE_PORTS = listOf(8080, 8081, 8082, 8088)
 

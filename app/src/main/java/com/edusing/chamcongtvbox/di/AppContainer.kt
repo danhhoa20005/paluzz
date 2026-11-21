@@ -2,12 +2,14 @@ package com.edusing.chamcongtvbox.di
 
 import android.content.Context
 import com.edusing.chamcongtvbox.BuildConfig
+import com.edusing.chamcongtvbox.data.hikvision.HikvisionGatewayImpl
 import com.edusing.chamcongtvbox.data.local.PendingCheckInStoreImpl
 import com.edusing.chamcongtvbox.data.local.SecureConfigStore
 import com.edusing.chamcongtvbox.data.local.WordDocExporter
 import com.edusing.chamcongtvbox.data.network.InternetProbeImpl
 import com.edusing.chamcongtvbox.data.network.LanScannerImpl
 import com.edusing.chamcongtvbox.data.protocol.FkDeviceGatewayImpl
+import com.edusing.chamcongtvbox.data.protocol.HybridDeviceGatewayImpl
 import com.edusing.chamcongtvbox.data.remote.AttendanceApiClient
 import com.edusing.chamcongtvbox.data.repository.AppUpdateRepositoryImpl
 import com.edusing.chamcongtvbox.data.repository.AttendanceRepositoryImpl
@@ -45,6 +47,7 @@ import com.edusing.chamcongtvbox.domain.usecase.SuggestFreeIpUseCase
 import com.edusing.chamcongtvbox.domain.usecase.ValidateCredentialsUseCase
 import com.edusing.chamcongtvbox.service.AppUpdateCoordinator
 import com.edusing.chamcongtvbox.service.AttendanceEngine
+import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
 
 /**
  * Gốc khởi tạo phụ thuộc (Composition Root) theo kiến trúc Clean Architecture.
@@ -70,8 +73,24 @@ class AppContainer(appContext: Context) {
     private val pendingCheckInStorage = PendingCheckInStoreImpl(appContext)
     private val wordDocExporter = WordDocExporter(appContext)
 
-    // Cổng giao tiếp máy chấm công thuần Kotlin (TCP + UDP, thay thế 100% DLL Windows)
-    val deviceGateway: FkDeviceGateway = FkDeviceGatewayImpl()
+    @Volatile
+    var activeWebConsolePort: Int = 8080
+
+    private val hikvisionGateway = HikvisionGatewayImpl(
+        webhookTargetProvider = {
+            val lanIp = LocalWebConsoleServer.detectLanIpv4()
+            if (lanIp.isNotBlank() && activeWebConsolePort > 0) lanIp to activeWebConsolePort else null
+        },
+    )
+
+    // Cổng đa giao thức: hỗ trợ đồng thời máy FK (cổng 5005 TCP/UDP) và Hikvision DS-K1T320MX (ISAPI cổng 80/443)
+    val deviceGateway: FkDeviceGateway = HybridDeviceGatewayImpl(
+        fkGateway = FkDeviceGatewayImpl(),
+        hikGateway = hikvisionGateway,
+    )
+
+    fun handleHikvisionWebhook(remoteIp: String, rawBody: String): Boolean =
+        hikvisionGateway.onWebhookEvent(remoteIp, rawBody)
 
     // Kho dữ liệu (Repositories)
     val authRepository: AuthRepository = AuthRepositoryImpl(apiClient)

@@ -10,6 +10,7 @@ import com.edusing.chamcongtvbox.domain.model.AppMode
 import com.edusing.chamcongtvbox.domain.model.AutoPushScheduleConfig
 import com.edusing.chamcongtvbox.domain.model.BrandingConfig
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
+import com.edusing.chamcongtvbox.domain.model.DeviceProtocol
 import com.edusing.chamcongtvbox.domain.model.SavedAccount
 import org.json.JSONArray
 import org.json.JSONObject
@@ -97,17 +98,12 @@ class SecureConfigStore(
         val branding = brandingFor(config.mode)
         val devArr = JSONArray().apply {
             config.devices.forEach { d ->
-                put(
-                    JSONObject().apply {
-                        put("ip", d.ip)
-                        put("port", d.port)
-                        put("machineNo", d.machineNo)
-                        put("name", d.name)
-                        put("password", d.password)
-                        put("license", d.license)
-                        put("useUdp", d.useUdp)
-                    }
-                )
+                put(JSONObject().apply {
+                    put("ip", d.ip); put("port", d.port); put("machineNo", d.machineNo); put("name", d.name)
+                    put("password", d.password); put("license", d.license); put("useUdp", d.useUdp)
+                    put("protocol", d.protocol.code); put("username", d.username)
+                    put("accessPassword", d.accessPassword); put("useHttps", d.useHttps)
+                })
             }
         }
         val accArr = JSONArray().apply {
@@ -194,15 +190,20 @@ class SecureConfigStore(
                 val o = arr.optJSONObject(i) ?: continue
                 val ip = o.optString("ip", "").trim()
                 if (ip.isEmpty()) continue
+                val protocol = DeviceProtocol.fromCode(o.optString("protocol", "FK"))
                 add(
                     DeviceConfig(
                         ip = ip,
-                        port = o.optInt("port", DeviceConfig.DEFAULT_PORT),
+                        port = o.optInt("port", protocol.defaultPort),
                         machineNo = o.optInt("machineNo", DeviceConfig.DEFAULT_MACHINE_NO),
                         name = o.optString("name", ""),
                         password = o.optInt("password", DeviceConfig.DEFAULT_PASSWORD),
                         license = o.optInt("license", DeviceConfig.DEFAULT_LICENSE),
                         useUdp = o.optBoolean("useUdp", false),
+                        protocol = protocol,
+                        username = o.optString("username", DeviceConfig.DEFAULT_HIK_USERNAME).ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
+                        accessPassword = o.optString("accessPassword", ""),
+                        useHttps = o.optBoolean("useHttps", false),
                     )
                 )
             }

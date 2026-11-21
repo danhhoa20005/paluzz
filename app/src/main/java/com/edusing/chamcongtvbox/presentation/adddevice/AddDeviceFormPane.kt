@@ -18,20 +18,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -46,7 +38,6 @@ import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
-import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
 /** Biểu mẫu thêm máy chấm công **Liquid Glass 3D** thuần màu & chữ chuẩn WCAG AAA. */
 @Composable
@@ -103,48 +94,7 @@ internal fun AddDeviceFormPane(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = state.machineNo,
-                    onValueChange = viewModel::onMachineNoChange,
-                    label = { Text("Số máy (1)") },
-                    singleLine = true,
-                    shape = TammiRadii.inputShape,
-                    colors = fieldColors,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                )
-                OutlinedTextField(
-                    value = state.commPassword,
-                    onValueChange = viewModel::onCommPasswordChange,
-                    label = { Text("Mật khẩu (0)") },
-                    singleLine = true,
-                    shape = TammiRadii.inputShape,
-                    colors = fieldColors,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                var tcpFocused by remember { mutableStateOf(false) }
-                var udpFocused by remember { mutableStateOf(false) }
-                Text("Giao thức:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Text)
-                FilterChip(
-                    selected = !state.useUdp,
-                    onClick = { viewModel.onUseUdpChange(false) },
-                    label = { Text("TCP (Chuẩn)") },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AppColors.Primary, selectedLabelColor = Color.White),
-                    modifier = Modifier.onFocusChanged { tcpFocused = it.isFocused }.tvFocusRing(tcpFocused, 8),
-                )
-                FilterChip(
-                    selected = state.useUdp,
-                    onClick = { viewModel.onUseUdpChange(true) },
-                    label = { Text("UDP") },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AppColors.Primary, selectedLabelColor = Color.White),
-                    modifier = Modifier.onFocusChanged { udpFocused = it.isFocused }.tvFocusRing(udpFocused, 8),
-                )
-            }
+            AddDeviceProtocolSection(state = state, viewModel = viewModel)
 
             state.ipSuggestion?.let { sug ->
                 Column(

@@ -25,15 +25,7 @@ class ConnectDeviceUseCase(
     ): FkResult<FkConnectionInfo> {
         var lastResult: FkResult<FkConnectionInfo> = FkResult.fail(FkErrorCode.ERR_COMM)
         for (attempt in 1..maxAttempts.coerceAtLeast(1)) {
-            val res = deviceGateway.connect(
-                machineNo = device.machineNo,
-                ip = device.ip,
-                port = device.port,
-                timeoutMs = timeoutMs,
-                netPassword = device.password,
-                license = device.license,
-                useUdp = device.useUdp,
-            )
+            val res = deviceGateway.connect(device = device, timeoutMs = timeoutMs)
             if (res.isSuccess && res.data != null) {
                 if (clearStaleLogsOnConnect) {
                     clearDeviceLogsUseCase(res.data.handle)
@@ -41,7 +33,8 @@ class ConnectDeviceUseCase(
                 return res
             }
             lastResult = res
-            if (res.code == FkErrorCode.ERR_LICENSE) return res
+            // Dừng ngay khi sai bản quyền FK (-10) hoặc sai tài khoản/mật khẩu Hikvision (-5) để tránh khoá máy 30 phút
+            if (res.code == FkErrorCode.ERR_LICENSE || res.code == FkErrorCode.ERR_BAD_PARAM) return res
             if (attempt < maxAttempts) delay(retryDelayMs)
         }
         return lastResult

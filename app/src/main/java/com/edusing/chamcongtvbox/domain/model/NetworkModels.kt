@@ -18,8 +18,12 @@ data class LanHostInfo(
     val reachableByPing: Boolean = true,
     val alreadyConfigured: Boolean = false,
     val isFkTerminal: Boolean = false,
+    val isHikvisionTerminal: Boolean = false,
+    val detectedProtocol: DeviceProtocol = DeviceProtocol.FK,
     val note: String = "",
-)
+) {
+    val isDetectedTerminal: Boolean get() = isFkTerminal || isHikvisionTerminal
+}
 
 /** Gợi ý cấu hình IP tĩnh (ưu tiên dải .240..200) để nhập vào menu máy chấm công mới. */
 data class IpSuggestion(

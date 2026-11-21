@@ -52,6 +52,8 @@ object FkAttendanceLogParser {
                 FkFirmwareProfile.GEN,
                 FkFirmwareProfile.PS,
                 FkFirmwareProfile.PS_EXCEL -> parseGenOrPs(raw, base, legacyLogType)
+
+                FkFirmwareProfile.HIKVISION_ISAPI -> null
             }
             if (parsed != null && parsed.enrollNumber > 0) out.add(parsed)
         }

@@ -161,17 +161,18 @@ internal fun AddDeviceLanPane(
 @Composable
 private fun LanHostRowItem(host: LanHostInfo, selected: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val isTerminal = host.isDetectedTerminal
     val bg = when {
         selected -> AppColors.PrimarySoft
-        host.isFkTerminal || host.alreadyConfigured -> AppColors.GreenSoft
+        isTerminal || host.alreadyConfigured -> AppColors.GreenSoft
         else -> AppColors.SurfaceSubtle
     }
     val borderColor = when {
         selected -> AppColors.Primary
-        host.isFkTerminal || host.alreadyConfigured -> AppColors.Green
+        isTerminal || host.alreadyConfigured -> AppColors.Green
         else -> AppColors.Border
     }
-    val dotColor = if (host.isFkTerminal || host.alreadyConfigured) AppColors.GreenBright else AppColors.Primary
+    val dotColor = if (isTerminal || host.alreadyConfigured) AppColors.GreenBright else AppColors.Primary
 
     Row(
         modifier = Modifier
@@ -190,12 +191,17 @@ private fun LanHostRowItem(host: LanHostInfo, selected: Boolean, onClick: () -> 
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(host.ip, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AppColors.Text)
-            Text(host.note, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = if (host.isFkTerminal || host.alreadyConfigured) AppColors.GreenText else AppColors.TextSecondary)
+            Text(host.note, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = if (isTerminal || host.alreadyConfigured) AppColors.GreenText else AppColors.TextSecondary)
         }
-        if (host.isFkTerminal || host.alreadyConfigured) {
+        if (isTerminal || host.alreadyConfigured) {
             Spacer(Modifier.width(8.dp))
+            val badgeLabel = when {
+                host.alreadyConfigured -> "Đã thêm"
+                host.isHikvisionTerminal -> "Hikvision"
+                else -> "Máy FK"
+            }
             TammiStatusPill(
-                label = if (host.alreadyConfigured) "Đã thêm" else "Máy FK",
+                label = badgeLabel,
                 tone = if (host.alreadyConfigured) TammiBadgeTone.PRIMARY else TammiBadgeTone.SUCCESS,
             )
         }

@@ -4,6 +4,7 @@ import android.content.Context
 import com.edusing.chamcongtvbox.domain.model.AppConfig
 import com.edusing.chamcongtvbox.domain.model.AppMode
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
+import com.edusing.chamcongtvbox.domain.model.DeviceProtocol
 import com.edusing.chamcongtvbox.domain.repository.ConfigRepository
 import com.edusing.chamcongtvbox.domain.usecase.DeleteDeviceUsersUseCase
 import com.edusing.chamcongtvbox.domain.usecase.LoginUseCase
@@ -134,21 +135,25 @@ internal class WebConsoleApiHandler(
     }
 
     private suspend fun handleAddDevice(rawBody: String): WebHttpResponse {
-        val j = JSONObject(rawBody)
-        val ip = j.optString("ip", "").trim()
+        val j = JSONObject(rawBody); val ip = j.optString("ip", "").trim()
         if (ip.isBlank()) return jsonBad("Vui lòng nhập địa chỉ IP máy chấm công")
         val cfg = configRepository.getConfig()
+        val proto = DeviceProtocol.fromCode(j.optString("protocol", "FK"))
+        val useHttps = j.optBoolean("useHttps", false)
+        val defaultPort = if (proto == DeviceProtocol.HIKVISION_ISAPI) {
+            if (useHttps) DeviceConfig.DEFAULT_HIK_HTTPS_PORT else DeviceConfig.DEFAULT_HIK_PORT
+        } else cfg.defaultPort
+        val accessPass = j.optString("accessPassword", "")
+        if (proto == DeviceProtocol.HIKVISION_ISAPI && accessPass.isBlank()) return jsonBad("Thiếu mật khẩu thiết bị Hikvision")
         val dev = DeviceConfig(
-            ip = ip,
-            port = j.optInt("port", cfg.defaultPort).coerceIn(1, 65535),
+            ip = ip, port = j.optInt("port", defaultPort).coerceIn(1, 65535),
             machineNo = j.optInt("machineNo", cfg.defaultMachineNo).coerceAtLeast(1),
-            name = j.optString("name", "").trim(),
-            password = cfg.defaultPassword,
-            license = cfg.defaultLicense,
-            useUdp = cfg.udpMode,
+            name = j.optString("name", "").trim(), password = cfg.defaultPassword, license = cfg.defaultLicense,
+            useUdp = cfg.udpMode, protocol = proto, useHttps = useHttps, accessPassword = accessPass,
+            username = j.optString("username", DeviceConfig.DEFAULT_HIK_USERNAME).trim().ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
         )
         val added = attendanceEngine.addAndConnectDevice(dev)
-        val msg = if (added) "Đã thêm và kết nối máy $ip" else "Máy $ip đã tồn tại trong danh sách"
+        val msg = if (added) "Đã thêm và kết nối ${proto.shortLabel} $ip:${dev.port}" else "Máy $ip:${dev.port} đã tồn tại"
         return jsonOk(JSONObject().put("ok", added).put("message", msg).toString())
     }
 

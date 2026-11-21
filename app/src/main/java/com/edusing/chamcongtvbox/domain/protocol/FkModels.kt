@@ -25,6 +25,7 @@ enum class FkFirmwareProfile(
     PS("PS", 12),
     PS_EXCEL("PS_EXCEL", 12),
     LFW("LFW", 12),
+    HIKVISION_ISAPI("Hikvision ISAPI", 0),
 }
 
 /**

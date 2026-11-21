@@ -13,8 +13,9 @@ data class AttendanceLog(
     val hour: Int,
     val minute: Int,
     val second: Int,
+    val rawCardId: String = "",
 ) {
-    val cardIdString: String get() = enrollNumber.toString()
+    val cardIdString: String get() = rawCardId.ifBlank { enrollNumber.toString() }
 
     /** Định dạng thời gian theo đồng hồ máy chấm công (`HH:mm:ss dd/MM/yyyy`). */
     fun formattedDeviceTime(): String =
