@@ -1,7 +1,7 @@
 {
-  "versionCode": 10,
-  "versionName": "1.7.2",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v1.7.2/ChamCong_DiemDanh_v1.7.2.apk",
-  "sha256": "dda9cd99104cb75d1e36034f81ed5de45ca12869fda6f83019465190d8183bb5",
-  "notes": "Bảo vệ cấu hình Webhook bên thứ 3 trên Hikvision DS-K1T320MX (không ghi đè httpHosts/1 nếu đang trỏ hệ thống khác, chạy song song an toàn qua AcsEvent)."
+  "versionCode": 11,
+  "versionName": "1.8.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v1.8.0/ChamCong_DiemDanh_v1.8.0.apk",
+  "sha256": "25587aa81f40111d89c7f5eb0aa95cbf85947c397d3f8dc54f74a8c00986e98f",
+  "notes": "Phiên bản hoàn chỉnh toàn diện v1.8.0 cho Hikvision DS-K1T320MX & FK: mở cửa từ xa 1 chạm (trên App & Web LAN), nạp ảnh khuôn mặt AI FDLib (tự nén JPEG trên điện thoại & tự đẩy từ avatar server), xem Camera trực tiếp, khoá IP tĩnh 1 chạm (tắt DHCP), đồng bộ bù lịch sử mất điện lên Paluzz, tải báo cáo Excel/CSV UTF-8, lọc người chưa có mặt, giữ nguyên mã 001 riêng biệt, tự tìm lại máy khi đổi IP DHCP bằng SerialNumber, tự đồng bộ giờ VN lúc 00:00 và khởi động lại từ xa."
 }
