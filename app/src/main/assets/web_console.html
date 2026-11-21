@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+<title>Quản trị TV Box — Chấm công & Điểm danh</title>
+<style>
+  :root{--bg:#eef4ff;--card:rgba(255,255,255,.88);--b:#c5d6ee;--tx:#0c172a;--sub:#40516a;--pri:#0b56d6;--ok:#047857;--warn:#b45309;--err:#b91c1c;--r:18px}
+  *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  body{margin:0;min-height:100vh;color:var(--tx);background:radial-gradient(circle at 12% 8%,#cfe4ff,transparent 48%),radial-gradient(circle at 88% 12%,#c7f5ea,transparent 42%),var(--bg);padding:14px}
+  .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.92);box-shadow:0 10px 28px rgba(15,40,90,.09);border-radius:var(--r);padding:16px}
+  .hero{color:#fff;border:none;background:linear-gradient(135deg,#0847b5,#0e67df)}
+  .hero.run{background:linear-gradient(135deg,#046041,#06845a)}
+  .hero.off{background:linear-gradient(135deg,#9a4405,#c25e0a)}
+  h1,h2,h3{margin:0;font-weight:800}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .sp{justify-content:space-between}
+  .sub{font-size:13px;color:var(--sub)}
+  .hero .sub{color:rgba(255,255,255,.9)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px}
+  .stat{background:rgba(255,255,255,.72);border:1px solid var(--b);border-radius:12px;padding:10px}
+  .stat b{font-size:18px;display:block;color:var(--tx)}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:#e2ecf9;color:#1e3a5f}
+  .pill.ok{background:#d1fae5;color:#065f46}.pill.err{background:#fee2e2;color:#991b1b}.pill.warn{background:#fef3c7;color:#92400e}
+  button{border:none;border-radius:12px;padding:10px 14px;font-weight:700;font-size:13.5px;cursor:pointer;background:var(--pri);color:#fff}
+  button.ok{background:var(--ok)}button.err{background:var(--err)}button.ghost{background:#fff;color:var(--pri);border:1.5px solid var(--b)}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  input,select{padding:10px 12px;border-radius:12px;border:1.5px solid var(--b);font-size:14px;background:#fff;color:var(--tx);width:100%}
+  .dev{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid #e2eaf6}
+  .dev:first-child{border-top:none}
+  .log{max-height:240px;overflow:auto;font-family:ui-monospace,Menlo,monospace;font-size:12px;display:flex;flex-direction:column;gap:4px}
+  .log-i{padding:6px 8px;border-radius:8px;background:#f4f8ff}.log-i.SUCCESS{background:#ecfdf5;color:#065f46}.log-i.WARNING{background:#fffbeb;color:#92400e}.log-i.ERROR{background:#fef2f2;color:#991b1b}
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;display:none;z-index:99}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loginBox" class="card">
+    <h2>Quản trị TV Box từ xa (LAN)</h2>
+    <p class="sub">Nhập mật khẩu tài khoản web tổng để điều khiển TV Box (mặc định <b>1234</b> nếu Box chưa đăng nhập).</p>
+    <div class="row" style="margin-top:10px">
+      <input id="pw" type="password" placeholder="Mật khẩu quản trị..." style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')doConsoleLogin()" />
+      <button onclick="doConsoleLogin()">Mở quản trị</button>
+    </div>
+    <p id="loginErr" class="sub" style="color:var(--err);margin-top:8px"></p>
+  </div>
+
+  <div id="appBox" class="hide" style="display:flex;flex-direction:column;gap:12px">
+    <div id="hero" class="card hero">
+      <div class="row sp">
+        <div>
+          <h2 id="orgTitle">TV Box Chấm Công</h2>
+          <div class="sub" id="heroSub">Đang tải trạng thái...</div>
+        </div>
+        <span class="pill" id="modePill">—</span>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="btnStartStop" class="ghost" onclick="toggleRun()">Bắt đầu</button>
+        <button class="ghost" onclick="postAction('/api/devices/discover')">Quét máy LAN</button>
+        <button class="ghost" onclick="postAction('/api/devices/connect-all')">Nối lại tất cả</button>
+        <button class="ghost" onclick="postAction('/api/autopush/run')">Đẩy nhân sự ngay</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row sp">
+        <h3>Tổng quan 24/7</h3>
+        <span class="sub" id="metaLine"></span>
+      </div>
+      <div class="grid">
+        <div class="stat"><span class="sub">Lượt hôm nay</span><b id="sToday">0</b></div>
+        <div class="stat"><span class="sub">Máy Online</span><b id="sDev">0/0</b></div>
+        <div class="stat"><span class="sub">Chờ đẩy bù</span><b id="sPending">0</b></div>
+        <div class="stat"><span class="sub">Đẩy nhân sự kế tiếp</span><b id="sNextPush">—</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Máy chấm công trong LAN</h3>
+      <div id="devList" style="margin-top:8px"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="addIp" placeholder="Thêm IP máy (vd 192.168.1.224)" style="flex:2;min-width:170px" />
+        <input id="addName" placeholder="Tên máy (tuỳ chọn)" style="flex:1;min-width:130px" />
+        <button class="ok" onclick="addDevice()">Thêm & Nối</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row sp">
+        <h3>Lịch tự động đẩy nhân sự</h3>
+        <span class="pill ok" id="lastPushPill">06:00 • 12:00 • 20:00</span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="row"><input id="apOn" type="checkbox" style="width:auto" /> Bật lịch 06:00 • 12:00 • 20:00</label>
+        <label class="row"><input id="apCustomOn" type="checkbox" style="width:auto" /> Khung giờ thứ 4:</label>
+        <input id="apHour" type="number" min="0" max="23" style="width:74px" /> :
+        <input id="apMin" type="number" min="0" max="59" style="width:74px" />
+        <button onclick="saveSchedule()">Lưu lịch</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row sp">
+        <h3>Người dùng trên máy chấm công</h3>
+        <span class="sub" id="userCountLine"></span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <select id="userDevSel" style="flex:1;min-width:170px"></select>
+        <button onclick="loadDeviceUsers()">Đọc danh sách</button>
+        <input id="userSearch" placeholder="Tìm mã hoặc tên..." oninput="renderUsers()" style="flex:1;min-width:150px" />
+      </div>
+      <div id="userList" class="log" style="margin-top:8px;max-height:220px"></div>
+    </div>
+
+    <div class="card">
+      <div class="row sp">
+        <h3>Chẩn đoán & Thông số Box (Đa TV Box `.local`)</h3>
+        <button class="ghost" onclick="testServer()">Kiểm tra máy chủ Web</button>
+      </div>
+      <div id="diagResult" class="sub" style="margin-top:6px"></div>
+      <div id="crashLine" class="sub" style="color:var(--warn);margin-top:4px"></div>
+      <div class="row" style="margin-top:10px">
+        <label style="flex:1;min-width:160px"><span class="sub">Tên miền LAN (.local)</span><input id="tHost" placeholder="chamcong" /></label>
+        <label style="flex:1;min-width:180px"><span class="sub">GitHub cập nhật (user/repo)</span><input id="tRepo" placeholder="danhhoa20005/paluzz" /></label>
+        <label style="width:105px"><span class="sub">Quét máy (s)</span><input id="tPoll" type="number" min="3" max="60" /></label>
+        <label style="width:115px"><span class="sub">Chống trùng (s)</span><input id="tDedup" type="number" min="0" max="3600" /></label>
+        <label style="width:95px"><span class="sub">Cổng FK</span><input id="tPort" type="number" min="1" max="65535" /></label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="row"><input id="tUdp" type="checkbox" style="width:auto" /> Dùng UDP</label>
+        <label class="row"><input id="tBoot" type="checkbox" style="width:auto" /> Tự mở khi có điện</label>
+        <label class="row"><input id="tAutoUpd" type="checkbox" style="width:auto" /> Tự cập nhật GitHub</label>
+        <button onclick="saveTech()">Lưu cấu hình Box</button>
+      </div>
+      <div class="row sp" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2eaf6">
+        <div class="sub" id="updStatusLine">Cập nhật OTA từ GitHub...</div>
+        <div class="row">
+          <button class="ghost" onclick="postAction('/api/update/check')">Kiểm tra bản mới</button>
+          <button class="ok" onclick="postAction('/api/update/install')">Tải & Cài bản mới</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tài khoản & Chế độ hoạt động</h3>
+      <div class="row" style="margin-top:10px">
+        <select id="modeSel" style="flex:1;min-width:160px">
+          <option value="DIEMDANH">Điểm danh HS (diemdanhhs.com)</option>
+          <option value="PALUZZ">PALUZZ Cơ quan (paluzz.com)</option>
+          <option value="DONTRA">Đón trả HS (dontrahs.com)</option>
+        </select>
+        <button class="ghost" onclick="switchMode()">Đổi chế độ</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input id="accUser" placeholder="Tên đăng nhập web tổng" style="flex:1;min-width:150px" />
+        <input id="accPass" type="password" placeholder="Mật khẩu mới" style="flex:1;min-width:150px" />
+        <button class="ok" onclick="remoteLogin()">Đăng nhập & Lưu</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row sp"><h3>Nhật ký trực tiếp</h3><span class="sub" id="lastPollLine"></span></div>
+      <div id="logList" class="log" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+let token = localStorage.getItem('cc_console_token') || '';
+let lastStatus = null, loadedUsers = [], scheduleDirty = false, techDirty = false;
+['apOn','apCustomOn','apHour','apMin'].forEach(id => document.getElementById(id).addEventListener('change', () => scheduleDirty = true));
+['tHost','tRepo','tPoll','tDedup','tPort','tUdp','tBoot','tAutoUpd'].forEach(id => document.getElementById(id).addEventListener('change', () => techDirty = true));
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display='none',3200);}
+async function api(path, method='GET', body=null){
+  const headers={'X-Console-Token': token};
+  if(body) headers['Content-Type']='application/json';
+  const res = await fetch(path, {method, headers, body: body ? JSON.stringify(body) : null});
+  if(res.status===401){token='';localStorage.removeItem('cc_console_token');showLogin();throw new Error('Hết phiên quản trị');}
+  return res.json();
+}
+function showLogin(){document.getElementById('loginBox').classList.remove('hide');document.getElementById('appBox').classList.add('hide');}
+function showApp(){document.getElementById('loginBox').classList.add('hide');document.getElementById('appBox').classList.remove('hide');refresh();}
+async function doConsoleLogin(){
+  const pw=document.getElementById('pw').value;document.getElementById('loginErr').textContent='';
+  try{
+    const r = await fetch('/api/console-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})}).then(x=>x.json());
+    if(!r.ok){document.getElementById('loginErr').textContent=r.error||'Sai mật khẩu';return;}
+    token=r.token;localStorage.setItem('cc_console_token',token);showApp();
+  }catch(e){document.getElementById('loginErr').textContent='Không kết nối được TV Box';}
+}
+async function postAction(path, body={}){try{const r=await api(path,'POST',body);toast(r.message||r.error||'Xong');refresh();}catch(e){toast(e.message);}}
+function toggleRun(){postAction(lastStatus && lastStatus.isRunning ? '/api/attendance/stop' : '/api/attendance/start');}
+function addDevice(){
+  const ip=document.getElementById('addIp').value.trim(), name=document.getElementById('addName').value.trim();
+  if(!ip){toast('Nhập IP máy');return;}
+  postAction('/api/devices/add',{ip,name});document.getElementById('addIp').value='';document.getElementById('addName').value='';
+}
+function saveSchedule(){
+  scheduleDirty=false;
+  postAction('/api/autopush/schedule',{
+    enabled:document.getElementById('apOn').checked, customEnabled:document.getElementById('apCustomOn').checked,
+    customHour:parseInt(document.getElementById('apHour').value||'17',10), customMinute:parseInt(document.getElementById('apMin').value||'30',10)
+  });
+}
+function saveTech(){
+  techDirty=false;
+  postAction('/api/settings/tech',{
+    localHostName:document.getElementById('tHost').value.trim(),
+    updateRepoSlug:document.getElementById('tRepo').value.trim(),
+    pollIntervalSec:parseInt(document.getElementById('tPoll').value||'10',10),
+    dedupSeconds:parseInt(document.getElementById('tDedup').value||'60',10),
+    defaultPort:parseInt(document.getElementById('tPort').value||'5005',10),
+    udpMode:document.getElementById('tUdp').checked, autoStartOnBoot:document.getElementById('tBoot').checked,
+    autoUpdateEnabled:document.getElementById('tAutoUpd').checked
+  });
+}
+async function testServer(){
+  document.getElementById('diagResult').textContent='Đang kiểm tra DNS & HTTPS tới máy chủ...';
+  try{const r=await api('/api/diagnostics/test-server','POST',{});document.getElementById('diagResult').textContent=r.message||r.error;}
+  catch(e){document.getElementById('diagResult').textContent=e.message;}
+}
+async function loadDeviceUsers(){
+  const key=document.getElementById('userDevSel').value;if(!key){toast('Chưa có máy online');return;}
+  document.getElementById('userCountLine').textContent='Đang đọc từ máy chấm công...';
+  try{
+    const r=await api('/api/device-users/list','POST',{key});
+    if(!r.ok){toast(r.error||'Đọc thất bại');return;}
+    loadedUsers=r.users||[];renderUsers();
+  }catch(e){toast(e.message);}
+}
+function renderUsers(){
+  const q=(document.getElementById('userSearch').value||'').toLowerCase().trim();
+  const key=document.getElementById('userDevSel').value;
+  const list=loadedUsers.filter(u=>!q||String(u.enrollNumber).includes(q)||(u.deviceName||'').toLowerCase().includes(q)||(u.fullName||'').toLowerCase().includes(q));
+  document.getElementById('userCountLine').textContent=loadedUsers.length?('Hiển thị '+list.length+'/'+loadedUsers.length+' người'):'';
+  document.getElementById('userList').innerHTML=list.map(u=>
+    `<div class="dev"><div><b>${esc(u.fullName||u.deviceName||('Mã '+u.enrollNumber))}</b> <span class="sub">#${u.enrollNumber}${u.className?' • '+esc(u.className):''}</span></div>
+    <button class="err" onclick="deleteUser('${esc(key)}',${u.enrollNumber})">Xoá</button></div>`
+  ).join('')||'<div class="sub">Bấm "Đọc danh sách" để xem người dùng đang lưu trên máy chấm công.</div>';
+}
+async function deleteUser(key, enrollNumber){
+  if(!confirm('Xoá mã '+enrollNumber+' khỏi máy chấm công?')) return;
+  try{const r=await api('/api/device-users/delete','POST',{key,enrollNumber});toast(r.message||r.error);if(r.ok){loadedUsers=loadedUsers.filter(x=>x.enrollNumber!==enrollNumber);renderUsers();}}
+  catch(e){toast(e.message);}
+}
+function switchMode(){postAction('/api/mode',{mode:document.getElementById('modeSel').value});}
+function remoteLogin(){
+  const username=document.getElementById('accUser').value.trim(), password=document.getElementById('accPass').value;
+  if(!username||!password){toast('Nhập đủ tài khoản & mật khẩu');return;}
+  postAction('/api/auth/login',{username,password});document.getElementById('accPass').value='';
+}
+async function refresh(){
+  if(!token) return;
+  try{
+    const s = await api('/api/status'); lastStatus = s;
+    document.getElementById('orgTitle').textContent = s.orgName || 'Chưa đăng nhập';
+    document.getElementById('modePill').textContent = s.modeLabel;
+    const hero=document.getElementById('hero');
+    hero.className='card hero '+(s.internetStatus==='OFFLINE'||!s.hasLanOrWifi?'off':(s.isRunning?'run':''));
+    document.getElementById('heroSub').textContent = s.statusHint || (s.isRunning ? 'Đang chờ quét 24/7 • ' : 'Đang dừng • ') + s.internetDetail;
+    document.getElementById('btnStartStop').textContent = s.isRunning ? 'Dừng chấm công' : 'Bắt đầu 24/7';
+    document.getElementById('sToday').textContent = s.totalCheckInsToday;
+    document.getElementById('sDev').textContent = s.connectedCount + '/' + s.totalDeviceCount;
+    document.getElementById('sPending').textContent = s.pendingCheckInCount;
+    document.getElementById('sNextPush').textContent = s.nextAutoPushText;
+    const upMin = Math.floor((s.uptimeSec||0)/60);
+    document.getElementById('metaLine').textContent = (s.webConsoleUrl||s.lanIp)+' • '+s.deviceModel+' • v'+s.appVersion+' • '+upMin+'p';
+    document.getElementById('lastPushPill').textContent = s.lastAutoPushText ? ('Gần nhất: ' + s.lastAutoPushText) : '06:00 • 12:00 • 20:00';
+    document.getElementById('lastPollLine').textContent = s.lastPollTimeText ? ('Quét: ' + s.lastPollTimeText) : '';
+    document.getElementById('crashLine').textContent = s.lastCrashSummary ? ('Lỗi gần nhất (đã tự hồi sinh): ' + s.lastCrashSummary) : '';
+    if(!scheduleDirty){
+      document.getElementById('apOn').checked = !!s.autoPushEnabled;
+      document.getElementById('apCustomOn').checked = !!s.autoPushCustomEnabled;
+      document.getElementById('apHour').value = s.autoPushCustomHour;
+      document.getElementById('apMin').value = s.autoPushCustomMinute;
+    }
+    if(!techDirty){
+      document.getElementById('tHost').value = s.localHostName || 'chamcong';
+      document.getElementById('tRepo').value = s.updateRepoSlug || 'danhhoa20005/paluzz';
+      document.getElementById('tPoll').value = s.pollIntervalSec || 10;
+      document.getElementById('tDedup').value = s.dedupSeconds ?? 60;
+      document.getElementById('tPort').value = s.defaultPort || 5005;
+      document.getElementById('tUdp').checked = !!s.udpMode;
+      document.getElementById('tBoot').checked = !!s.autoStartOnBoot;
+      document.getElementById('tAutoUpd').checked = s.autoUpdateEnabled !== false;
+    }
+    document.getElementById('updStatusLine').textContent = 'v' + s.appVersion + ' • ' + (s.updateInstallMode||'') + (s.updateAvailableVersion ? (' • Bản mới: v' + s.updateAvailableVersion) : '') + (s.updateStatus ? (' • ' + s.updateStatus) : '');
+    document.getElementById('modeSel').value = s.mode;
+    if(!document.getElementById('accUser').value) document.getElementById('accUser').value = s.username || '';
+    const dBox=document.getElementById('devList');
+    dBox.innerHTML = s.devices.length ? s.devices.map(d =>
+      `<div class="dev"><div><b>${esc(d.name)}</b> <span class="sub">${esc(d.ip)}:${d.port}</span><div><span class="pill ${d.connected?'ok':'warn'}">${esc(d.statusText)}</span></div></div>
+      <div class="row"><button class="ghost" onclick="postAction('/api/devices/reconnect',{key:'${esc(d.key)}'})">Nối lại</button>
+      <button class="err" onclick="postAction('/api/devices/remove',{key:'${esc(d.key)}'})">Xoá</button></div></div>`
+    ).join('') : '<div class="sub">Chưa có máy nào — bấm "Quét máy LAN" hoặc thêm IP bên dưới.</div>';
+    const sel=document.getElementById('userDevSel'), prev=sel.value;
+    const onlineDevs=s.devices.filter(d=>d.connected);
+    sel.innerHTML=onlineDevs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)} (${esc(d.ip)})</option>`).join('')||'<option value="">Chưa có máy online</option>';
+    if(onlineDevs.some(d=>d.key===prev)) sel.value=prev;
+    document.getElementById('logList').innerHTML = s.events.map(e =>
+      `<div class="log-i ${esc(e.severity)}">[${esc(e.time)}] <b>${esc(e.device)}</b> ${e.user?esc(e.user)+' ':''}${e.cardId&&e.cardId!=='-'?'('+esc(e.cardId)+') ':''}${esc(e.message)}</div>`
+    ).join('') || '<div class="sub">Chưa có sự kiện nào.</div>';
+  }catch(_){}
+}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+(async ()=>{
+  try{const a = await fetch('/api/auth-check',{headers:{'X-Console-Token':token}}).then(r=>r.json());if(a.authenticated) showApp(); else showLogin();}
+  catch(_){showLogin();}
+  setInterval(refresh, 3000);
+})();
+</script>
+</body>
+</html>

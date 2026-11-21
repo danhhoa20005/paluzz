@@ -1,0 +1,24 @@
+# Android / Gradle build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+.gradle/
+.kotlin/
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local machine & secrets (NEVER commit)
+local.properties
+*.jks
+*.keystore
+keystore.properties
+
+# IDE & OS metadata
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

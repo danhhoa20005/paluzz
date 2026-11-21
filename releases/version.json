@@ -1,0 +1,7 @@
+{
+  "versionCode": 7,
+  "versionName": "1.6.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v1.6.0/ChamCong_DiemDanh_v1.6.0.apk",
+  "sha256": "6d74ef741383eef74fa07a52856905c9ccccb84be79eec2554b312d2201e670f",
+  "notes": "Bản phát hành đầu tiên trên GitHub paluzz: tự động cập nhật OTA 3 tầng (Device Owner / Root / 1 chạm), Web LAN http://chamcong.local:8080, lịch tự đẩy nhân sự 06:00/12:00/20:00 + 1 giờ tuỳ chọn, APK siêu nhẹ 2.0 MB."
+}
