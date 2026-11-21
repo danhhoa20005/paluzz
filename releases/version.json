@@ -1,7 +1,7 @@
 {
-  "versionCode": 9,
-  "versionName": "1.7.1",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v1.7.1/ChamCong_DiemDanh_v1.7.1.apk",
-  "sha256": "49b268900a6ae52671add88e7b7d198b3b8892a22d89ac73cf6d1bfea1c03537",
-  "notes": "Hỗ trợ chứng chỉ HTTPS tự ký nội bộ (cổng 443) cho Hikvision DS-K1T320MX đời 2024+ và tự bóc IP khi dán nguyên đường dẫn web https://192.168.1.x/doc/index.html."
+  "versionCode": 10,
+  "versionName": "1.7.2",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v1.7.2/ChamCong_DiemDanh_v1.7.2.apk",
+  "sha256": "dda9cd99104cb75d1e36034f81ed5de45ca12869fda6f83019465190d8183bb5",
+  "notes": "Bảo vệ cấu hình Webhook bên thứ 3 trên Hikvision DS-K1T320MX (không ghi đè httpHosts/1 nếu đang trỏ hệ thống khác, chạy song song an toàn qua AcsEvent)."
 }
