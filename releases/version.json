@@ -1,7 +1,7 @@
 {
-  "versionCode": 15,
-  "versionName": "2.2.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.2.0/ChamCong_DiemDanh_v2.2.0.apk",
-  "sha256": "fecaf340817dea555e820767439425d0f6fbedee11d41ee2008484cece4d0e6e",
-  "notes": "Đăng nhập 1 lần duy nhất — tự động kết nối vĩnh viễn: tự làm mới phiên âm thầm khi token 401 hết hạn (không đá ra màn hình đăng nhập), tự đăng nhập nền khi TV Box có điện lại, nhớ 1 lần tài khoản quản trị Hikvision (AES-256) để tự điền & tự nối luôn các máy Hikvision mới qua SADP (an toàn chống khoá 30p), và giữ phiên đăng nhập Web quản trị LAN xuyên qua khởi động lại/cập nhật OTA."
+  "versionCode": 16,
+  "versionName": "2.3.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.3.0/ChamCong_DiemDanh_v2.3.0.apk",
+  "sha256": "970f40b070e8ed3d421bebbd2985771577b12480e0e2bb23f739dc38cb9837fb",
+  "notes": "Thiết kế lại hoàn toàn giao diện Thêm & Nhận máy chấm công siêu đơn giản: mở màn hình tự quét tức thì (~1.5s hiện ngay mọi máy Hikvision qua SADP và tiếp tục dò FK), tách riêng thẻ lớn máy chấm công với nút 1 chạm Nhận máy ngay (hộp nhập mật khẩu gọn 1 ô cho lần đầu), thu gọn toàn bộ thông số kỹ thuật vào Tuỳ chọn nâng cao, và nâng cấp nút Nhận máy ngay 1 chạm trên Web quản trị LAN."
 }
