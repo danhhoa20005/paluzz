@@ -59,7 +59,18 @@ internal class HikvisionIsapiClient(
         return request(device, "PUT", "/ISAPI/System/time", body = xml, contentType = XML_MEDIA, timeoutMs = 4_000)
     }
 
+    /**
+     * Đăng ký Webhook `/hikvision/event` lên slot 1 CHỈ KHI slot 1 đang trống (`0.0.0.0`) hoặc vốn thuộc App TV Box,
+     * tránh ghi đè hệ thống bên thứ 3 đang gắn sẵn trên máy Hikvision (app vẫn đọc đầy đủ qua polling `AcsEvent`).
+     */
     fun registerWebhookHost(device: DeviceConfig, listenerIp: String, listenerPort: Int): HikHttpResponse {
+        val current = runCatching { request(device, "GET", "/ISAPI/Event/notification/httpHosts/1", timeoutMs = 3_000) }.getOrNull()
+        if (current != null && current.isSuccess) {
+            val curIp = Regex("<ipAddress>([^<]*)</ipAddress>", RegexOption.IGNORE_CASE).find(current.body)?.groupValues?.getOrNull(1)?.trim().orEmpty()
+            val curUrl = Regex("<url>([^<]*)</url>", RegexOption.IGNORE_CASE).find(current.body)?.groupValues?.getOrNull(1)?.trim().orEmpty()
+            val isOwnedOrEmpty = curIp.isEmpty() || curIp == "0.0.0.0" || curUrl.equals("/hikvision/event", ignoreCase = true)
+            if (!isOwnedOrEmpty) return current
+        }
         val xml = """<?xml version="1.0" encoding="UTF-8"?>""" +
             """<HttpHostNotification version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema">""" +
             """<id>1</id><url>/hikvision/event</url><protocolType>HTTP</protocolType>""" +
