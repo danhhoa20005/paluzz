@@ -1,7 +1,7 @@
 {
-  "versionCode": 17,
-  "versionName": "2.4.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.4.0/ChamCong_DiemDanh_v2.4.0.apk",
-  "sha256": "b75c7b5cfa46125dee666765e0dbdb7e0c835ddc56fe8985e4b9fb5bb1ac8436",
-  "notes": "Nâng cấp Tự động cập nhật hoàn toàn không cần bấm kiểm tra (tự dò sau 6s, mỗi 30 phút & khi mở app/có mạng lại, tự tải sẵn APK, tự cài âm thầm trên TV Box Root/Device Owner hoặc tự bật đếm ngược 4s cài ngay + thanh thông báo nổi trên mọi tab & Web LAN), Tự đồng bộ bù lượt chấm Hikvision còn tồn sau mất điện/mất mạng + nút Bù lượt hôm nay 1 chạm trên App, và Tuỳ chọn đọc lời chào tiếng Việt qua loa (TTS offline)."
+  "versionCode": 18,
+  "versionName": "2.5.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.5.0/ChamCong_DiemDanh_v2.5.0.apk",
+  "sha256": "011edb24e42e0a7b14cb12dea760d95f788fa3f6a1038c8669ed5404087561fd",
+  "notes": "Tự dò 3 lớp 100% không bỏ sót mọi máy Hikvision (SADP Multicast + Subnet Broadcast + Quét thẳng TCP cổng 80/443 ISAPI vượt chặn Multicast Wi-Fi & chặn Ping trên OPPO/Android): bấm Dò LAN ngay trên Trạm trực tự tìm thấy cả DS-K1T320MX lẫn mọi dòng Hikvision khác và hiện thẻ Nhận ngay 1 lần nhập mật khẩu mà không cần nhập IP thủ công."
 }
