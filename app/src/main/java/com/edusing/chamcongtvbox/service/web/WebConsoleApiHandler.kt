@@ -18,13 +18,11 @@ internal data class WebHttpResponse(
     val statusCode: Int,
     val contentType: String,
     val body: String,
+    val binaryBody: ByteArray? = null,
+    val extraHeaders: Map<String, String> = emptyMap(),
 )
 
-/**
- * Bộ xử lý REST API JSON đầy đủ cho Web quản trị nội bộ (`http://<host>.local:8080`):
- * điều khiển chấm công, máy chấm công, đẩy nhân sự, lịch đẩy, tên miền `.local` đa Box,
- * thông số kỹ thuật, chẩn đoán kết nối máy chủ và xem/xoá người dùng trực tiếp trên máy chấm công.
- */
+/** Bộ xử lý REST API JSON/Binary đầy đủ cho Web quản trị LAN (`http://<host>.local:8080`). */
 internal class WebConsoleApiHandler(
     private val context: Context,
     private val configRepository: ConfigRepository,
@@ -33,36 +31,33 @@ internal class WebConsoleApiHandler(
     private val readDeviceUsersUseCase: ReadDeviceUsersUseCase,
     private val deleteDeviceUsersUseCase: DeleteDeviceUsersUseCase,
     private val appUpdateCoordinator: AppUpdateCoordinator,
+    private val hikHandler: WebConsoleHikvisionHandler? = null,
     private val onLocalHostChanged: () -> Unit = {},
     private val auth: WebConsoleAuth = WebConsoleAuth(),
     private val startedAtMs: Long = System.currentTimeMillis(),
 ) {
-    suspend fun handle(method: String, path: String, token: String?, rawBody: String): WebHttpResponse {
+    suspend fun handle(method: String, path: String, query: String = "", token: String?, rawBody: String): WebHttpResponse {
+        val effectiveToken = token?.takeIf { it.isNotBlank() } ?: WebConsoleHikvisionHandler.parseQuery(query)["token"]
         if (path == "/api/console-login" && method == "POST") return handleConsoleLogin(rawBody)
         if (path == "/api/auth-check" && method == "GET") {
             val cfg = configRepository.getConfig()
-            val body = JSONObject()
-                .put("authenticated", auth.isTokenValid(token))
+            val body = JSONObject().put("authenticated", auth.isTokenValid(effectiveToken))
                 .put("needsInitialSetup", !cfg.isLoggedIn && cfg.password.isBlank())
-                .put("orgName", cfg.orgName.ifBlank { cfg.username })
-                .put("mode", cfg.mode.shortLabel)
-                .toString()
+                .put("orgName", cfg.orgName.ifBlank { cfg.username }).put("mode", cfg.mode.shortLabel).toString()
             return jsonOk(body)
         }
-        if (!auth.isTokenValid(token)) {
+        if (!auth.isTokenValid(effectiveToken)) {
             return WebHttpResponse(401, JSON_TYPE, """{"ok":false,"error":"Chưa đăng nhập quản trị"}""")
         }
-
         return try {
+            if (path.startsWith("/api/hikvision/") && hikHandler != null) {
+                return hikHandler.handle(method, path, query, rawBody)
+            }
             when {
                 path == "/api/status" && method == "GET" -> jsonOk(
                     WebConsoleStatusSerializer.buildStatusJson(
-                        context = context,
-                        cfg = configRepository.getConfig(),
-                        snap = attendanceEngine.state.value,
-                        updateSnap = appUpdateCoordinator.state.value,
-                        nowMs = attendanceEngine.currentServerTimeMillis(),
-                        startedAtMs = startedAtMs,
+                        context, configRepository.getConfig(), attendanceEngine.state.value,
+                        appUpdateCoordinator.state.value, attendanceEngine.currentServerTimeMillis(), startedAtMs,
                     ).toString()
                 )
                 path == "/api/attendance/start" && method == "POST" -> {
@@ -108,8 +103,7 @@ internal class WebConsoleApiHandler(
                 path == "/api/device-users/delete" && method == "POST" -> handleDeleteDeviceUser(rawBody)
                 path == "/api/update/check" && method == "POST" -> {
                     val s = appUpdateCoordinator.checkNow()
-                    val msg = s.errorMessage ?: s.statusMessage.ifBlank { "Đã kiểm tra xong." }
-                    jsonOk(JSONObject().put("ok", s.errorMessage == null).put("message", msg).toString())
+                    jsonOk(JSONObject().put("ok", s.errorMessage == null).put("message", s.errorMessage ?: s.statusMessage.ifBlank { "Đã kiểm tra xong." }).toString())
                 }
                 path == "/api/update/install" && method == "POST" -> {
                     val (ok, msg) = appUpdateCoordinator.downloadAndInstallNow(allowInteractiveFallback = true)
@@ -120,15 +114,14 @@ internal class WebConsoleApiHandler(
                 else -> WebHttpResponse(404, JSON_TYPE, """{"ok":false,"error":"Không tìm thấy API"}""")
             }
         } catch (e: Exception) {
-            WebHttpResponse(400, JSON_TYPE, JSONObject().put("ok", false).put("error", e.message ?: "Dữ liệu không hợp lệ").toString())
+            jsonBad(e.message ?: "Dữ liệu không hợp lệ")
         }
     }
 
     private fun handleConsoleLogin(rawBody: String): WebHttpResponse {
         val json = runCatching { JSONObject(rawBody) }.getOrElse { return jsonBad("Thiếu mật khẩu") }
-        val pw = json.optString("password", "")
         val cfg = configRepository.getConfig()
-        if (!auth.verifyPassword(pw, cfg.password, cfg.isLoggedIn)) {
+        if (!auth.verifyPassword(json.optString("password", ""), cfg.password, cfg.isLoggedIn)) {
             return WebHttpResponse(401, JSON_TYPE, """{"ok":false,"error":"Sai mật khẩu quản trị"}""")
         }
         return jsonOk(JSONObject().put("ok", true).put("token", auth.issueToken()).toString())
@@ -156,69 +149,67 @@ internal class WebConsoleApiHandler(
     }
 
     private suspend fun handleUpdateSchedule(rawBody: String): WebHttpResponse {
-        val j = JSONObject(rawBody)
-        val cur = configRepository.getConfig()
-        val updated = cur.copy(
-            autoPushEnabled = j.optBoolean("enabled", cur.autoPushEnabled),
-            autoPushCustomEnabled = j.optBoolean("customEnabled", cur.autoPushCustomEnabled),
-            autoPushCustomHour = j.optInt("customHour", cur.autoPushCustomHour).coerceIn(0, 23),
-            autoPushCustomMinute = j.optInt("customMinute", cur.autoPushCustomMinute).coerceIn(0, 59),
+        val j = JSONObject(rawBody); val cur = configRepository.getConfig()
+        configRepository.saveConfig(
+            cur.copy(
+                autoPushEnabled = j.optBoolean("enabled", cur.autoPushEnabled),
+                autoPushCustomEnabled = j.optBoolean("customEnabled", cur.autoPushCustomEnabled),
+                autoPushCustomHour = j.optInt("customHour", cur.autoPushCustomHour).coerceIn(0, 23),
+                autoPushCustomMinute = j.optInt("customMinute", cur.autoPushCustomMinute).coerceIn(0, 59),
+            )
         )
-        configRepository.saveConfig(updated)
         attendanceEngine.notifyAutoPushScheduleChanged()
         return jsonOk("""{"ok":true,"message":"Đã lưu lịch tự động đẩy nhân sự"}""")
     }
 
     private suspend fun handleUpdateTechSettings(rawBody: String): WebHttpResponse {
-        val j = JSONObject(rawBody)
-        val cur = configRepository.getConfig()
+        val j = JSONObject(rawBody); val cur = configRepository.getConfig()
         val newHost = AppConfig.sanitizeLocalHost(j.optString("localHostName", cur.safeLocalHostName))
         val newRepo = AppConfig.sanitizeRepoSlug(j.optString("updateRepoSlug", cur.safeUpdateRepoSlug))
-        val updated = cur.copy(
-            localHostName = newHost,
-            pollIntervalMs = j.optLong("pollIntervalSec", cur.pollIntervalMs / 1000L).coerceIn(3L, 60L) * 1000L,
-            dedupSeconds = j.optLong("dedupSeconds", cur.dedupSeconds).coerceIn(0L, 3600L),
-            udpMode = j.optBoolean("udpMode", cur.udpMode),
-            defaultPort = j.optInt("defaultPort", cur.defaultPort).coerceIn(1, 65535),
-            autoStartOnBoot = j.optBoolean("autoStartOnBoot", cur.autoStartOnBoot),
-            autoUpdateEnabled = j.optBoolean("autoUpdateEnabled", cur.autoUpdateEnabled),
-            updateRepoSlug = newRepo,
+        configRepository.saveConfig(
+            cur.copy(
+                localHostName = newHost,
+                pollIntervalMs = j.optLong("pollIntervalSec", cur.pollIntervalMs / 1000L).coerceIn(3L, 60L) * 1000L,
+                dedupSeconds = j.optLong("dedupSeconds", cur.dedupSeconds).coerceIn(0L, 3600L),
+                udpMode = j.optBoolean("udpMode", cur.udpMode),
+                defaultPort = j.optInt("defaultPort", cur.defaultPort).coerceIn(1, 65535),
+                autoStartOnBoot = j.optBoolean("autoStartOnBoot", cur.autoStartOnBoot),
+                autoUpdateEnabled = j.optBoolean("autoUpdateEnabled", cur.autoUpdateEnabled),
+                updateRepoSlug = newRepo,
+            )
         )
-        configRepository.saveConfig(updated)
         if (newHost != cur.safeLocalHostName) onLocalHostChanged()
         return jsonOk(JSONObject().put("ok", true).put("message", "Đã lưu cấu hình • http://$newHost.local:8080").toString())
     }
 
     private suspend fun handleReadDeviceUsers(rawBody: String): WebHttpResponse {
         val key = JSONObject(rawBody).optString("key", "")
-        val target = attendanceEngine.getConnectedHandles().firstOrNull { it.device.key == key }
-            ?: return jsonBad("Máy chấm công chưa kết nối")
-        val res = attendanceEngine.withDeviceIoLock { readDeviceUsersUseCase(target.handle) }
-        val users = res.getOrElse { return jsonBad(it.message ?: "Không đọc được danh sách người dùng") }
+        val target = attendanceEngine.getConnectedHandles().firstOrNull { it.device.key == key } ?: return jsonBad("Máy chấm công chưa kết nối")
+        val users = attendanceEngine.withDeviceIoLock { readDeviceUsersUseCase(target.handle, target.device) }
+            .getOrElse { return jsonBad(it.message ?: "Không đọc được danh sách người dùng") }
         val arr = JSONArray().apply {
             users.forEach { u ->
-                put(
-                    JSONObject()
-                        .put("enrollNumber", u.enrollNumber)
-                        .put("deviceName", u.deviceName)
-                        .put("fullName", u.serverFullName.orEmpty())
-                        .put("className", u.className.orEmpty())
-                )
+                put(JSONObject().put("enrollNumber", u.enrollNumber).put("employeeNo", u.displayCardId)
+                    .put("deviceName", u.deviceName).put("fullName", u.serverFullName.orEmpty())
+                    .put("className", u.className.orEmpty()).put("faceCount", u.faceCount).put("cardCount", u.cardCount))
             }
         }
-        return jsonOk(JSONObject().put("ok", true).put("users", arr).toString())
+        return jsonOk(JSONObject().put("ok", true).put("isHikvision", target.device.isHikvision).put("users", arr).toString())
     }
 
     private suspend fun handleDeleteDeviceUser(rawBody: String): WebHttpResponse {
-        val j = JSONObject(rawBody)
-        val key = j.optString("key", "")
+        val j = JSONObject(rawBody); val key = j.optString("key", "")
+        val empNo = j.optString("employeeNo", "").trim()
         val enrollNo = j.optInt("enrollNumber", -1)
-        if (key.isBlank() || enrollNo < 0) return jsonBad("Thiếu mã máy hoặc mã thẻ")
-        val target = attendanceEngine.getConnectedHandles().firstOrNull { it.device.key == key }
-            ?: return jsonBad("Máy chấm công chưa kết nối")
-        val res = attendanceEngine.withDeviceIoLock { deleteDeviceUsersUseCase(target.handle, listOf(enrollNo)) }
+        if (key.isBlank() || (empNo.isBlank() && enrollNo < 0)) return jsonBad("Thiếu mã máy hoặc mã thẻ")
+        val target = attendanceEngine.getConnectedHandles().firstOrNull { it.device.key == key } ?: return jsonBad("Máy chấm công chưa kết nối")
+        val res = attendanceEngine.withDeviceIoLock {
+            if (target.device.isHikvision && empNo.isNotBlank()) deleteDeviceUsersUseCase.deleteEmployeeNos(target.device, listOf(empNo))
+            else deleteDeviceUsersUseCase(target.handle, listOf(enrollNo))
+        }
         val deleted = res.getOrElse { return jsonBad(it.message ?: "Xoá người dùng thất bại") }
-        return jsonOk(JSONObject().put("ok", deleted > 0).put("message", if (deleted > 0) "Đã xoá mã $enrollNo khỏi máy" else "Không tìm thấy mã $enrollNo trên máy").toString())
+        val label = empNo.ifBlank { enrollNo.toString() }
+        return jsonOk(JSONObject().put("ok", deleted > 0).put("message", if (deleted > 0) "Đã xoá mã $label khỏi máy" else "Không tìm thấy mã $label").toString())
     }
 
     private suspend fun handleSwitchMode(rawBody: String): WebHttpResponse {
@@ -230,8 +221,7 @@ internal class WebConsoleApiHandler(
 
     private suspend fun handleRemoteAccountLogin(rawBody: String): WebHttpResponse {
         val j = JSONObject(rawBody)
-        val user = j.optString("username", "").trim()
-        val pass = j.optString("password", "")
+        val user = j.optString("username", "").trim(); val pass = j.optString("password", "")
         val domain = j.optString("apiDomain", "").trim().ifBlank { null }
         val res = loginUseCase(user, pass, rememberAccount = true, customApiDomain = domain)
         if (!res.success) return jsonBad(res.error ?: "Đăng nhập thất bại")
@@ -242,7 +232,5 @@ internal class WebConsoleApiHandler(
     private fun jsonOk(body: String) = WebHttpResponse(200, JSON_TYPE, body)
     private fun jsonBad(msg: String) = WebHttpResponse(400, JSON_TYPE, JSONObject().put("ok", false).put("error", msg).toString())
 
-    companion object {
-        private const val JSON_TYPE = "application/json; charset=utf-8"
-    }
+    companion object { private const val JSON_TYPE = "application/json; charset=utf-8" }
 }

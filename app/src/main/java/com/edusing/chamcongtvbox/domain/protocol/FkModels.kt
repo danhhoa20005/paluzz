@@ -90,6 +90,7 @@ data class FkConnectionInfo(
     val profile: FkFirmwareProfile,
     val transportName: String,
     val maxBlockSize: Int,
+    val deviceSerialNumber: String = "",
 )
 
 /** Một thông tin xác thực (vân tay/thẻ/mặt) đọc được từ lệnh `ReadAllUserID`. */

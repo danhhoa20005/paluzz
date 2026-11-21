@@ -32,6 +32,7 @@ data class DeviceConfig(
     val username: String = DEFAULT_HIK_USERNAME,
     val accessPassword: String = "",
     val useHttps: Boolean = false,
+    val serialNumber: String = "",
 ) {
     /** Tên hiển thị ưu tiên tên người dùng đặt; nếu bỏ trống sẽ hiện IP. */
     val displayName: String get() = name.ifBlank { ip }

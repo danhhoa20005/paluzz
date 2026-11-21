@@ -47,7 +47,7 @@ import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 internal fun DeviceUsersTableCard(
     state: DeviceUsersUiState,
     isCompact: Boolean,
-    onToggleSelect: (Int) -> Unit,
+    onToggleSelect: (String) -> Unit,
     onDeleteSingle: (DeviceUser) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -88,13 +88,13 @@ internal fun DeviceUsersTableCard(
                     contentPadding = PaddingValues(10.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    items(state.filteredUsers, key = { it.enrollNumber }) { user ->
+                    items(state.filteredUsers, key = { it.uniqueKey }) { user ->
                         DeviceUserRow(
                             user = user,
                             isCompact = isCompact,
-                            isSelected = user.enrollNumber in state.selectedIds,
+                            isSelected = user.uniqueKey in state.selectedKeys,
                             enabled = !state.isDeleting,
-                            onToggleSelect = { onToggleSelect(user.enrollNumber) },
+                            onToggleSelect = { onToggleSelect(user.uniqueKey) },
                             onDeleteSingle = { onDeleteSingle(user) },
                         )
                     }
@@ -132,9 +132,15 @@ private fun DeviceUserRow(
         if (isCompact) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("#${user.enrollNumber}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Primary)
+                    Text("#${user.displayCardId}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Primary)
                     Box(Modifier.clip(RoundedCornerShape(6.dp)).background(AppColors.PrimarySoft).padding(horizontal = 7.dp, vertical = 2.dp)) {
                         Text(user.deviceName.ifBlank { "(Trống)" }, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AppColors.PrimaryDark)
+                    }
+                    if (user.faceCount >= 0) {
+                        val hasFace = user.faceCount > 0
+                        Box(Modifier.clip(RoundedCornerShape(6.dp)).background(if (hasFace) AppColors.GreenSoft else AppColors.AmberSoft).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                            Text(if (hasFace) "Mặt:${user.faceCount}" else "Chưa mặt", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = if (hasFace) AppColors.GreenText else AppColors.AmberText)
+                        }
                     }
                 }
                 Text(
@@ -150,9 +156,10 @@ private fun DeviceUserRow(
                 }
             }
         } else {
-            Text(user.enrollNumber.toString(), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AppColors.Primary, modifier = Modifier.width(126.dp))
+            Text(user.displayCardId, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AppColors.Primary, modifier = Modifier.width(126.dp))
             Text(user.deviceName.ifBlank { "(Trống)" }, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(116.dp))
-            Text(user.serverFullName ?: "—", fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp, color = if (user.serverFullName != null) AppColors.Text else AppColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            val bioSuffix = if (user.faceCount >= 0) (if (user.faceCount > 0) " • Có mặt (${user.faceCount})" else " • Chưa mặt") else ""
+            Text((user.serverFullName ?: "—") + bioSuffix, fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp, color = if (user.faceCount == 0) AppColors.AmberText else if (user.serverFullName != null) AppColors.Text else AppColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Text(user.className ?: "-", fontSize = 13.sp, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(130.dp))
         }
 

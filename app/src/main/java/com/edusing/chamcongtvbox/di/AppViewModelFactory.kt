@@ -29,6 +29,7 @@ class AppViewModelFactory(
             configRepository = container.configRepository,
             attendanceEngine = container.attendanceEngine,
             logoutUseCase = container.logoutUseCase,
+            hikControl = container.hikvisionControlGateway,
         ) as T
 
         modelClass.isAssignableFrom(AddDeviceViewModel::class.java) -> AddDeviceViewModel(

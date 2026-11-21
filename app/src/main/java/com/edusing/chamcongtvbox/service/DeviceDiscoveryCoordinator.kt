@@ -96,13 +96,21 @@ internal class DeviceDiscoveryCoordinator(
                 onProgress = { prog -> stateStore.update { it.copy(statusHint = prog.stageText) } },
             )
             val existing = configRepository.getConfig().devices
-            val existingIps = existing.map { it.ip }.toSet()
+            val relocatedBySerial = report.relocatedDevices.associateBy { it.serialNumber }
+            val updatedExisting = existing.map { dev ->
+                val moved = dev.serialNumber.takeIf { it.isNotBlank() }?.let { relocatedBySerial[it] }
+                if (moved != null && moved.ip != dev.ip) {
+                    stateStore.appendSystemEvent(dev.displayName, "-", "Tự tìm lại Hikvision sau khi đổi IP DHCP: ${dev.ip} → ${moved.ip}", EventSeverity.SUCCESS)
+                    dev.copy(ip = moved.ip)
+                } else dev
+            }
+            val existingIps = updatedExisting.map { it.ip }.toSet()
             val newlyAdded = report.foundIps.filterNot { it in existingIps }.map { ip ->
                 DeviceConfig(ip, cfg.defaultPort, cfg.defaultMachineNo, "", cfg.defaultPassword, cfg.defaultLicense, cfg.udpMode)
             }
-            if (newlyAdded.isNotEmpty()) {
-                // Đưa máy mới tìm thấy lên đầu danh sách để kết nối tức thì, không chờ IP cũ đã đổi
-                configRepository.updateDevices(newlyAdded + existing)
+            if (newlyAdded.isNotEmpty() || relocatedBySerial.isNotEmpty()) {
+                // Đưa máy mới tìm thấy lên đầu danh sách để kết nối tức thì, đồng thời lưu IP mới của máy Hikvision vừa định vị lại
+                configRepository.updateDevices(newlyAdded + updatedExisting)
             }
             val scanned = report.scannedPrefixes.joinToString(", ") { "$it.x" }.ifBlank { "chưa có mạng LAN/Wi-Fi" }
             val (msg, sev) = if (report.foundIps.isNotEmpty()) {

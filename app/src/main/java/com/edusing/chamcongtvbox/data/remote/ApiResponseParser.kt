@@ -112,8 +112,13 @@ object ApiResponseParser {
             val nestedClass = obj.optJSONObject("classes")
             val classId = firstNonEmpty(optStringClean(obj, "classId"), optStringClean(nestedClass, "id")).toIntOrNull() ?: 0
             val rawCard = firstNonEmpty(card1, card2)
+            val avatarUrl = firstNonEmpty(
+                optStringClean(obj, "avatar"), optStringClean(obj, "avatarUrl"),
+                optStringClean(obj, "photo"), optStringClean(obj, "image"),
+                optStringClean(obj, "picture"), optStringClean(obj, "studentImage"), optStringClean(obj, "imageUrl"),
+            )
             if (name.isNotEmpty() || rawCard.isNotEmpty()) {
-                list.add(Member(cardId = pushCard, rawCard = rawCard, name = name, classId = classId))
+                list.add(Member(cardId = pushCard, rawCard = rawCard, name = name, classId = classId, avatarUrl = avatarUrl))
             }
         }
         return Result.success(list)

@@ -8,6 +8,7 @@ data class Member(
     val rawCard: String,    // Mã thẻ gốc hiển thị cho người dùng kể cả khi vượt giới hạn
     val name: String,
     val classId: Int,       // 0 = chưa xếp lớp / phòng ban
+    val avatarUrl: String = "",
 ) {
     val isPushable: Boolean get() = cardId.isNotEmpty()
     val cardIdInt: Int? get() = cardId.toIntOrNull()?.takeIf { it > 0 }
@@ -25,7 +26,16 @@ data class DeviceUser(
     val deviceName: String,
     val serverFullName: String? = null,
     val className: String? = null,
-)
+    val rawEmployeeNo: String = "",
+    val faceCount: Int = -1,
+    val cardCount: Int = -1,
+) {
+    /** Mã định danh gốc trên máy (bảo toàn mã có số 0 ở đầu như `"001"` trên Hikvision). */
+    val displayCardId: String get() = rawEmployeeNo.ifBlank { enrollNumber.toString() }
+
+    /** Khoá duy nhất cho từng dòng danh sách (tránh trùng `"001"` với `"1"`). */
+    val uniqueKey: String get() = if (rawEmployeeNo.isNotBlank()) "emp:$rawEmployeeNo" else "id:$enrollNumber"
+}
 
 /** Dữ liệu tổng hợp cho màn hình Đẩy danh sách xuống máy. */
 data class MembersTreeData(

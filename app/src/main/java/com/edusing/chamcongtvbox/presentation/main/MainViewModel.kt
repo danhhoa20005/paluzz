@@ -5,7 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.edusing.chamcongtvbox.domain.model.AppMode
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
 import com.edusing.chamcongtvbox.domain.model.DeviceRuntimeStatus
+import com.edusing.chamcongtvbox.domain.model.EventSeverity
+import com.edusing.chamcongtvbox.domain.model.HikvisionDoorCommand
 import com.edusing.chamcongtvbox.domain.model.LiveEventEntry
+import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.ConfigRepository
 import com.edusing.chamcongtvbox.domain.repository.InternetStatus
 import com.edusing.chamcongtvbox.domain.usecase.LogoutUseCase
@@ -61,6 +64,7 @@ class MainViewModel(
     private val configRepository: ConfigRepository,
     private val attendanceEngine: AttendanceEngine,
     private val logoutUseCase: LogoutUseCase,
+    private val hikControl: HikvisionControlGateway? = null,
 ) : ViewModel() {
 
     private val dialogs = MutableStateFlow(MainDialogState())
@@ -147,6 +151,16 @@ class MainViewModel(
 
     fun onConnectAllClicked() { viewModelScope.launch { attendanceEngine.connectAllDevices(autoResumeIfConfigured = true) } }
     fun onReconnectDevice(deviceKey: String) { viewModelScope.launch { attendanceEngine.reconnectDevice(deviceKey) } }
+
+    fun onOpenHikvisionDoor(device: DeviceConfig) {
+        val ctrl = hikControl ?: return
+        viewModelScope.launch {
+            ctrl.controlDoor(device, HikvisionDoorCommand.OPEN).fold(
+                onSuccess = { msg -> attendanceEngine.appendLog(device.displayName, "-", msg, EventSeverity.SUCCESS) },
+                onFailure = { err -> attendanceEngine.appendLog(device.displayName, "-", err.message ?: "Mở cửa lỗi", EventSeverity.ERROR) },
+            )
+        }
+    }
 
     fun requestRenameDevice(device: DeviceConfig) {
         if (!uiState.value.isRunning) dialogs.value = dialogs.value.copy(renameTarget = device)

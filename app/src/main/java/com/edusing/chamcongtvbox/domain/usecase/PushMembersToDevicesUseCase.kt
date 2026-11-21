@@ -6,6 +6,7 @@ import com.edusing.chamcongtvbox.domain.model.DevicePushOutcome
 import com.edusing.chamcongtvbox.domain.model.Member
 import com.edusing.chamcongtvbox.domain.model.PushResultSummary
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
+import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 
 /** Cặp thông tin cấu hình máy và handle kết nối đang mở. */
 data class ConnectedDeviceHandle(
@@ -16,13 +17,13 @@ data class ConnectedDeviceHandle(
 /**
  * Đẩy danh sách người dùng xuống 1 hoặc nhiều máy chấm công (tối ưu Delta Fast-Path):
  * 1. Đọc danh sách mã thẻ hiện có trên máy trước (không khoá máy).
- * 2. Nếu mọi thẻ cần đẩy đều đã có trên máy và `skipExistingOnDevice = true` -> bỏ qua ngay
- *    (không đọc hàng trăm tên, không khoá màn hình máy quét, không ghi mòn Flash).
- * 3. Chỉ khi thực sự có người mới mới đọc tên chống trùng -> khoá máy -> ghi thẻ + tên -> lưu Flash -> mở máy.
+ * 2. Nếu mọi thẻ cần đẩy đều đã có trên máy và `skipExistingOnDevice = true` -> bỏ qua ngay.
+ * 3. Trên Hikvision: giữ tên tiếng Việt UTF-8 đầy đủ và tự đẩy ảnh khuôn mặt AI (`FDLib`) nếu máy chủ có ảnh đại diện.
  */
 class PushMembersToDevicesUseCase(
     private val deviceGateway: FkDeviceGateway,
     private val abbreviateNamesUseCase: AbbreviateNamesUseCase,
+    private val hikControl: HikvisionControlGateway? = null,
 ) {
     suspend operator fun invoke(
         targets: List<ConnectedDeviceHandle>,
@@ -142,6 +143,14 @@ class PushMembersToDevicesUseCase(
                         putRes
                     }
                     if (finalRes.isSuccess) {
+                        val ctrl = hikControl
+                        if (isHik && ctrl != null && member.avatarUrl.isNotBlank()) {
+                            runCatching {
+                                ctrl.downloadAvatarBytes(member.avatarUrl)?.let { img ->
+                                    ctrl.uploadFacePhoto(target.device, cardInt.toString(), img)
+                                }
+                            }
+                        }
                         existingCards.add(cardInt)
                         devOk++
                         totalOk++

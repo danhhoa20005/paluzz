@@ -142,19 +142,49 @@ internal class HikvisionIsapiClient(
         return executeSingle(client, method, url, body, contentType, authHeader = auth)
     }
 
-    private fun executeSingle(
-        client: OkHttpClient,
+    /** Gửi/nhận payload nhị phân (ảnh JPEG camera hoặc multipart ảnh khuôn mặt `FDLib`) có Digest Auth. */
+    @Throws(IOException::class)
+    fun requestBytes(
+        device: DeviceConfig,
         method: String,
-        url: String,
-        body: String?,
-        contentType: String,
-        authHeader: String?,
+        pathWithQuery: String,
+        bodyBytes: ByteArray? = null,
+        contentType: String = JSON_MEDIA,
+        timeoutMs: Int = 12_000,
+    ): Pair<Int, ByteArray> {
+        val url = buildUrl(device.ip, device.port, device.useHttps, pathWithQuery)
+        val client = clientWithTimeout(timeoutMs, useHttps = device.useHttps, hostIp = device.ip)
+        val first = executeRaw(client, method, url, bodyBytes, contentType, authHeader = null)
+        if (first.first != 401) return first.first to first.second
+        val wwwHeaders = first.third.entries.filter { it.key.equals("WWW-Authenticate", true) }.flatMap { it.value }
+        val challenge = HikvisionDigestChallenge.parse(wwwHeaders) ?: return first.first to first.second
+        val auth = challenge.buildAuthorization(
+            method = method,
+            requestUriWithQuery = pathWithQuery,
+            username = device.username.ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
+            password = device.accessPassword,
+            nonceCount = nonceCounter.getAndIncrement(),
+        )
+        val second = executeRaw(client, method, url, bodyBytes, contentType, authHeader = auth)
+        return second.first to second.second
+    }
+
+    private fun executeSingle(
+        client: OkHttpClient, method: String, url: String, body: String?, contentType: String, authHeader: String?,
     ): HikHttpResponse {
-        val reqBody = if (method.equals("GET", true) || method.equals("DELETE", true)) null else (body ?: "").toRequestBody(contentType.toMediaType())
+        val raw = executeRaw(client, method, url, body?.toByteArray(Charsets.UTF_8), contentType, authHeader)
+        return HikHttpResponse(raw.first, String(raw.second, Charsets.UTF_8), raw.third)
+    }
+
+    private fun executeRaw(
+        client: OkHttpClient, method: String, url: String, bodyBytes: ByteArray?, contentType: String, authHeader: String?,
+    ): Triple<Int, ByteArray, Map<String, List<String>>> {
+        val reqBody = if (method.equals("GET", true) || method.equals("DELETE", true)) null
+        else (bodyBytes ?: ByteArray(0)).toRequestBody(contentType.toMediaType())
         val builder = Request.Builder().url(url).method(method.uppercase(), reqBody).header("Connection", "close")
         if (!authHeader.isNullOrBlank()) builder.header("Authorization", authHeader)
         client.newCall(builder.build()).execute().use { res ->
-            return HikHttpResponse(res.code, res.body?.string().orEmpty(), res.headers.toMultimap())
+            return Triple(res.code, res.body?.bytes() ?: ByteArray(0), res.headers.toMultimap())
         }
     }
 

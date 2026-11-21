@@ -58,7 +58,7 @@ internal class HikvisionGatewayImpl(
             }
             val handle = handleSeq.getAndIncrement()
             val now = clockMillis()
-            val info = FkConnectionInfo(handle, device.ip, device.port, device.machineNo, FkFirmwareProfile.HIKVISION_ISAPI, "ISAPI/${devInfo.model}", 30)
+            val info = FkConnectionInfo(handle, device.ip, device.port, device.machineNo, FkFirmwareProfile.HIKVISION_ISAPI, "ISAPI/${devInfo.model}", 30, devInfo.serialNumber)
             sessions[handle] = HikSession(device, info, baselineMs = now, lastPollMs = now)
             runCatching { client.syncVietnamTime(device, now) }
             webhookTargetProvider()?.let { (lanIp, webPort) ->

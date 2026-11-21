@@ -53,6 +53,7 @@ class AttendanceEngine(
     onlineCheckIntervalMs: Long = InternetWatchdog.DEFAULT_ONLINE_INTERVAL_MS,
     offlineCheckIntervalMs: Long = InternetWatchdog.DEFAULT_OFFLINE_INTERVAL_MS,
     dhcpSettleDelayMs: Long = DeviceDiscoveryCoordinator.DEFAULT_DHCP_SETTLE_MS,
+    private val onNewDaySync: suspend (List<DeviceConfig>) -> Unit = {},
 ) {
     private val stateStore = EngineStateStore(attendanceRepository)
     private val exceptionHandler = CoroutineExceptionHandler { _, t ->
@@ -78,17 +79,15 @@ class AttendanceEngine(
         onAutoDiscoverNeeded = { autoDiscoverConnectAndReady(fromInternetRecovery = false) },
         onPollFreezeDetected = { recoverFromPollFreeze() },
         onAuthInvalid = ::handleForceRelogin,
+        onNewDayTasks = { onNewDaySync(configRepository.getConfig().devices) },
     )
 
     private val discoveryCoordinator: DeviceDiscoveryCoordinator = DeviceDiscoveryCoordinator(
         configRepository, discoverDevicesUseCase, internetProbe, connManager, stateStore,
         onTriggerHeartbeat = { loopRunner.triggerHeartbeatAsync() },
         onPausePollingForRecovery = { loopRunner.stopPollLoop(); stateStore.update { it.copy(isRunning = false) } },
-        onConnectAll = { autoResume -> connectAllDevices(autoResume) },
-        onStartAttendance = { startAttendance() },
-        dhcpSettleDelayMs = dhcpSettleDelayMs,
+        onConnectAll = { autoResume -> connectAllDevices(autoResume) }, onStartAttendance = { startAttendance() }, dhcpSettleDelayMs = dhcpSettleDelayMs,
     )
-
     private val autoPushScheduler: AutoPushScheduler = AutoPushScheduler(
         scope, configRepository, attendanceRepository, autoPushMembersUseCase, clearDeviceLogsUseCase, stateStore, deviceIoMutex,
         getConnectedHandles = connManager::getConnectedHandles, getPendingCheckInCount = { pollAttendanceUseCase.pendingCount },

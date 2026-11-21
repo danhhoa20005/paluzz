@@ -159,6 +159,12 @@ internal class DeviceConnectionManager(
         return if (res.isSuccess && res.data != null) {
             val info = res.data
             handlesByKey[device.key] = info.handle
+            if (device.isHikvision && info.deviceSerialNumber.isNotBlank() && device.serialNumber != info.deviceSerialNumber) {
+                val updated = configRepository.getConfig().devices.map {
+                    if (it.key == device.key) it.copy(serialNumber = info.deviceSerialNumber) else it
+                }
+                configRepository.updateDevices(updated)
+            }
             stateStore.updateDevice(device.key) {
                 it.copy(
                     state = DeviceConnectionState.CONNECTED,

@@ -102,7 +102,7 @@ class SecureConfigStore(
                     put("ip", d.ip); put("port", d.port); put("machineNo", d.machineNo); put("name", d.name)
                     put("password", d.password); put("license", d.license); put("useUdp", d.useUdp)
                     put("protocol", d.protocol.code); put("username", d.username)
-                    put("accessPassword", d.accessPassword); put("useHttps", d.useHttps)
+                    put("accessPassword", d.accessPassword); put("useHttps", d.useHttps); put("serialNumber", d.serialNumber)
                 })
             }
         }
@@ -204,6 +204,7 @@ class SecureConfigStore(
                         username = o.optString("username", DeviceConfig.DEFAULT_HIK_USERNAME).ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
                         accessPassword = o.optString("accessPassword", ""),
                         useHttps = o.optBoolean("useHttps", false),
+                        serialNumber = o.optString("serialNumber", ""),
                     )
                 )
             }

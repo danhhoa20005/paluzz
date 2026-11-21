@@ -3,6 +3,7 @@ package com.edusing.chamcongtvbox.domain.usecase
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
 import com.edusing.chamcongtvbox.domain.model.SubnetInfo
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
+import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.LanDiscoveryRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -26,19 +27,16 @@ data class DiscoveryReport(
     val scannedPrefixes: List<String>,
     val pingAliveCount: Int,
     val directHandshakeUsed: Boolean,
+    val relocatedDevices: List<DeviceConfig> = emptyList(),
 )
 
 /**
- * Tự động dò tìm máy chấm công FK thật trong mạng LAN (chuyển thể & tối ưu từ `MainForm.ScanNetwork`):
- * 1. Nối thẳng các IP đã lưu (3 lượt/máy).
- * 2. Quét Ping ICMP an toàn + xác nhận FK song song (`2000ms`) trên toàn bộ dải LAN vật lý.
- * 3. Nếu chưa thấy máy: quét tiếp dải LAN chính thông tuyến (vd `192.168.1.x` từ Wi-Fi phụ `192.168.2.x`).
- * 4. Chỉ khi Ping trên mọi dải đều bỏ sót (máy chặn ICMP): chạy bắt tay FK thật trực tiếp song song
- *    (`1400ms`, KHÔNG mở-đóng cổng thô gây treo máy 2 phút).
+ * Tự động dò tìm máy chấm công FK & định vị lại máy Hikvision (khi router đổi IP DHCP) trong mạng LAN.
  */
 class DiscoverDevicesUseCase(
     private val lanDiscoveryRepository: LanDiscoveryRepository,
     private val deviceGateway: FkDeviceGateway,
+    private val hikControl: HikvisionControlGateway? = null,
 ) {
     private data class SubnetTarget(val prefix: String, val localIp: String?, val label: String)
 
@@ -55,6 +53,8 @@ class DiscoverDevicesUseCase(
         val checkedIps = LinkedHashSet<String>()
         val scannedPrefixes = LinkedHashSet<String>()
         val targets = mutableListOf<SubnetTarget>()
+        val relocatedDevices = mutableListOf<DeviceConfig>()
+        val missingHikDevices = mutableListOf<DeviceConfig>()
         val knownIps = knownDevices.map { it.ip.trim() }.filter { it.isNotEmpty() }.toSet()
         var totalPingAlive = 0
         var usedDirectFallback = false
@@ -69,17 +69,17 @@ class DiscoverDevicesUseCase(
             } else {
                 verifyFkTerminal(ip, known.port, known.machineNo, known.password, known.license, known.useUdp, tries = 3, timeoutMs = 2_000)
             }
-            if (ok) foundIps.add(ip)
+            if (ok) foundIps.add(ip) else if (known.isHikvision && known.serialNumber.isNotBlank()) missingHikDevices.add(known)
         }
 
-        // 2. Quét Ping + xác nhận FK song song trên tất cả dải LAN vật lý (eth0/wlan0)
+        // 2. Quét Ping + xác nhận FK (và tự định vị lại Hikvision bị đổi IP DHCP theo SerialNumber)
         val localSubnets = lanDiscoveryRepository.detectActiveSubnets(knownIps)
         var foundInLocalSubnets = 0
         for (subnet in localSubnets) {
             val t = SubnetTarget(subnet.prefix, subnet.localIp, "${subnet.prefix}.x (${subnet.interfaceName})")
             targets.add(t)
             scannedPrefixes.add(t.prefix)
-            val (found, alive) = pingAndVerifySubnet(t, knownIps, checkedIps, port, machineNo, password, license, useUdp, onProgress)
+            val (found, alive) = pingAndVerifySubnet(t, knownIps, checkedIps, missingHikDevices, relocatedDevices, port, machineNo, password, license, useUdp, onProgress)
             foundIps.addAll(found)
             foundInLocalSubnets += found.size
             totalPingAlive += alive
@@ -93,7 +93,7 @@ class DiscoverDevicesUseCase(
                 if (!scannedPrefixes.add(prefix)) continue
                 val t = SubnetTarget(prefix, null, "$prefix.x (LAN thông tuyến)")
                 targets.add(t)
-                val (found, alive) = pingAndVerifySubnet(t, knownIps, checkedIps, port, machineNo, password, license, useUdp, onProgress)
+                val (found, alive) = pingAndVerifySubnet(t, knownIps, checkedIps, missingHikDevices, relocatedDevices, port, machineNo, password, license, useUdp, onProgress)
                 foundIps.addAll(found)
                 foundInExtraSubnets += found.size
                 totalPingAlive += alive
@@ -119,11 +119,12 @@ class DiscoverDevicesUseCase(
             }
         }
 
-        return DiscoveryReport(foundIps.toList(), localSubnets, scannedPrefixes.toList(), totalPingAlive, usedDirectFallback)
+        return DiscoveryReport(foundIps.toList(), localSubnets, scannedPrefixes.toList(), totalPingAlive, usedDirectFallback, relocatedDevices.toList())
     }
 
     private suspend fun pingAndVerifySubnet(
         target: SubnetTarget, knownIps: Set<String>, checkedIps: MutableSet<String>,
+        missingHikDevices: MutableList<DeviceConfig>, relocatedOut: MutableList<DeviceConfig>,
         port: Int, machineNo: Int, password: Int, license: Int, useUdp: Boolean,
         onProgress: (DiscoveryProgress) -> Unit,
     ): Pair<List<String>, Int> {
@@ -133,13 +134,46 @@ class DiscoverDevicesUseCase(
             onProgress = { done, total -> onProgress(DiscoveryProgress("Quét Ping ${target.label} ($done/$total)...", done, total)) },
         ).map { it.ip }.filter { it !in checkedIps }
 
+        val relocatedIps = if (missingHikDevices.isNotEmpty() && hikControl != null) {
+            relocateMissingHikvision(aliveHosts, missingHikDevices, relocatedOut, onProgress)
+        } else emptyList()
+
         val found = verifyBatchParallel(
-            ips = aliveHosts, concurrency = 12, port = port, machineNo = machineNo,
+            ips = aliveHosts.filterNot { it in relocatedIps }, concurrency = 12, port = port, machineNo = machineNo,
             password = password, license = license, useUdp = useUdp, timeoutMs = 2_000,
             stagePrefix = "Xác nhận máy chấm ${target.label}", onProgress = onProgress,
         )
         checkedIps.addAll(aliveHosts)
-        return found to aliveHosts.size
+        return (relocatedIps + found) to aliveHosts.size
+    }
+
+    private suspend fun relocateMissingHikvision(
+        aliveIps: List<String>,
+        missing: MutableList<DeviceConfig>,
+        relocatedOut: MutableList<DeviceConfig>,
+        onProgress: (DiscoveryProgress) -> Unit,
+    ): List<String> {
+        val ctrl = hikControl ?: return emptyList()
+        val foundIps = mutableListOf<String>()
+        for (ip in aliveIps) {
+            if (missing.isEmpty()) break
+            val probe = deviceGateway.probeHikvisionHost(ip, DeviceConfig.DEFAULT_HIK_PORT) ?: continue
+            if (probe.isBlank()) continue
+            val iter = missing.iterator()
+            while (iter.hasNext()) {
+                val dev = iter.next()
+                val candidate = dev.copy(ip = ip)
+                val sn = ctrl.fetchSerialNumber(candidate, timeoutMs = 2_000)
+                if (!sn.isNullOrBlank() && sn.equals(dev.serialNumber, ignoreCase = true)) {
+                    onProgress(DiscoveryProgress("Tìm lại được Hikvision ${dev.displayName} tại IP mới $ip!"))
+                    relocatedOut.add(candidate)
+                    foundIps.add(ip)
+                    iter.remove()
+                    break
+                }
+            }
+        }
+        return foundIps
     }
 
     private suspend fun verifyBatchParallel(

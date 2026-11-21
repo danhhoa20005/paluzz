@@ -105,6 +105,15 @@ fun DeviceUsersScreen(
                             )
                         }
                     }
+                    if (state.isHikvisionSelected) {
+                        TammiOutlinedButton(
+                            text = if (state.onlyMissingFace) "Tất cả" else "Chưa mặt",
+                            enabled = !state.isLoading && !state.isDeleting,
+                            compact = true,
+                            contentColor = if (state.onlyMissingFace) AppColors.AmberText else AppColors.Text,
+                            onClick = viewModel::toggleOnlyMissingFace,
+                        )
+                    }
                     TammiOutlinedButton(
                         text = "Đọc lại",
                         enabled = !state.isLoading && !state.isDeleting,
@@ -118,7 +127,7 @@ fun DeviceUsersScreen(
                     placeholder = "Tìm mã thẻ, tên máy, họ tên, ${state.groupLabel.lowercase()}...",
                     onQueryChange = viewModel::onSearchQueryChange,
                     canSelectAll = !state.isLoading && !state.isDeleting && state.filteredUsers.isNotEmpty(),
-                    canClear = state.selectedIds.isNotEmpty() && !state.isDeleting,
+                    canClear = state.selectedKeys.isNotEmpty() && !state.isDeleting,
                     onSelectAll = viewModel::selectAllFiltered,
                     onClear = viewModel::clearSelection,
                     isCompact = ui.isCompact,
@@ -157,7 +166,7 @@ fun DeviceUsersScreen(
         )
 
         // Thanh xoá theo ngữ cảnh Liquid Glass (chỉ hiện khi có người được chọn)
-        AnimatedVisibility(visible = state.selectedIds.isNotEmpty()) {
+        AnimatedVisibility(visible = state.selectedKeys.isNotEmpty()) {
             TammiAdaptiveBar(floating = isFloatingTv, horizontalPadding = ui.horizontalPadding, topDivider = true) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -172,7 +181,7 @@ fun DeviceUsersScreen(
                         onClick = viewModel::clearSelection,
                     )
                     TvActionButton(
-                        text = "Xoá đã chọn (${state.selectedIds.size})",
+                        text = "Xoá đã chọn (${state.selectedKeys.size})",
                         containerColor = AppColors.Red,
                         enabled = !state.isLoading && !state.isDeleting,
                         onClick = viewModel::requestDeleteSelected,
@@ -183,7 +192,7 @@ fun DeviceUsersScreen(
         }
     }
 
-    if (state.pendingDeleteIds.isNotEmpty() && !state.pendingDeleteSummary.isNullOrBlank()) {
+    if (state.pendingDeleteUsers.isNotEmpty() && !state.pendingDeleteSummary.isNullOrBlank()) {
         TvSafeConfirmDialog(
             title = "Xoá người dùng trên máy?",
             message = state.pendingDeleteSummary.orEmpty(),

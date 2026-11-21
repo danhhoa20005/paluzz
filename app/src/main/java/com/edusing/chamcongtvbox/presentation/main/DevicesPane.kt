@@ -52,6 +52,7 @@ internal fun DevicesPane(
     showQuickToolbar: Boolean = false,
     isTv: Boolean = false,
     onAddDevice: (() -> Unit)? = null,
+    onOpenDoor: ((DeviceConfig) -> Unit)? = null,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
         Row(
@@ -113,6 +114,9 @@ internal fun DevicesPane(
                     onRename = { onRename(item.config) },
                     onReconnect = { onReconnect(item.config) },
                     onDelete = { onDelete(item.config) },
+                    onOpenDoor = if (item.config.isHikvision && item.isConnected && onOpenDoor != null) {
+                        { onOpenDoor(item.config) }
+                    } else null,
                 )
             }
         }
@@ -128,6 +132,7 @@ private fun TerminalCard(
     onRename: () -> Unit,
     onReconnect: () -> Unit,
     onDelete: () -> Unit,
+    onOpenDoor: (() -> Unit)? = null,
 ) {
     val (accentColor, pillLabel, pillTone) = when (item.state) {
         DeviceConnectionState.CONNECTED -> Triple(AppColors.GreenBright, "Online", TammiBadgeTone.SUCCESS)
@@ -168,6 +173,9 @@ private fun TerminalCard(
 
         // 3 nút thao tác cân xứng đều nhau (không trùng tab Trên máy đã có ở thanh điều hướng)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onOpenDoor != null) {
+                TvActionButton(text = "Mở cửa", containerColor = AppColors.Green, enabled = !isBusy, compact = true, onClick = onOpenDoor, modifier = Modifier.weight(1f))
+            }
             TammiOutlinedButton(text = "Nối lại", enabled = !isBusy, compact = true, onClick = onReconnect, modifier = Modifier.weight(1f))
             if (!isRunning) {
                 TammiOutlinedButton(text = "Đổi tên", enabled = !isBusy, compact = true, contentColor = AppColors.Text, onClick = onRename, modifier = Modifier.weight(1f))

@@ -113,7 +113,7 @@ internal class LocalWebConsoleServer(
                     onHikvisionWebhook(remoteIp, req.body)
                     WebHttpResponse(200, "application/json; charset=utf-8", """{"status":"ok"}""")
                 }
-                req.path.startsWith("/api/") -> apiHandler.handle(req.method, req.path, req.token, req.body)
+                req.path.startsWith("/api/") -> apiHandler.handle(req.method, req.path, req.query, req.token, req.body)
                 else -> WebHttpResponse(404, "text/plain; charset=utf-8", "Not Found")
             }
             writeResponse(client, response)
@@ -126,7 +126,9 @@ internal class LocalWebConsoleServer(
         }
     }
 
-    private data class ParsedHttpRequest(val method: String, val path: String, val token: String?, val body: String)
+    private data class ParsedHttpRequest(
+        val method: String, val path: String, val query: String, val token: String?, val body: String,
+    )
 
     private fun parseRequest(input: BufferedInputStream): ParsedHttpRequest? {
         val headerBuf = ByteArrayOutputStream()
@@ -149,11 +151,17 @@ internal class LocalWebConsoleServer(
         val firstParts = lines.firstOrNull()?.split(' ') ?: return null
         if (firstParts.size < 2) return null
         val method = firstParts[0].uppercase()
-        val path = firstParts[1].substringBefore('?')
+        val rawTarget = firstParts[1]
+        val path = rawTarget.substringBefore('?')
+        val query = rawTarget.substringAfter('?', "")
 
         var contentLength = 0
         var token: String? = null
-        val bodyLimit = if (path == "/hikvision/event") MAX_WEBHOOK_BODY_BYTES else MAX_BODY_BYTES
+        val bodyLimit = when {
+            path == "/api/hikvision/face-upload" || path == "/api/hikvision/quick-enroll" -> MAX_FACE_UPLOAD_BYTES
+            path == "/hikvision/event" -> MAX_WEBHOOK_BODY_BYTES
+            else -> MAX_BODY_BYTES
+        }
         for (line in lines.drop(1)) {
             val idx = line.indexOf(':')
             if (idx <= 0) continue
@@ -171,11 +179,11 @@ internal class LocalWebConsoleServer(
             if (n <= 0) break
             readTotal += n
         }
-        return ParsedHttpRequest(method, path, token, String(bodyBytes, 0, readTotal, Charsets.UTF_8))
+        return ParsedHttpRequest(method, path, query, token, String(bodyBytes, 0, readTotal, Charsets.UTF_8))
     }
 
     private fun writeResponse(client: Socket, res: WebHttpResponse) {
-        val bodyBytes = res.body.toByteArray(Charsets.UTF_8)
+        val bodyBytes = res.binaryBody ?: res.body.toByteArray(Charsets.UTF_8)
         val statusText = when (res.statusCode) {
             200 -> "OK"
             400 -> "Bad Request"
@@ -188,6 +196,7 @@ internal class LocalWebConsoleServer(
             append("Content-Type: ${res.contentType}\r\n")
             append("Content-Length: ${bodyBytes.size}\r\n")
             append("Cache-Control: no-store\r\n")
+            res.extraHeaders.forEach { (k, v) -> append("$k: $v\r\n") }
             append("Connection: close\r\n\r\n")
         }
         val out = client.getOutputStream()
@@ -198,10 +207,11 @@ internal class LocalWebConsoleServer(
 
     companion object {
         private const val TAG = "LocalWebConsole"
-        private const val CLIENT_TIMEOUT_MS = 8_000
+        private const val CLIENT_TIMEOUT_MS = 12_000
         private const val MAX_HEADER_BYTES = 8_192
         private const val MAX_BODY_BYTES = 32_768
         private const val MAX_WEBHOOK_BODY_BYTES = 65_536
+        private const val MAX_FACE_UPLOAD_BYTES = 400_000
         private const val HTML_TYPE = "text/html; charset=utf-8"
         private val CANDIDATE_PORTS = listOf(8080, 8081, 8082, 8088)
 

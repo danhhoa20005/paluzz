@@ -22,6 +22,7 @@ import com.edusing.chamcongtvbox.domain.repository.InternetStatus
 import com.edusing.chamcongtvbox.presentation.MainActivity
 import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
 import com.edusing.chamcongtvbox.service.web.WebConsoleApiHandler
+import com.edusing.chamcongtvbox.service.web.WebConsoleHikvisionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,13 +59,11 @@ class AttendanceForegroundService : Service() {
         webConsole = LocalWebConsoleServer(
             context = this,
             apiHandler = WebConsoleApiHandler(
-                context = this,
-                configRepository = container.configRepository,
-                attendanceEngine = engine,
-                loginUseCase = container.loginUseCase,
-                readDeviceUsersUseCase = container.readDeviceUsersUseCase,
-                deleteDeviceUsersUseCase = container.deleteDeviceUsersUseCase,
-                appUpdateCoordinator = container.appUpdateCoordinator,
+                this, container.configRepository, engine, container.loginUseCase,
+                container.readDeviceUsersUseCase, container.deleteDeviceUsersUseCase, container.appUpdateCoordinator,
+                hikHandler = WebConsoleHikvisionHandler(
+                    container.configRepository, engine, container.hikvisionControlGateway, container.backfillHikvisionEventsUseCase,
+                ),
                 onLocalHostChanged = { webConsole?.refreshPublishedUrl() },
             ),
             hostProvider = { "${container.configRepository.getConfig().safeLocalHostName}.local" },

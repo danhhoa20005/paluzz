@@ -2,7 +2,9 @@ package com.edusing.chamcongtvbox.di
 
 import android.content.Context
 import com.edusing.chamcongtvbox.BuildConfig
+import com.edusing.chamcongtvbox.data.hikvision.HikvisionControlApi
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionGatewayImpl
+import com.edusing.chamcongtvbox.data.hikvision.HikvisionIsapiClient
 import com.edusing.chamcongtvbox.data.local.PendingCheckInStoreImpl
 import com.edusing.chamcongtvbox.data.local.SecureConfigStore
 import com.edusing.chamcongtvbox.data.local.WordDocExporter
@@ -21,6 +23,7 @@ import com.edusing.chamcongtvbox.data.repository.MemberRepositoryImpl
 import com.edusing.chamcongtvbox.domain.model.AppMode
 import com.edusing.chamcongtvbox.domain.model.BrandingConfig
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
+import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.AppUpdateRepository
 import com.edusing.chamcongtvbox.domain.repository.AttendanceRepository
 import com.edusing.chamcongtvbox.domain.repository.AuthRepository
@@ -30,6 +33,7 @@ import com.edusing.chamcongtvbox.domain.repository.LanDiscoveryRepository
 import com.edusing.chamcongtvbox.domain.repository.MemberRepository
 import com.edusing.chamcongtvbox.domain.usecase.AbbreviateNamesUseCase
 import com.edusing.chamcongtvbox.domain.usecase.AutoPushMembersUseCase
+import com.edusing.chamcongtvbox.domain.usecase.BackfillHikvisionEventsUseCase
 import com.edusing.chamcongtvbox.domain.usecase.ClearDeviceLogsUseCase
 import com.edusing.chamcongtvbox.domain.usecase.ConnectDeviceUseCase
 import com.edusing.chamcongtvbox.domain.usecase.DeleteDeviceUsersUseCase
@@ -76,7 +80,11 @@ class AppContainer(appContext: Context) {
     @Volatile
     var activeWebConsolePort: Int = 8080
 
+    private val hikIsapiClient = HikvisionIsapiClient()
+    val hikvisionControlGateway: HikvisionControlGateway = HikvisionControlApi(hikIsapiClient)
+
     private val hikvisionGateway = HikvisionGatewayImpl(
+        client = hikIsapiClient,
         webhookTargetProvider = {
             val lanIp = LocalWebConsoleServer.detectLanIpv4()
             if (lanIp.isNotBlank() && activeWebConsolePort > 0) lanIp to activeWebConsolePort else null
@@ -111,14 +119,14 @@ class AppContainer(appContext: Context) {
     val sendHeartbeatUseCase = SendHeartbeatUseCase(attendanceRepository)
     val scanLanDevicesUseCase = ScanLanDevicesUseCase(lanDiscoveryRepository, deviceGateway)
     val suggestFreeIpUseCase = SuggestFreeIpUseCase(lanDiscoveryRepository)
-    val discoverDevicesUseCase = DiscoverDevicesUseCase(lanDiscoveryRepository, deviceGateway)
+    val discoverDevicesUseCase = DiscoverDevicesUseCase(lanDiscoveryRepository, deviceGateway, hikvisionControlGateway)
     val loadMembersTreeUseCase = LoadMembersTreeUseCase(
         configRepository = configRepository,
         memberRepository = memberRepository,
         validateCredentialsUseCase = validateCredentialsUseCase,
         deviceGateway = deviceGateway,
     )
-    val pushMembersToDevicesUseCase = PushMembersToDevicesUseCase(deviceGateway, abbreviateNamesUseCase)
+    val pushMembersToDevicesUseCase = PushMembersToDevicesUseCase(deviceGateway, abbreviateNamesUseCase, hikvisionControlGateway)
     val autoPushMembersUseCase = AutoPushMembersUseCase(
         configRepository = configRepository,
         memberRepository = memberRepository,
@@ -129,8 +137,10 @@ class AppContainer(appContext: Context) {
         deviceGateway = deviceGateway,
         memberRepository = memberRepository,
         configRepository = configRepository,
+        hikControl = hikvisionControlGateway,
     )
-    val deleteDeviceUsersUseCase = DeleteDeviceUsersUseCase(deviceGateway)
+    val deleteDeviceUsersUseCase = DeleteDeviceUsersUseCase(deviceGateway, hikvisionControlGateway)
+    val backfillHikvisionEventsUseCase = BackfillHikvisionEventsUseCase(hikvisionControlGateway, attendanceRepository)
     val exportMemberListDocUseCase = ExportMemberListDocUseCase(
         exportRepository = exportRepository,
         abbreviateNamesUseCase = abbreviateNamesUseCase,
@@ -150,6 +160,9 @@ class AppContainer(appContext: Context) {
         validateCredentialsUseCase = validateCredentialsUseCase,
         internetProbe = internetProbe,
         autoPushMembersUseCase = autoPushMembersUseCase,
+        onNewDaySync = { devs ->
+            devs.filter { it.isHikvision }.forEach { runCatching { hikvisionControlGateway.syncVietnamTime(it) } }
+        },
     )
 
     // Bộ tự động kiểm tra & cập nhật OTA từ GitHub Releases (danhhoa20005/paluzz)

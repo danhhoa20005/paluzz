@@ -45,6 +45,7 @@ internal class AttendanceLoopRunner(
     private val onAutoDiscoverNeeded: suspend () -> Unit,
     private val onPollFreezeDetected: suspend () -> Unit,
     private val onAuthInvalid: suspend (String) -> Unit,
+    private val onNewDayTasks: suspend () -> Unit = {},
 ) {
     private var pollJob: Job? = null
     private var autoReconnectJob: Job? = null
@@ -76,8 +77,8 @@ internal class AttendanceLoopRunner(
         if (autoReconnectJob?.isActive != true) {
             autoReconnectJob = launchPeriodic(true, { AUTO_RECONNECT_INTERVAL_MS }) {
                 if (stateStore.ensureCurrentDay()) {
-                    pollAttendanceUseCase.clearNameCache()
-                    stateStore.appendSystemEvent("Hệ thống", "-", "Bước sang ngày mới — đã làm mới bộ đếm & bộ đệm.", EventSeverity.INFO)
+                    pollAttendanceUseCase.clearNameCache(); runSafe { onNewDayTasks() }
+                    stateStore.appendSystemEvent("Hệ thống", "-", "Bước sang ngày mới — đã làm mới bộ đếm & đồng bộ giờ máy.", EventSeverity.INFO)
                 }
                 val snap = stateStore.current
                 val cfg = configRepository.getConfig()

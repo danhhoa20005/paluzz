@@ -8,7 +8,7 @@
   :root{--bg:#eef4ff;--card:rgba(255,255,255,.88);--b:#c5d6ee;--tx:#0c172a;--sub:#40516a;--pri:#0b56d6;--ok:#047857;--warn:#b45309;--err:#b91c1c;--r:18px}
   *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
   body{margin:0;min-height:100vh;color:var(--tx);background:radial-gradient(circle at 12% 8%,#cfe4ff,transparent 48%),radial-gradient(circle at 88% 12%,#c7f5ea,transparent 42%),var(--bg);padding:14px}
-  .wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  .wrap{max-width:940px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
   .card{background:var(--card);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.92);box-shadow:0 10px 28px rgba(15,40,90,.09);border-radius:var(--r);padding:16px}
   .hero{color:#fff;border:none;background:linear-gradient(135deg,#0847b5,#0e67df)}
   .hero.run{background:linear-gradient(135deg,#046041,#06845a)}
@@ -18,20 +18,21 @@
   .sp{justify-content:space-between}
   .sub{font-size:13px;color:var(--sub)}
   .hero .sub{color:rgba(255,255,255,.9)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin-top:10px}
   .stat{background:rgba(255,255,255,.72);border:1px solid var(--b);border-radius:12px;padding:10px}
-  .stat b{font-size:18px;display:block;color:var(--tx)}
+  .stat b{font-size:17px;display:block;color:var(--tx)}
   .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:#e2ecf9;color:#1e3a5f}
   .pill.ok{background:#d1fae5;color:#065f46}.pill.err{background:#fee2e2;color:#991b1b}.pill.warn{background:#fef3c7;color:#92400e}
-  button{border:none;border-radius:12px;padding:10px 14px;font-weight:700;font-size:13.5px;cursor:pointer;background:var(--pri);color:#fff}
-  button.ok{background:var(--ok)}button.err{background:var(--err)}button.ghost{background:#fff;color:var(--pri);border:1.5px solid var(--b)}
+  button{border:none;border-radius:12px;padding:9px 13px;font-weight:700;font-size:13px;cursor:pointer;background:var(--pri);color:#fff}
+  button.ok{background:var(--ok)}button.err{background:var(--err)}button.warn{background:var(--warn)}button.ghost{background:#fff;color:var(--pri);border:1.5px solid var(--b)}
   button:disabled{opacity:.55;cursor:not-allowed}
-  input,select{padding:10px 12px;border-radius:12px;border:1.5px solid var(--b);font-size:14px;background:#fff;color:var(--tx);width:100%}
+  input,select{padding:9px 11px;border-radius:12px;border:1.5px solid var(--b);font-size:14px;background:#fff;color:var(--tx);width:100%}
   .dev{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid #e2eaf6}
   .dev:first-child{border-top:none}
   .log{max-height:240px;overflow:auto;font-family:ui-monospace,Menlo,monospace;font-size:12px;display:flex;flex-direction:column;gap:4px}
   .log-i{padding:6px 8px;border-radius:8px;background:#f4f8ff}.log-i.SUCCESS{background:#ecfdf5;color:#065f46}.log-i.WARNING{background:#fffbeb;color:#92400e}.log-i.ERROR{background:#fef2f2;color:#991b1b}
-  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;display:none;z-index:99}
+  .cam{width:100%;max-height:320px;object-fit:contain;border-radius:12px;border:1px solid var(--b);background:#0c172a;margin-top:8px}
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;display:none;z-index:99;max-width:92vw;text-align:center}
   .hide{display:none!important}
 </style>
 </head>
@@ -65,10 +66,7 @@
     </div>
 
     <div class="card">
-      <div class="row sp">
-        <h3>Tổng quan 24/7</h3>
-        <span class="sub" id="metaLine"></span>
-      </div>
+      <div class="row sp"><h3>Tổng quan 24/7</h3><span class="sub" id="metaLine"></span></div>
       <div class="grid">
         <div class="stat"><span class="sub">Lượt hôm nay</span><b id="sToday">0</b></div>
         <div class="stat"><span class="sub">Máy Online</span><b id="sDev">0/0</b></div>
@@ -78,23 +76,68 @@
     </div>
 
     <div class="card">
-      <h3>Máy chấm công trong LAN</h3>
+      <h3>Máy chấm công trong LAN (FK & Hikvision)</h3>
       <div id="devList" style="margin-top:8px"></div>
       <div class="row" style="margin-top:10px">
-        <select id="addProto" onchange="onProtoChange()" style="width:170px">
+        <select id="addProto" onchange="onProtoChange()" style="width:178px">
           <option value="FK">FK (Cổng 5005)</option>
           <option value="HIKVISION">Hikvision DS-K1T320MX (80)</option>
         </select>
-        <input id="addIp" placeholder="IP máy (vd 192.168.1.64)" style="flex:2;min-width:150px" />
-        <input id="addPort" type="number" value="5005" style="width:86px" />
+        <input id="addIp" placeholder="IP hoặc link web (vd 192.168.1.8)" style="flex:2;min-width:160px" />
+        <input id="addPort" type="number" value="5005" style="width:82px" />
         <input id="addName" placeholder="Tên máy (tuỳ chọn)" style="flex:1;min-width:120px" />
       </div>
       <div id="hikCredRow" class="row hide" style="margin-top:8px">
         <input id="addHikUser" value="admin" placeholder="Tài khoản (admin)" style="flex:1;min-width:120px" />
         <input id="addHikPass" type="password" placeholder="Mật khẩu thiết bị Hikvision *" style="flex:2;min-width:170px" />
       </div>
-      <div class="row" style="margin-top:8px">
-        <button class="ok" onclick="addDevice()">Thêm & Nối</button>
+      <div class="row" style="margin-top:8px"><button class="ok" onclick="addDevice()">Thêm & Nối</button></div>
+    </div>
+
+    <div id="hikCard" class="card hide">
+      <div class="row sp">
+        <h3>Trung tâm điều khiển Hikvision DS-K1T320MX</h3>
+        <div class="row">
+          <select id="hikDevSel" style="width:200px" onchange="loadHikHealth()"></select>
+          <button class="ghost" onclick="loadHikHealth()">Đọc sức khoẻ</button>
+        </div>
+      </div>
+      <div id="hikHealthGrid" class="grid">
+        <div class="stat"><span class="sub">Thiết bị / Firmware</span><b id="hkModel">—</b></div>
+        <div class="stat"><span class="sub">Bộ nhớ (Người / Mặt / Thẻ)</span><b id="hkCap">—</b></div>
+        <div class="stat"><span class="sub">Mạng IP</span><b id="hkNet">—</b></div>
+        <div class="stat"><span class="sub">Cửa & Giờ máy</span><b id="hkDoor">—</b></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="ok" onclick="hikDoor('open')">Mở cửa</button>
+        <button class="ghost" onclick="hikPost('/api/hikvision/sync-time')">Đồng bộ giờ VN</button>
+        <button class="ghost" onclick="hikLockIp()">Khoá IP tĩnh</button>
+        <button onclick="hikPost('/api/hikvision/backfill',{hours:0})">Đồng bộ bù hôm nay</button>
+        <button class="ghost" onclick="hikPost('/api/hikvision/backfill',{hours:6})">Bù 6 giờ qua</button>
+        <button class="ghost" onclick="toggleCamera()">Xem Camera</button>
+        <button class="ghost" onclick="exportHikCsv()">Tải Excel/CSV</button>
+        <button class="err" onclick="hikReboot()">Khởi động lại</button>
+      </div>
+      <div id="camBox" class="hide" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2eaf6">
+        <div class="row sp">
+          <span class="sub" id="camStatus">Camera trực tiếp DS-K1T320MX</span>
+          <div class="row">
+            <button class="ghost" onclick="refreshSnapshot()">Chụp mới</button>
+            <button class="ghost" id="btnCamAuto" onclick="toggleCamAuto()">Tự tải 3s: Tắt</button>
+            <button class="err" onclick="closeCamera()">Đóng</button>
+          </div>
+        </div>
+        <img id="camImg" class="cam" alt="Camera máy chấm công" />
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2eaf6">
+        <div class="sub" style="font-weight:700;margin-bottom:6px">Tạo nhanh nhân sự + nạp ảnh khuôn mặt AI (tự nén JPEG chuẩn Hikvision)</div>
+        <div class="row">
+          <input id="qeNo" placeholder="Mã nhân sự / thẻ *" style="width:140px" />
+          <input id="qeName" placeholder="Họ tên tiếng Việt có dấu *" style="flex:1;min-width:160px" />
+          <input id="qeCard" placeholder="Mã thẻ Mifare (tuỳ chọn)" style="width:155px" />
+          <input id="qeFile" type="file" accept="image/*" capture="user" style="width:210px" />
+          <button class="ok" onclick="quickEnrollHik()">Nạp ngay</button>
+        </div>
       </div>
     </div>
 
@@ -120,9 +163,11 @@
       <div class="row" style="margin-top:10px">
         <select id="userDevSel" style="flex:1;min-width:170px"></select>
         <button onclick="loadDeviceUsers()">Đọc danh sách</button>
-        <input id="userSearch" placeholder="Tìm mã hoặc tên..." oninput="renderUsers()" style="flex:1;min-width:150px" />
+        <input id="userSearch" placeholder="Tìm mã hoặc tên..." oninput="renderUsers()" style="flex:1;min-width:140px" />
+        <label class="row"><input id="onlyNoFace" type="checkbox" style="width:auto" onchange="renderUsers()" /> Chưa có mặt</label>
       </div>
-      <div id="userList" class="log" style="margin-top:8px;max-height:220px"></div>
+      <input id="faceUploadInput" type="file" accept="image/*" capture="user" class="hide" onchange="onFaceFilePicked(event)" />
+      <div id="userList" class="log" style="margin-top:8px;max-height:260px"></div>
     </div>
 
     <div class="card">
@@ -180,10 +225,11 @@
 <div id="toast" class="toast"></div>
 <script>
 let token = localStorage.getItem('cc_console_token') || '';
-let lastStatus = null, loadedUsers = [], scheduleDirty = false, techDirty = false;
+let lastStatus = null, loadedUsers = [], loadedIsHik = false, scheduleDirty = false, techDirty = false;
+let pendingFaceTarget = null, camTimer = null, hikHealthLoadedKey = '';
 ['apOn','apCustomOn','apHour','apMin'].forEach(id => document.getElementById(id).addEventListener('change', () => scheduleDirty = true));
 ['tHost','tRepo','tPoll','tDedup','tPort','tUdp','tBoot','tAutoUpd'].forEach(id => document.getElementById(id).addEventListener('change', () => techDirty = true));
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display='none',3200);}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display='none',3600);}
 async function api(path, method='GET', body=null){
   const headers={'X-Console-Token': token};
   if(body) headers['Content-Type']='application/json';
@@ -223,6 +269,82 @@ function addDevice(){
   postAction('/api/devices/add',payload);
   document.getElementById('addIp').value='';document.getElementById('addName').value='';document.getElementById('addHikPass').value='';
 }
+function curHikKey(){return document.getElementById('hikDevSel').value;}
+async function loadHikHealth(){
+  const key=curHikKey(); if(!key) return; hikHealthLoadedKey=key;
+  try{
+    const r=await api('/api/hikvision/health','POST',{key});
+    if(!r.ok){toast(r.error||'Không đọc được sức khoẻ máy');return;}
+    document.getElementById('hkModel').textContent=r.model+' ('+r.firmwareVersion+')';
+    document.getElementById('hkCap').textContent=r.userCount+' người • '+r.faceCount+'/'+r.maxFaceCapacity+' mặt • '+r.cardCount+' thẻ';
+    document.getElementById('hkNet').textContent=r.ipAddress+(r.isDhcp?' (DHCP — nên khoá tĩnh)':' (IP tĩnh ✓)');
+    document.getElementById('hkDoor').textContent=(r.doorLocked?'Đang khoá':'Đang mở')+(r.antiDismantleAlert?' • Cạy vỏ!':'')+(r.deviceTimeText?' • '+r.deviceTimeText.slice(11,19):'');
+  }catch(e){toast(e.message);}
+}
+async function hikPost(path, extra={}){
+  const key=curHikKey(); if(!key){toast('Chưa có máy Hikvision');return;}
+  try{const r=await api(path,'POST',{key,...extra});toast(r.message||r.error||'Xong');refresh();}catch(e){toast(e.message);}
+}
+function hikDoor(cmd){hikPost('/api/hikvision/door',{cmd});}
+function hikLockIp(){if(confirm('Khoá cố định IP hiện tại sang IP tĩnh (tắt DHCP) trên máy Hikvision?')) hikPost('/api/hikvision/lock-static-ip').then(loadHikHealth);}
+function hikReboot(){if(confirm('Khởi động lại máy chấm công Hikvision? (Máy sẽ offline ~30 giây)')) hikPost('/api/hikvision/reboot');}
+function exportHikCsv(){
+  const key=curHikKey(); if(!key){toast('Chưa có máy Hikvision');return;}
+  window.open('/api/hikvision/export-csv?key='+encodeURIComponent(key)+'&hours=24&token='+encodeURIComponent(token),'_blank');
+}
+function toggleCamera(){
+  const box=document.getElementById('camBox');
+  if(box.classList.contains('hide')){box.classList.remove('hide');refreshSnapshot();} else closeCamera();
+}
+function closeCamera(){document.getElementById('camBox').classList.add('hide');if(camTimer){clearInterval(camTimer);camTimer=null;document.getElementById('btnCamAuto').textContent='Tự tải 3s: Tắt';}}
+function refreshSnapshot(){
+  const key=curHikKey(); if(!key) return;
+  document.getElementById('camImg').src='/api/hikvision/snapshot?key='+encodeURIComponent(key)+'&token='+encodeURIComponent(token)+'&t='+Date.now();
+  document.getElementById('camStatus').textContent='Cập nhật lúc '+new Date().toLocaleTimeString('vi-VN');
+}
+function toggleCamAuto(){
+  if(camTimer){clearInterval(camTimer);camTimer=null;document.getElementById('btnCamAuto').textContent='Tự tải 3s: Tắt';}
+  else{refreshSnapshot();camTimer=setInterval(refreshSnapshot,3000);document.getElementById('btnCamAuto').textContent='Tự tải 3s: Bật';}
+}
+function compressImageToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const maxDim=480; let w=img.width, h=img.height;
+      if(w>maxDim||h>maxDim){if(w>h){h=Math.round(h*maxDim/w);w=maxDim;}else{w=Math.round(w*maxDim/h);h=maxDim;}}
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      resolve(c.toDataURL('image/jpeg',0.82));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Không đọc được ảnh'));};
+    img.src=url;
+  });
+}
+async function quickEnrollHik(){
+  const key=curHikKey(), employeeNo=document.getElementById('qeNo').value.trim(), fullName=document.getElementById('qeName').value.trim(), cardNo=document.getElementById('qeCard').value.trim();
+  if(!key||!employeeNo||!fullName){toast('Nhập đủ Mã nhân sự & Họ tên');return;}
+  const f=document.getElementById('qeFile').files[0];
+  try{
+    toast(f?'Đang nén & nạp ảnh khuôn mặt AI...':'Đang nạp hồ sơ...');
+    const imageBase64=f?await compressImageToBase64(f):'';
+    const r=await api('/api/hikvision/quick-enroll','POST',{key,employeeNo,fullName,cardNo,imageBase64});
+    toast(r.message||r.error||'Xong');
+    if(r.ok){document.getElementById('qeNo').value='';document.getElementById('qeName').value='';document.getElementById('qeCard').value='';document.getElementById('qeFile').value='';loadHikHealth();}
+  }catch(e){toast(e.message);}
+}
+function pickFaceForUser(key, empNo){pendingFaceTarget={key,empNo};const inp=document.getElementById('faceUploadInput');inp.value='';inp.click();}
+async function onFaceFilePicked(ev){
+  const f=ev.target.files[0]; if(!f||!pendingFaceTarget) return;
+  const {key,empNo}=pendingFaceTarget; pendingFaceTarget=null;
+  try{
+    toast('Đang nén & đẩy ảnh mặt AI cho #'+empNo+'...');
+    const imageBase64=await compressImageToBase64(f);
+    const r=await api('/api/hikvision/face-upload','POST',{key,employeeNo:empNo,imageBase64});
+    toast(r.message||r.error||'Xong');
+    if(r.ok){loadDeviceUsers();loadHikHealth();}
+  }catch(e){toast(e.message);}
+}
 function saveSchedule(){
   scheduleDirty=false;
   postAction('/api/autopush/schedule',{
@@ -233,13 +355,10 @@ function saveSchedule(){
 function saveTech(){
   techDirty=false;
   postAction('/api/settings/tech',{
-    localHostName:document.getElementById('tHost').value.trim(),
-    updateRepoSlug:document.getElementById('tRepo').value.trim(),
-    pollIntervalSec:parseInt(document.getElementById('tPoll').value||'10',10),
-    dedupSeconds:parseInt(document.getElementById('tDedup').value||'60',10),
-    defaultPort:parseInt(document.getElementById('tPort').value||'5005',10),
-    udpMode:document.getElementById('tUdp').checked, autoStartOnBoot:document.getElementById('tBoot').checked,
-    autoUpdateEnabled:document.getElementById('tAutoUpd').checked
+    localHostName:document.getElementById('tHost').value.trim(), updateRepoSlug:document.getElementById('tRepo').value.trim(),
+    pollIntervalSec:parseInt(document.getElementById('tPoll').value||'10',10), dedupSeconds:parseInt(document.getElementById('tDedup').value||'60',10),
+    defaultPort:parseInt(document.getElementById('tPort').value||'5005',10), udpMode:document.getElementById('tUdp').checked,
+    autoStartOnBoot:document.getElementById('tBoot').checked, autoUpdateEnabled:document.getElementById('tAutoUpd').checked
   });
 }
 async function testServer(){
@@ -253,23 +372,33 @@ async function loadDeviceUsers(){
   try{
     const r=await api('/api/device-users/list','POST',{key});
     if(!r.ok){toast(r.error||'Đọc thất bại');return;}
-    loadedUsers=r.users||[];renderUsers();
+    loadedUsers=r.users||[]; loadedIsHik=!!r.isHikvision; renderUsers();
   }catch(e){toast(e.message);}
 }
 function renderUsers(){
   const q=(document.getElementById('userSearch').value||'').toLowerCase().trim();
+  const onlyNoFace=document.getElementById('onlyNoFace').checked;
   const key=document.getElementById('userDevSel').value;
-  const list=loadedUsers.filter(u=>!q||String(u.enrollNumber).includes(q)||(u.deviceName||'').toLowerCase().includes(q)||(u.fullName||'').toLowerCase().includes(q));
+  const list=loadedUsers.filter(u=>{
+    if(onlyNoFace && u.faceCount!==0) return false;
+    const id=String(u.employeeNo||u.enrollNumber);
+    return !q||id.toLowerCase().includes(q)||(u.deviceName||'').toLowerCase().includes(q)||(u.fullName||'').toLowerCase().includes(q);
+  });
   document.getElementById('userCountLine').textContent=loadedUsers.length?('Hiển thị '+list.length+'/'+loadedUsers.length+' người'):'';
-  document.getElementById('userList').innerHTML=list.map(u=>
-    `<div class="dev"><div><b>${esc(u.fullName||u.deviceName||('Mã '+u.enrollNumber))}</b> <span class="sub">#${u.enrollNumber}${u.className?' • '+esc(u.className):''}</span></div>
-    <button class="err" onclick="deleteUser('${esc(key)}',${u.enrollNumber})">Xoá</button></div>`
-  ).join('')||'<div class="sub">Bấm "Đọc danh sách" để xem người dùng đang lưu trên máy chấm công.</div>';
+  document.getElementById('userList').innerHTML=list.map(u=>{
+    const emp=String(u.employeeNo||u.enrollNumber);
+    const facePill=u.faceCount>=0?`<span class="pill ${u.faceCount>0?'ok':'warn'}">${u.faceCount>0?('Mặt: '+u.faceCount):'Chưa mặt'}</span>`:'';
+    const faceBtn=loadedIsHik?`<button class="ghost" onclick="pickFaceForUser('${esc(key)}','${esc(emp)}')">Nạp ảnh mặt</button>`:'';
+    return `<div class="dev"><div><b>${esc(u.fullName||u.deviceName||('Mã '+emp))}</b> <span class="sub">#${esc(emp)}${u.className?' • '+esc(u.className):''}</span> ${facePill}</div>
+      <div class="row">${faceBtn}<button class="err" onclick="deleteUser('${esc(key)}','${esc(emp)}',${u.enrollNumber})">Xoá</button></div></div>`;
+  }).join('')||'<div class="sub">Bấm "Đọc danh sách" để xem người dùng đang lưu trên máy chấm công.</div>';
 }
-async function deleteUser(key, enrollNumber){
-  if(!confirm('Xoá mã '+enrollNumber+' khỏi máy chấm công?')) return;
-  try{const r=await api('/api/device-users/delete','POST',{key,enrollNumber});toast(r.message||r.error);if(r.ok){loadedUsers=loadedUsers.filter(x=>x.enrollNumber!==enrollNumber);renderUsers();}}
-  catch(e){toast(e.message);}
+async function deleteUser(key, employeeNo, enrollNumber){
+  if(!confirm('Xoá mã '+employeeNo+' khỏi máy chấm công?')) return;
+  try{
+    const r=await api('/api/device-users/delete','POST',{key,employeeNo,enrollNumber});toast(r.message||r.error);
+    if(r.ok){loadedUsers=loadedUsers.filter(x=>String(x.employeeNo||x.enrollNumber)!==String(employeeNo));renderUsers();}
+  }catch(e){toast(e.message);}
 }
 function switchMode(){postAction('/api/mode',{mode:document.getElementById('modeSel').value});}
 function remoteLogin(){
@@ -297,32 +426,35 @@ async function refresh(){
     document.getElementById('lastPollLine').textContent = s.lastPollTimeText ? ('Quét: ' + s.lastPollTimeText) : '';
     document.getElementById('crashLine').textContent = s.lastCrashSummary ? ('Lỗi gần nhất (đã tự hồi sinh): ' + s.lastCrashSummary) : '';
     if(!scheduleDirty){
-      document.getElementById('apOn').checked = !!s.autoPushEnabled;
-      document.getElementById('apCustomOn').checked = !!s.autoPushCustomEnabled;
-      document.getElementById('apHour').value = s.autoPushCustomHour;
-      document.getElementById('apMin').value = s.autoPushCustomMinute;
+      document.getElementById('apOn').checked=!!s.autoPushEnabled; document.getElementById('apCustomOn').checked=!!s.autoPushCustomEnabled;
+      document.getElementById('apHour').value=s.autoPushCustomHour; document.getElementById('apMin').value=s.autoPushCustomMinute;
     }
     if(!techDirty){
-      document.getElementById('tHost').value = s.localHostName || 'chamcong';
-      document.getElementById('tRepo').value = s.updateRepoSlug || 'danhhoa20005/paluzz';
-      document.getElementById('tPoll').value = s.pollIntervalSec || 10;
-      document.getElementById('tDedup').value = s.dedupSeconds ?? 60;
-      document.getElementById('tPort').value = s.defaultPort || 5005;
-      document.getElementById('tUdp').checked = !!s.udpMode;
-      document.getElementById('tBoot').checked = !!s.autoStartOnBoot;
-      document.getElementById('tAutoUpd').checked = s.autoUpdateEnabled !== false;
+      document.getElementById('tHost').value=s.localHostName||'chamcong'; document.getElementById('tRepo').value=s.updateRepoSlug||'danhhoa20005/paluzz';
+      document.getElementById('tPoll').value=s.pollIntervalSec||10; document.getElementById('tDedup').value=s.dedupSeconds??60;
+      document.getElementById('tPort').value=s.defaultPort||5005; document.getElementById('tUdp').checked=!!s.udpMode;
+      document.getElementById('tBoot').checked=!!s.autoStartOnBoot; document.getElementById('tAutoUpd').checked=s.autoUpdateEnabled!==false;
     }
-    document.getElementById('updStatusLine').textContent = 'v' + s.appVersion + ' • ' + (s.updateInstallMode||'') + (s.updateAvailableVersion ? (' • Bản mới: v' + s.updateAvailableVersion) : '') + (s.updateStatus ? (' • ' + s.updateStatus) : '');
-    document.getElementById('modeSel').value = s.mode;
-    if(!document.getElementById('accUser').value) document.getElementById('accUser').value = s.username || '';
+    document.getElementById('updStatusLine').textContent='v'+s.appVersion+' • '+(s.updateInstallMode||'')+(s.updateAvailableVersion?(' • Bản mới: v'+s.updateAvailableVersion):'')+(s.updateStatus?(' • '+s.updateStatus):'');
+    document.getElementById('modeSel').value=s.mode;
+    if(!document.getElementById('accUser').value) document.getElementById('accUser').value=s.username||'';
     const dBox=document.getElementById('devList');
     dBox.innerHTML = s.devices.length ? s.devices.map(d =>
       `<div class="dev"><div><b>${esc(d.name)}</b> <span class="sub">${esc(d.ip)}:${d.port}${d.protocol==='HIKVISION'?' • Hikvision':''}</span><div><span class="pill ${d.connected?'ok':'warn'}">${esc(d.statusText)}</span></div></div>
-      <div class="row"><button class="ghost" onclick="postAction('/api/devices/reconnect',{key:'${esc(d.key)}'})">Nối lại</button>
+      <div class="row">${d.protocol==='HIKVISION'&&d.connected?`<button class="ok" onclick="postAction('/api/hikvision/door',{key:'${esc(d.key)}',cmd:'open'})">Mở cửa</button>`:''}
+      <button class="ghost" onclick="postAction('/api/devices/reconnect',{key:'${esc(d.key)}'})">Nối lại</button>
       <button class="err" onclick="postAction('/api/devices/remove',{key:'${esc(d.key)}'})">Xoá</button></div></div>`
     ).join('') : '<div class="sub">Chưa có máy nào — bấm "Quét máy LAN" hoặc thêm IP bên dưới.</div>';
-    const sel=document.getElementById('userDevSel'), prev=sel.value;
-    const onlineDevs=s.devices.filter(d=>d.connected);
+    const hikDevs=s.devices.filter(d=>d.protocol==='HIKVISION');
+    const hikCard=document.getElementById('hikCard');
+    hikCard.classList.toggle('hide', hikDevs.length===0);
+    if(hikDevs.length){
+      const hSel=document.getElementById('hikDevSel'), hPrev=hSel.value;
+      hSel.innerHTML=hikDevs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)} (${esc(d.ip)})</option>`).join('');
+      if(hikDevs.some(d=>d.key===hPrev)) hSel.value=hPrev;
+      if(hikHealthLoadedKey!==hSel.value) loadHikHealth();
+    }
+    const sel=document.getElementById('userDevSel'), prev=sel.value, onlineDevs=s.devices.filter(d=>d.connected);
     sel.innerHTML=onlineDevs.map(d=>`<option value="${esc(d.key)}">${esc(d.name)} (${esc(d.ip)})</option>`).join('')||'<option value="">Chưa có máy online</option>';
     if(onlineDevs.some(d=>d.key===prev)) sel.value=prev;
     document.getElementById('logList').innerHTML = s.events.map(e =>
