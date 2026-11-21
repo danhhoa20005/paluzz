@@ -78,7 +78,7 @@ internal fun DevicesPane(
                     )
                     if (onAddDevice != null) {
                         TvActionButton(
-                            text = "Thêm máy",
+                            text = "Thêm & Nhận",
                             containerColor = AppColors.OrbTeal,
                             enabled = !isBusy,
                             compact = true,
@@ -99,9 +99,9 @@ internal fun DevicesPane(
                 TammiEmptyStateView(
                     accentColor = AppColors.OrbTeal,
                     title = "Chưa có máy chấm công",
-                    subtitle = "Bấm Dò LAN để tự tìm máy trong mạng hoặc bấm Thêm máy để nhập IP.",
-                    actionLabel = if (isDiscovering) null else "Dò LAN ngay",
-                    onAction = if (isDiscovering) null else onDiscover,
+                    subtitle = "Bấm Tìm & Nhận máy để tự quét Hikvision & FK trong LAN rồi chạm 1 lần để nhận.",
+                    actionLabel = if (isDiscovering) null else "Tìm & Nhận máy",
+                    onAction = if (isDiscovering) null else (onAddDevice ?: onDiscover),
                 )
             }
         } else {

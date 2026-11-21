@@ -1,7 +1,6 @@
 package com.edusing.chamcongtvbox.presentation.adddevice
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,14 +20,20 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.edusing.chamcongtvbox.domain.model.DeviceProtocol
 import com.edusing.chamcongtvbox.presentation.components.TammiErrorStateCard
 import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
 import com.edusing.chamcongtvbox.presentation.components.TammiOfflineBanner
@@ -39,7 +44,7 @@ import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 
-/** Biểu mẫu thêm máy chấm công **Liquid Glass 3D** thuần màu & chữ chuẩn WCAG AAA. */
+/** Biểu mẫu nhập IP thủ công siêu gọn (chỉ 2–3 ô chính; mọi thông số kỹ thuật ẩn trong Tuỳ chọn nâng cao). */
 @Composable
 internal fun AddDeviceFormPane(
     state: AddDeviceUiState,
@@ -47,6 +52,8 @@ internal fun AddDeviceFormPane(
     modifier: Modifier = Modifier,
 ) {
     val fieldColors = tammiFieldColors()
+    var showPassword by remember { mutableStateOf(false) }
+
     TammiGlassPanel(modifier = modifier, padding = PaddingValues(TammiSpacing.lg)) {
         Column(
             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -54,92 +61,92 @@ internal fun AddDeviceFormPane(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(AppColors.OrbCobalt))
-                Text("Thông số kết nối", fontWeight = FontWeight.Black, fontSize = 16.sp, color = AppColors.Text)
+                Text("Nhập IP thủ công", fontWeight = FontWeight.Black, fontSize = 15.5.sp, color = AppColors.Text)
             }
 
             if (!state.errorMessage.isNullOrBlank()) TammiErrorStateCard(message = state.errorMessage.orEmpty())
             if (!state.infoMessage.isNullOrBlank()) TammiOfflineBanner(message = state.infoMessage.orEmpty())
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = state.ip,
-                    onValueChange = viewModel::onIpChange,
-                    label = { Text("Địa chỉ IP *") },
-                    placeholder = { Text("192.168.1.224") },
-                    singleLine = true,
-                    shape = TammiRadii.inputShape,
-                    colors = fieldColors,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier.weight(1.45f),
-                )
-                OutlinedTextField(
-                    value = state.port,
-                    onValueChange = viewModel::onPortChange,
-                    label = { Text("Cổng") },
-                    singleLine = true,
-                    shape = TammiRadii.inputShape,
-                    colors = fieldColors,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(0.55f),
-                )
+            ProtocolPickerCards(selected = state.protocol, onSelect = viewModel::onProtocolChange)
+
+            OutlinedTextField(
+                value = state.ip,
+                onValueChange = viewModel::onIpChange,
+                label = { Text("Địa chỉ IP hoặc dán link web *") },
+                placeholder = { Text("192.168.1.8") },
+                singleLine = true,
+                shape = TammiRadii.inputShape,
+                colors = fieldColors,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            if (state.protocol == DeviceProtocol.HIKVISION_ISAPI) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = state.hikPassword,
+                        onValueChange = viewModel::onHikPasswordChange,
+                        label = { Text("Mật khẩu thiết bị Hikvision *") },
+                        singleLine = true,
+                        shape = TammiRadii.inputShape,
+                        colors = fieldColors,
+                        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier.weight(1f),
+                    )
+                    TammiOutlinedButton(
+                        text = if (showPassword) "Ẩn" else "Hiện",
+                        compact = true,
+                        onClick = { showPassword = !showPassword },
+                    )
+                }
+                if (state.hasSavedHikPassword && state.hikPassword.isNotBlank()) {
+                    Text(
+                        text = "✓ Đã tự điền tài khoản Hikvision lưu sẵn (${state.hikUsername})",
+                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.GreenText,
+                    )
+                }
             }
 
             OutlinedTextField(
                 value = state.name,
                 onValueChange = viewModel::onNameChange,
-                label = { Text("Tên máy (VD: Cổng chính, Tầng 1)") },
+                label = { Text("Tên máy (tuỳ chọn — VD: Cổng chính)") },
                 singleLine = true,
                 shape = TammiRadii.inputShape,
                 colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            AddDeviceProtocolSection(state = state, viewModel = viewModel)
+            TammiOutlinedButton(
+                text = if (state.showAdvanced) "Thu gọn tuỳ chọn nâng cao ▲"
+                else "Tuỳ chọn nâng cao (Cổng ${state.port}, IP tĩnh...) ▾",
+                compact = true,
+                onClick = viewModel::toggleAdvanced,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
-            state.ipSuggestion?.let { sug ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(TammiRadii.inputShape)
-                        .background(AppColors.GreenSoft)
-                        .border(1.dp, AppColors.Green.copy(alpha = 0.30f), TammiRadii.inputShape)
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Gợi ý IP tĩnh trống", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, color = AppColors.GreenText)
-                        TammiOutlinedButton(
-                            text = "Đổi IP",
-                            enabled = !state.isLoadingSuggestion,
-                            compact = true,
-                            contentColor = AppColors.GreenText,
-                            borderColor = AppColors.Green.copy(alpha = 0.35f),
-                            onClick = viewModel::suggestNextFreeIp,
-                        )
-                    }
-                    Text("IP: ${sug.suggestedIp}  •  Cổng: ${sug.port}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.GreenText)
-                    Text("Mask: ${sug.subnetMask}  •  GW: ${sug.gateway}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = AppColors.GreenText)
-                }
+            if (state.showAdvanced) {
+                AddDeviceAdvancedSection(state = state, viewModel = viewModel)
             }
 
             if (state.isSaving) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.8.dp, color = AppColors.Primary)
                     Spacer(Modifier.width(10.dp))
-                    Text("Đang nối thử máy chấm công...", fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                    Text("Đang kết nối & nhận máy...", fontWeight = FontWeight.Bold, color = AppColors.Primary)
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TvActionButton(
-                        text = "Kết nối & Lưu",
+                        text = "Kết nối & Nhận máy",
                         containerColor = AppColors.Green,
                         onClick = { viewModel.saveDevice(verifyFirst = true) },
-                        modifier = Modifier.weight(1.3f),
+                        modifier = Modifier.weight(1.35f),
                     )
                     TammiOutlinedButton(
                         text = "Lưu luôn",
                         onClick = { viewModel.saveDevice(verifyFirst = false) },
-                        modifier = Modifier.weight(0.75f),
+                        modifier = Modifier.weight(0.7f),
                     )
                 }
             }

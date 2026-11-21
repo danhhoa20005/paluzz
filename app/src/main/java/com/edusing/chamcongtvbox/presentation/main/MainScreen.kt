@@ -52,7 +52,7 @@ fun MainScreen(
             onClick = viewModel::onDiscoverDevicesClicked,
         ),
         TammiQuickAction(
-            label = "Thêm máy",
+            label = "Nhận máy",
             baseColor = AppColors.OrbTeal,
             enabled = !state.isRunning && !state.isBusy,
             onClick = onOpenAddDevice,
@@ -146,6 +146,7 @@ fun MainScreen(
                     isBusy = state.isBusy,
                     isDiscovering = state.isDiscovering,
                     onDiscover = viewModel::onDiscoverDevicesClicked,
+                    onAddDevice = onOpenAddDevice,
                     onReconnectAll = viewModel::onConnectAllClicked,
                     onRename = viewModel::requestRenameDevice,
                     onReconnect = { viewModel.onReconnectDevice(it.key) },

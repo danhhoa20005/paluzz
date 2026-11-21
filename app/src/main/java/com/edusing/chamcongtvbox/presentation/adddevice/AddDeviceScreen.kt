@@ -21,7 +21,9 @@ import com.edusing.chamcongtvbox.presentation.components.TvSubScreenHeader
 import com.edusing.chamcongtvbox.presentation.theme.rememberDeviceUiSpec
 
 /**
- * Màn hình Thêm máy chấm công **Liquid Glass 3D** — 2 cột cho TV Box / Tablet, 2 tab gọn cho Điện thoại.
+ * Màn hình Thêm & Nhận máy chấm công **Liquid Glass 3D**:
+ * - Ưu tiên **Tự tìm máy** trước (tự quét ngay khi mở, chạm 1 lần để nhận máy Hikvision / FK).
+ * - Điện thoại: 2 tab gọn (`Tự tìm máy` mặc định | `Nhập thủ công`). TV Box: 2 cột song song (Trái: Tự tìm | Phải: Nhập tay).
  */
 @Composable
 fun AddDeviceScreen(
@@ -31,13 +33,14 @@ fun AddDeviceScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val ui = rememberDeviceUiSpec()
     var compactTab by rememberSaveable { mutableIntStateOf(0) }
+    val terminalCount = state.detectedTerminals.size
 
     LaunchedEffect(Unit) { viewModel.savedEvent.collect { onBack() } }
 
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
         TvSubScreenHeader(
-            title = "Thêm máy chấm công",
-            subtitle = "",
+            title = "Thêm & Nhận máy",
+            subtitle = "Tự tìm máy trong mạng — chạm 1 lần để nhận",
             onBack = onBack,
             backEnabled = !state.isSaving,
         )
@@ -50,18 +53,20 @@ fun AddDeviceScreen(
                     .padding(horizontal = ui.horizontalPadding, vertical = ui.verticalPadding),
                 horizontalArrangement = Arrangement.spacedBy(ui.cardSpacing),
             ) {
-                AddDeviceFormPane(
-                    state = state,
-                    viewModel = viewModel,
-                    modifier = Modifier.weight(0.54f).fillMaxHeight(),
-                )
                 AddDeviceLanPane(
                     state = state,
                     onScanPrefixChange = viewModel::onScanPrefixChange,
                     onStartScan = { viewModel.startLanScan() },
                     onQuickScanPrefix = { viewModel.startLanScan(it) },
-                    onSelectHost = viewModel::selectDiscoveredHost,
-                    modifier = Modifier.weight(0.46f).fillMaxHeight(),
+                    onQuickAccept = viewModel::onQuickAcceptClicked,
+                    onEditHost = viewModel::selectDiscoveredHost,
+                    onToggleOtherHosts = viewModel::toggleOtherHosts,
+                    modifier = Modifier.weight(0.55f).fillMaxHeight(),
+                )
+                AddDeviceFormPane(
+                    state = state,
+                    viewModel = viewModel,
+                    modifier = Modifier.weight(0.45f).fillMaxHeight(),
                 )
             }
         } else {
@@ -72,26 +77,46 @@ fun AddDeviceScreen(
                 verticalArrangement = Arrangement.spacedBy(ui.cardSpacing),
             ) {
                 TvSegmentedTabs(
-                    tabs = listOf("Nhập IP", "Quét LAN (${state.discoveredHosts.size})"),
+                    tabs = listOf(
+                        if (terminalCount > 0) "Tự tìm máy ($terminalCount)" else "Tự tìm máy",
+                        "Nhập thủ công",
+                    ),
                     selectedIndex = compactTab,
                     onSelect = { compactTab = it },
                 )
                 if (compactTab == 0) {
-                    AddDeviceFormPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth().weight(1f))
-                } else {
                     AddDeviceLanPane(
                         state = state,
                         onScanPrefixChange = viewModel::onScanPrefixChange,
                         onStartScan = { viewModel.startLanScan() },
                         onQuickScanPrefix = { viewModel.startLanScan(it) },
-                        onSelectHost = {
+                        onQuickAccept = viewModel::onQuickAcceptClicked,
+                        onEditHost = {
                             viewModel.selectDiscoveredHost(it)
-                            compactTab = 0
+                            compactTab = 1
                         },
+                        onToggleOtherHosts = viewModel::toggleOtherHosts,
+                        onSwitchToManual = { compactTab = 1 },
                         modifier = Modifier.fillMaxWidth().weight(1f),
                     )
+                } else {
+                    AddDeviceFormPane(state = state, viewModel = viewModel, modifier = Modifier.fillMaxWidth().weight(1f))
                 }
             }
         }
+    }
+
+    state.quickAcceptHost?.let { target ->
+        QuickAcceptDeviceDialog(
+            host = target,
+            username = state.quickAcceptUsername,
+            password = state.quickAcceptPassword,
+            error = state.quickAcceptError,
+            isSaving = state.isSaving,
+            onUsernameChange = viewModel::onQuickAcceptUsernameChange,
+            onPasswordChange = viewModel::onQuickAcceptPasswordChange,
+            onConfirm = viewModel::confirmQuickAcceptDialog,
+            onDismiss = viewModel::dismissQuickAcceptDialog,
+        )
     }
 }

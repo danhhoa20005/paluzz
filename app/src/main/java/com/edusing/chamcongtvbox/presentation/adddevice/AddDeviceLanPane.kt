@@ -1,82 +1,78 @@
 package com.edusing.chamcongtvbox.presentation.adddevice
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edusing.chamcongtvbox.domain.model.LanHostInfo
-import com.edusing.chamcongtvbox.presentation.components.TammiBadgeTone
 import com.edusing.chamcongtvbox.presentation.components.TammiEmptyStateView
+import com.edusing.chamcongtvbox.presentation.components.TammiErrorStateCard
 import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
-import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
+import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TvActionButton
-import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
-import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
-import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
-/** Bảng quét thiết bị mạng LAN **Liquid Glass 3D** thuần màu & chữ (đánh dấu màu xanh lục cho máy FK). */
+/**
+ * Bảng tự động tìm & nhận máy chấm công trong mạng LAN (SADP Hikvision ~1.5s + FK 5005):
+ * - Chỉ nổi bật các máy chấm công thật với nút lớn **Nhận máy ngay** (1 chạm).
+ * - Các thiết bị mạng khác (router, PC...) và đổi dải IP xếp gọn vào mục mở rộng bên dưới.
+ */
 @Composable
 internal fun AddDeviceLanPane(
     state: AddDeviceUiState,
     onScanPrefixChange: (String) -> Unit,
     onStartScan: () -> Unit,
     onQuickScanPrefix: (String) -> Unit,
-    onSelectHost: (LanHostInfo) -> Unit,
+    onQuickAccept: (LanHostInfo) -> Unit,
+    onEditHost: (LanHostInfo) -> Unit,
+    onToggleOtherHosts: () -> Unit,
+    onSwitchToManual: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val terminals = state.detectedTerminals
+    val others = state.otherLanHosts
+
     TammiGlassPanel(modifier = modifier, padding = PaddingValues(TammiSpacing.lg)) {
         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(AppColors.OrbTeal))
+                    Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(if (terminals.isNotEmpty()) AppColors.GreenBright else AppColors.OrbTeal))
                     Column {
-                        Text("Quét mạng LAN", fontWeight = FontWeight.Black, fontSize = 15.5.sp, color = AppColors.Text)
                         Text(
-                            text = state.subnetInfo?.let { "${it.localIp} (${it.interfaceName})" } ?: "Chưa có LAN/Wi-Fi",
-                            fontSize = 12.sp,
-                            color = AppColors.TextSecondary,
+                            text = if (terminals.isNotEmpty()) "Tìm thấy ${terminals.size} máy chấm công" else "Tự tìm máy trong LAN",
+                            fontWeight = FontWeight.Black, fontSize = 15.5.sp, color = AppColors.Text,
+                        )
+                        Text(
+                            text = state.subnetInfo?.let { "Mạng ${it.prefix}.x • Tự quét Hikvision & FK" } ?: "Kết nối Wi-Fi/LAN cùng máy chấm công",
+                            fontSize = 12.sp, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
                 TvActionButton(
-                    text = if (state.isScanning) "Đang quét..." else "Quét",
+                    text = if (state.isScanning) "Đang quét" else "Quét lại",
                     containerColor = AppColors.Primary,
                     enabled = !state.isScanning,
                     compact = true,
@@ -84,126 +80,62 @@ internal fun AddDeviceLanPane(
                 )
             }
 
-            OutlinedTextField(
-                value = state.scanPrefix,
-                onValueChange = onScanPrefixChange,
-                label = { Text("Dải IP (VD: 192.168.1)") },
-                singleLine = true,
-                enabled = !state.isScanning,
-                shape = TammiRadii.inputShape,
-                colors = tammiFieldColors(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (state.quickPrefixes.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    state.quickPrefixes.forEach { prefix ->
-                        val active = state.scanPrefix == prefix
-                        val isLocal = state.subnetInfo?.prefix == prefix
-                        var focused by remember { mutableStateOf(false) }
-                        Box(
-                            modifier = Modifier
-                                .defaultMinSize(minHeight = 44.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (active) AppColors.PrimarySoft else AppColors.SurfaceSubtle)
-                                .border(1.dp, if (active) AppColors.Primary else AppColors.Border, RoundedCornerShape(10.dp))
-                                .onFocusChanged { focused = it.isFocused }
-                                .tvFocusRing(focused, 10)
-                                .clickable(enabled = !state.isScanning) { onQuickScanPrefix(prefix) }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = if (isLocal) "$prefix.x (Hiện tại)" else "$prefix.x (LAN chính)",
-                                fontSize = 12.sp,
-                                fontWeight = if (active) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                color = if (active) AppColors.Primary else AppColors.Text,
-                            )
-                        }
-                    }
-                }
-            }
+            if (!state.errorMessage.isNullOrBlank()) TammiErrorStateCard(message = state.errorMessage.orEmpty())
 
             if (state.isScanning) {
                 val pct = if (state.scanTotal > 0) state.scanCompleted.toFloat() / state.scanTotal else 0f
-                LinearProgressIndicator(progress = { pct.coerceIn(0f, 1f) }, color = AppColors.Primary, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)))
-                Text("Đã quét ${state.scanCompleted}/${state.scanTotal} IP...", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Primary)
+                LinearProgressIndicator(progress = { pct.coerceIn(0f, 1f) }, color = AppColors.Primary, modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)))
+                Text(
+                    text = if (terminals.isEmpty()) "Đang quét nhanh SADP & LAN (${state.scanCompleted}/${state.scanTotal})..."
+                    else "Đã thấy ${terminals.size} máy — đang dò thêm máy FK (${state.scanCompleted}/${state.scanTotal})...",
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Primary,
+                )
             }
 
-            HorizontalDivider(color = AppColors.Border)
-
-            if (state.discoveredHosts.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    TammiEmptyStateView(
-                        title = if (state.isScanning) "Đang tìm thiết bị..." else "Chưa có kết quả quét",
-                        subtitle = if (state.isScanning) "Vui lòng chờ vài giây." else "Chọn dải IP rồi bấm Quét để tìm máy chấm công.",
-                        accentColor = AppColors.OrbTeal,
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.discoveredHosts, key = { it.ip }) { host ->
-                        LanHostRowItem(host, selected = state.ip == host.ip, onClick = { onSelectHost(host) })
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (terminals.isEmpty() && !state.isScanning) {
+                    item(key = "empty_terminals") {
+                        TammiEmptyStateView(
+                            title = "Chưa thấy máy chấm công",
+                            subtitle = "Kiểm tra máy chấm công đã bật nguồn, chung Wi-Fi/LAN rồi bấm Quét lại hoặc nhập IP thủ công.",
+                            accentColor = AppColors.OrbTeal,
+                            actionLabel = if (onSwitchToManual != null) "Nhập IP thủ công" else "Quét lại ngay",
+                            onAction = onSwitchToManual ?: onStartScan,
+                        )
                     }
                 }
-            }
-        }
-    }
-}
 
-@Composable
-private fun LanHostRowItem(host: LanHostInfo, selected: Boolean, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    val isTerminal = host.isDetectedTerminal
-    val bg = when {
-        selected -> AppColors.PrimarySoft
-        isTerminal || host.alreadyConfigured -> AppColors.GreenSoft
-        else -> AppColors.SurfaceSubtle
-    }
-    val borderColor = when {
-        selected -> AppColors.Primary
-        isTerminal || host.alreadyConfigured -> AppColors.Green
-        else -> AppColors.Border
-    }
-    val dotColor = if (isTerminal || host.alreadyConfigured) AppColors.GreenBright else AppColors.Primary
+                items(terminals, key = { "term_${it.ip}" }) { host ->
+                    DetectedTerminalCard(
+                        host = host,
+                        isConnecting = state.savingHostIp == host.ip,
+                        busyAny = state.isSaving,
+                        hasSavedHikPassword = state.hasSavedHikPassword,
+                        onQuickAccept = { onQuickAccept(host) },
+                        onEdit = { onEditHost(host) },
+                    )
+                }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = 52.dp)
-            .clip(TammiRadii.inputShape)
-            .background(bg)
-            .border(1.dp, borderColor, TammiRadii.inputShape)
-            .onFocusChanged { focused = it.isFocused }
-            .tvFocusRing(focused, 16)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(dotColor))
-        Spacer(Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(host.ip, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = AppColors.Text)
-            Text(host.note, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = if (isTerminal || host.alreadyConfigured) AppColors.GreenText else AppColors.TextSecondary)
-        }
-        if (isTerminal || host.alreadyConfigured) {
-            Spacer(Modifier.width(8.dp))
-            val badgeLabel = when {
-                host.alreadyConfigured -> "Đã thêm"
-                host.isHikvisionTerminal -> host.modelHint.ifBlank { "Hikvision" }.take(14)
-                else -> "Máy FK"
+                item(key = "other_toggle") {
+                    HorizontalDivider(color = AppColors.Border.copy(alpha = 0.5f), modifier = Modifier.padding(top = 4.dp))
+                    TammiOutlinedButton(
+                        text = if (state.showOtherHosts) "Thu gọn dải IP & thiết bị khác ▲"
+                        else "Đổi dải IP / Xem ${others.size} thiết bị mạng khác ▾",
+                        compact = true,
+                        onClick = onToggleOtherHosts,
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    )
+                }
+
+                if (state.showOtherHosts) {
+                    item(key = "subnet_controls") { SubnetQuickControls(state, onScanPrefixChange, onQuickScanPrefix) }
+                    items(others, key = { "other_${it.ip}" }) { host -> OtherLanHostRow(host = host, onClick = { onEditHost(host) }) }
+                }
             }
-            TammiStatusPill(
-                label = badgeLabel,
-                tone = if (host.alreadyConfigured) TammiBadgeTone.PRIMARY else TammiBadgeTone.SUCCESS,
-            )
         }
     }
 }

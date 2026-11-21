@@ -43,11 +43,17 @@ class ScanLanDevicesUseCase(
         license: Int = DeviceConfig.DEFAULT_LICENSE,
         useUdp: Boolean = false,
         hikvisionPort: Int = DeviceConfig.DEFAULT_HIK_PORT,
+        onQuickResults: (List<LanHostInfo>) -> Unit = {},
         onProgress: (scanned: Int, total: Int) -> Unit = { _, _ -> },
     ): List<LanHostInfo> = coroutineScope {
         val gateway = deviceGateway
-        // Chạy song song: quét đa hướng SADP cho mọi dòng Hikvision + quét Ping dải LAN
-        val sadpDeferred = async { gateway?.discoverHikvisionSadp(timeoutMs = 1_800).orEmpty() }
+        // Chạy song song: quét đa hướng SADP (~1.5s ra ngay mọi dòng Hikvision) + quét Ping dải LAN
+        val sadpDeferred = async {
+            val found = gateway?.discoverHikvisionSadp(timeoutMs = 1_500).orEmpty()
+            val quickHosts = found.filter { it.isAccessTerminal }.map { dev -> toSadpHost(dev, configuredIps) }
+            if (quickHosts.isNotEmpty()) onQuickResults(sortHosts(quickHosts))
+            found
+        }
         val pingHosts = lanDiscoveryRepository.scanLanHosts(configuredIps, port, customPrefix, onProgress)
         val sadpDevices = sadpDeferred.await()
 
@@ -57,20 +63,7 @@ class ScanLanDevicesUseCase(
         // Đưa trước toàn bộ máy Hikvision phát hiện từ SADP (kể cả máy chặn Ping hoặc đổi cổng HTTP)
         for (dev in sadpDevices) {
             if (!dev.isAccessTerminal) continue
-            val already = dev.ip in configuredIps
-            val ipMode = if (dev.dhcpEnabled) "DHCP" else "IP tĩnh"
-            val actTag = if (dev.activated) "" else " • Chưa kích hoạt"
-            mergedByIp[dev.ip] = LanHostInfo(
-                ip = dev.ip,
-                port = dev.httpPort,
-                reachableByPing = true,
-                alreadyConfigured = already,
-                isHikvisionTerminal = true,
-                detectedProtocol = DeviceProtocol.HIKVISION_ISAPI,
-                modelHint = dev.model,
-                serialHint = dev.serialNumber,
-                note = "${dev.model} (cổng ${dev.httpPort} • $ipMode$actTag)${if (already) " • Đã lưu" else " ✓"}",
-            )
+            mergedByIp[dev.ip] = toSadpHost(dev, configuredIps)
         }
 
         if (gateway == null) {
@@ -111,6 +104,23 @@ class ScanLanDevicesUseCase(
 
         verified.forEach { mergedByIp.putIfAbsent(it.ip, it) }
         sortHosts(mergedByIp.values)
+    }
+
+    private fun toSadpHost(dev: com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice, configuredIps: Set<String>): LanHostInfo {
+        val already = dev.ip in configuredIps
+        val ipMode = if (dev.dhcpEnabled) "DHCP" else "IP tĩnh"
+        val actTag = if (dev.activated) "" else " • Chưa kích hoạt"
+        return LanHostInfo(
+            ip = dev.ip,
+            port = dev.httpPort,
+            reachableByPing = true,
+            alreadyConfigured = already,
+            isHikvisionTerminal = true,
+            detectedProtocol = DeviceProtocol.HIKVISION_ISAPI,
+            modelHint = dev.model,
+            serialHint = dev.serialNumber,
+            note = "${dev.model} (cổng ${dev.httpPort} • $ipMode$actTag)${if (already) " • Đã lưu" else " ✓"}",
+        )
     }
 
     private fun sortHosts(hosts: Collection<LanHostInfo>): List<LanHostInfo> = hosts.sortedWith(
