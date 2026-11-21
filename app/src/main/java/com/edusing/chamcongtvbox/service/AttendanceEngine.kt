@@ -116,6 +116,7 @@ class AttendanceEngine(
     suspend fun <T> withDeviceIoLock(block: suspend () -> T): T = deviceIoMutex.withLock { block() }
     suspend fun triggerAutoPushNow(): Boolean = withContext(Dispatchers.IO) { autoPushScheduler.runNow("Thủ công") }
     fun notifyAutoPushScheduleChanged() = autoPushScheduler.wakeNow()
+    fun wakePollLoopNow() = loopRunner.wakePollNow()
     fun updateWebConsoleUrl(url: String) { stateStore.update { it.copy(webConsoleUrl = url) } }
     fun onAppResumed() { startBackgroundMonitors(); internetWatchdog.wakeNow(); autoPushScheduler.wakeNow(); triggerGentleReconnectIfOffline() }
 

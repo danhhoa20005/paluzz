@@ -64,7 +64,8 @@ internal class HikvisionEnrollmentApi(
         if (!userRes.isSuccess) return userRes
 
         val cleanCard = cardNo.trim()
-        if (cleanCard.isNotEmpty()) {
+        // Chỉ gắn CardInfo khi mã thẻ thuần chữ số (thẻ từ Mifare); không làm thất bại hồ sơ nếu mã là chữ (NV01) hoặc thẻ đã tồn tại
+        if (cleanCard.isNotEmpty() && cleanCard.all(Char::isDigit)) {
             val cardPayload = JSONObject().put(
                 "CardInfo",
                 JSONObject()
@@ -72,12 +73,11 @@ internal class HikvisionEnrollmentApi(
                     .put("cardNo", cleanCard)
                     .put("cardType", "normalCard"),
             ).toString()
-            var cardRes = client.request(device, "PUT", "/ISAPI/AccessControl/CardInfo/SetUp?format=json", cardPayload)
-            if (!cardRes.isSuccess && !cardRes.isUnauthorized) {
-                cardRes = client.request(device, "POST", "/ISAPI/AccessControl/CardInfo/Record?format=json", cardPayload)
-            }
-            if (!cardRes.isSuccess && !cardRes.body.contains("cardNoAlreadyExist", ignoreCase = true)) {
-                return cardRes
+            runCatching {
+                val cardRes = client.request(device, "PUT", "/ISAPI/AccessControl/CardInfo/SetUp?format=json", cardPayload)
+                if (!cardRes.isSuccess && !cardRes.isUnauthorized) {
+                    client.request(device, "POST", "/ISAPI/AccessControl/CardInfo/Record?format=json", cardPayload)
+                }
             }
         }
         return userRes

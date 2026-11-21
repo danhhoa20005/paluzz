@@ -86,7 +86,7 @@ internal fun PushMemberRowItem(
     onToggle: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val pushable = row.member.isPushable
+    val pushable = row.isPushableOnTarget
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -114,7 +114,7 @@ internal fun PushMemberRowItem(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (pushable) {
-                        MemberBadge("#${row.member.cardId}", AppColors.PrimarySoft, AppColors.Primary)
+                        MemberBadge("#${row.pushKey}", AppColors.PrimarySoft, AppColors.Primary)
                         MemberBadge(row.previewShortName.ifBlank { "-" }, AppColors.InfoSoft, AppColors.Info)
                     } else {
                         MemberBadge("Mã lỗi (${row.member.rawCard.ifBlank { "trống" }})", AppColors.RedSoft, AppColors.Red)
@@ -133,7 +133,7 @@ internal fun PushMemberRowItem(
             )
             if (pushable) {
                 Text(
-                    text = "#${row.member.cardId}",
+                    text = "#${row.pushKey}",
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,

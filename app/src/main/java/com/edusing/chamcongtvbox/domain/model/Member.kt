@@ -4,14 +4,23 @@ package com.edusing.chamcongtvbox.domain.model
  * Thông tin một học sinh (bản trường) hoặc nhân viên (bản PALUZZ) lấy từ máy chủ.
  */
 data class Member(
-    val cardId: String,     // Mã thẻ số nguyên dương 32-bit (1..2.147.483.647), rỗng nếu không nạp được
-    val rawCard: String,    // Mã thẻ gốc hiển thị cho người dùng kể cả khi vượt giới hạn
+    val cardId: String,     // Mã thẻ số nguyên dương 32-bit (1..2.147.483.647) cho máy FK
+    val rawCard: String,    // Mã gốc trên máy chủ (giữ nguyên số 0 ở đầu "001", mã chữ "NV01", hoặc thẻ 10 số)
     val name: String,
     val classId: Int,       // 0 = chưa xếp lớp / phòng ban
     val avatarUrl: String = "",
 ) {
     val isPushable: Boolean get() = cardId.isNotEmpty()
     val cardIdInt: Int? get() = cardId.toIntOrNull()?.takeIf { it > 0 }
+
+    /** Mã nhân sự nguyên gốc đẩy xuống Hikvision (`1..32` ký tự, bảo toàn `"001"`, `"NV01"`, thẻ 10 số). */
+    val hikvisionEmployeeNo: String get() = rawCard.trim().ifBlank { cardId.trim() }
+
+    /** Hikvision nhận mọi mã `1..32` ký tự không rỗng, không bị giới hạn số nguyên 32-bit như FK. */
+    val isPushableToHikvision: Boolean get() = hikvisionEmployeeNo.isNotEmpty() && hikvisionEmployeeNo.length <= 32
+
+    fun pushKeyFor(isHikvisionTarget: Boolean): String = if (isHikvisionTarget) hikvisionEmployeeNo else cardId
+    fun isPushableFor(isHikvisionTarget: Boolean): Boolean = if (isHikvisionTarget) isPushableToHikvision else isPushable
 }
 
 /** Một lớp học hoặc phòng ban trên máy chủ. */
@@ -43,6 +52,7 @@ data class MembersTreeData(
     val members: List<Member>,
     val existingCardIdsOnTarget: Set<Int>,
     val existingNamesOnTarget: Set<String>,
+    val existingEmployeeNosOnTarget: Set<String> = emptySet(),
 )
 
 /** Tiến độ xử lý theo lô khi đẩy danh sách hoặc xoá hàng loạt. */

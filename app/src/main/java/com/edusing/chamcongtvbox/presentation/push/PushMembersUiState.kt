@@ -15,6 +15,8 @@ enum class PushListTab {
 /** Một dòng thành viên hiển thị trong nhóm Lớp/Phòng ban. */
 data class MemberDisplayRow(
     val member: Member,
+    val pushKey: String,
+    val isPushableOnTarget: Boolean,
     val className: String,
     val previewShortName: String,
     val isOnTargetDevice: Boolean,
@@ -28,12 +30,12 @@ data class MemberGroupSection(
     val rows: List<MemberDisplayRow>,
     val isExpanded: Boolean,
 ) {
-    val pushableCount: Int get() = rows.count { it.member.isPushable }
+    val pushableCount: Int get() = rows.count { it.isPushableOnTarget }
     val selectedCount: Int get() = rows.count { it.isSelected }
     val allPushableSelected: Boolean get() = pushableCount > 0 && selectedCount == pushableCount
 }
 
-/** Trạng thái UI toàn diện cho màn hình Đẩy danh sách xuống máy chấm công. */
+/** Trạng thái UI toàn diện cho màn hình Đẩy danh sách xuống máy chấm công (FK & mọi dòng Hikvision). */
 data class PushMembersUiState(
     val personLabel: String = "Học sinh",
     val groupLabel: String = "Lớp",
@@ -53,9 +55,10 @@ data class PushMembersUiState(
     val classes: List<ClassGroup> = emptyList(),
     val allMembers: List<Member> = emptyList(),
     val existingCardIdsOnTarget: Set<Int> = emptySet(),
+    val existingEmployeeNosOnTarget: Set<String> = emptySet(),
     val existingNamesOnTarget: Set<String> = emptySet(),
-    val previewShortNameByCard: Map<Int, String> = emptyMap(),
-    val selectedCardIds: Set<Int> = emptySet(),
+    val previewShortNameByKey: Map<String, String> = emptyMap(),
+    val selectedKeys: Set<String> = emptySet(),
     val collapsedGroupIds: Set<Int> = emptySet(),
     val visibleSections: List<MemberGroupSection> = emptyList(),
 ) {
@@ -64,10 +67,13 @@ data class PushMembersUiState(
     val targetHandles: List<ConnectedDeviceHandle>
         get() = if (isTargetAll) connectedDevices else connectedDevices.filter { it.device.key == selectedTargetKey }
 
-    /** Nhãn nút đẩy ghi rõ tên máy đích (đỏ khi đẩy nhiều máy, xanh khi đẩy 1 máy). */
+    /** True nếu toàn bộ máy đích đang chọn đều là Hikvision (nhận mã bất kỳ 1..32 ký tự & tên UTF-8 đầy đủ). */
+    val isHikvisionMode: Boolean
+        get() = targetHandles.isNotEmpty() && targetHandles.all { it.device.isHikvision }
+
     val pushButtonLabel: String
         get() {
-            val count = selectedCardIds.size
+            val count = selectedKeys.size
             val targets = targetHandles
             return when {
                 targets.size > 1 -> "ĐẨY XUỐNG TẤT CẢ ${targets.size} MÁY ($count)"
@@ -76,11 +82,16 @@ data class PushMembersUiState(
             }
         }
 
-    val notOnDeviceCount: Int
-        get() = allMembers.count { m -> val id = m.cardIdInt; id == null || id !in existingCardIdsOnTarget }
+    fun isMemberOnTarget(m: Member): Boolean = if (isHikvisionMode) {
+        val emp = m.hikvisionEmployeeNo
+        emp.isNotEmpty() && emp in existingEmployeeNosOnTarget
+    } else {
+        val id = m.cardIdInt
+        id != null && id in existingCardIdsOnTarget
+    }
 
-    val onDeviceCount: Int
-        get() = allMembers.count { m -> val id = m.cardIdInt; id != null && id in existingCardIdsOnTarget }
+    val notOnDeviceCount: Int get() = allMembers.count { !isMemberOnTarget(it) }
+    val onDeviceCount: Int get() = allMembers.count { isMemberOnTarget(it) }
 
     companion object {
         const val TARGET_ALL_KEY = "__ALL_DEVICES__"

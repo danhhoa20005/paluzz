@@ -100,7 +100,7 @@ internal class HikvisionGatewayImpl(
         val now = clockMillis()
         session.webhookQueue.clear()
         runCatching {
-            val (res, recent) = client.fetchAccessEvents(session.device, now - 30_000L, now + 60_000L, now, maxPages = 1)
+            val (res, recent) = client.fetchAccessEvents(session.device, now - SEED_WINDOW_MS, now + CLOCK_DRIFT_GRACE_MS, now, maxPages = 2)
             if (res.isSuccess) synchronized(session.seenKeys) { recent.forEach { recordSeenLocked(session, it.eventKey) } }
         }
         session.baselineMs = now; session.lastPollMs = now; session.lastClearedAtMs = now
@@ -114,8 +114,8 @@ internal class HikvisionGatewayImpl(
         try {
             val collected = mutableListOf<HikParsedEvent>()
             while (true) { collected.add(session.webhookQueue.poll() ?: break) }
-            val startMs = maxOf(session.lastPollMs - POLL_OVERLAP_MS, session.baselineMs - 2_000L)
-            val (res, polled) = client.fetchAccessEvents(session.device, startMs, now + 60_000L, now)
+            val startMs = maxOf(session.lastPollMs - POLL_OVERLAP_MS, session.baselineMs - CLOCK_DRIFT_GRACE_MS)
+            val (res, polled) = client.fetchAccessEvents(session.device, startMs, now + CLOCK_DRIFT_GRACE_MS, now)
             if (res.isUnauthorized) return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Lỗi xác thực Hikvision (401)")
             if (!res.isSuccess) return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Lỗi đọc AcsEvent HTTP ${res.statusCode}")
 
@@ -213,7 +213,9 @@ internal class HikvisionGatewayImpl(
 
     companion object {
         const val HANDLE_OFFSET = 100_000
-        private const val POLL_OVERLAP_MS = 15_000L
+        private const val POLL_OVERLAP_MS = 20_000L
+        private const val CLOCK_DRIFT_GRACE_MS = 60_000L
+        private const val SEED_WINDOW_MS = 120_000L
         private const val MAX_SEEN_KEYS = 2_000
     }
 }

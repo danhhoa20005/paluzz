@@ -2,15 +2,27 @@ package com.edusing.chamcongtvbox
 
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionControlApi
 import com.edusing.chamcongtvbox.data.remote.ApiResponseParser
+import com.edusing.chamcongtvbox.domain.model.AttendanceLog
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
 import com.edusing.chamcongtvbox.domain.model.DeviceHeartbeatItem
 import com.edusing.chamcongtvbox.domain.model.DeviceProtocol
+import com.edusing.chamcongtvbox.domain.model.DeviceUser
 import com.edusing.chamcongtvbox.domain.model.HikvisionDoorCommand
 import com.edusing.chamcongtvbox.domain.model.HikvisionHistoryItem
+import com.edusing.chamcongtvbox.domain.model.Member
 import com.edusing.chamcongtvbox.domain.model.ServerCheckInResult
+import com.edusing.chamcongtvbox.domain.protocol.FkConnectionInfo
+import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
+import com.edusing.chamcongtvbox.domain.protocol.FkErrorCode
+import com.edusing.chamcongtvbox.domain.protocol.FkResult
+import com.edusing.chamcongtvbox.domain.protocol.FkUserCredential
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.AttendanceRepository
+import com.edusing.chamcongtvbox.domain.usecase.AbbreviateNamesUseCase
 import com.edusing.chamcongtvbox.domain.usecase.BackfillHikvisionEventsUseCase
+import com.edusing.chamcongtvbox.domain.usecase.ConnectedDeviceHandle
+import com.edusing.chamcongtvbox.domain.usecase.PollAttendanceUseCase
+import com.edusing.chamcongtvbox.domain.usecase.PushMembersToDevicesUseCase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -196,5 +208,71 @@ class HikvisionFullSuiteTest {
         val members = ApiResponseParser.parseStudentsResponse(200, raw).getOrThrow()
         assertEquals(1, members.size)
         assertEquals("https://cdn.paluzz.com/a.jpg", members[0].avatarUrl)
+    }
+
+    @Test
+    fun endToEndTwoWay_pushLeadingZeroAlphanumericAnd10DigitCardThenPollToServer() = runTest {
+        val enrolled = mutableListOf<Triple<String, String, String>>()
+        val fakeCtrl = object : HikvisionControlGateway by HikvisionControlApi() {
+            override suspend fun fetchDetailedUsers(device: DeviceConfig) = Result.success(emptyList<DeviceUser>())
+            override suspend fun upsertUserWithOptionalFace(
+                device: DeviceConfig, employeeNo: String, fullName: String, cardNo: String, jpegBytes: ByteArray?,
+            ): Result<String> {
+                enrolled.add(Triple(employeeNo, fullName, cardNo))
+                return Result.success("OK")
+            }
+        }
+        val hikDev = DeviceConfig(ip = "192.168.1.8", port = 80, protocol = DeviceProtocol.HIKVISION_ISAPI)
+        val dummyGw = object : FkDeviceGateway {
+            override suspend fun connect(machineNo: Int, ip: String, port: Int, timeoutMs: Int, netPassword: Int, license: Int, useUdp: Boolean): FkResult<FkConnectionInfo> = FkResult.fail(FkErrorCode.ERR_COMM)
+            override suspend fun disconnect(handle: Int) = Unit
+            override suspend fun disconnectAll() = Unit
+            override suspend fun enableDevice(handle: Int, enable: Boolean) = FkResult.ok(Unit)
+            override suspend fun loadGeneralLogData(handle: Int, readMark: Boolean) = FkResult.ok(
+                listOf(
+                    AttendanceLog(1, 75, 0, 2026, 11, 21, 8, 0, 0, rawCardId = "001"),
+                    AttendanceLog(99, 75, 0, 2026, 11, 21, 8, 1, 0, rawCardId = "NV01"),
+                    AttendanceLog(77, 75, 0, 2026, 11, 21, 8, 2, 0, rawCardId = "3123456789"),
+                )
+            )
+            override suspend fun emptyGeneralLogData(handle: Int) = FkResult.ok(Unit)
+            override suspend fun readAllUserIds(handle: Int) = FkResult.ok(emptyList<FkUserCredential>())
+            override suspend fun putCardEnrollData(handle: Int, enrollNumber: Int, cardNumber: Int, privilege: Int) = FkResult.ok(Unit)
+            override suspend fun saveEnrollData(handle: Int) = FkResult.ok(Unit)
+            override suspend fun deleteEnrollData(handle: Int, enrollNumber: Int, backupNumber: Int) = FkResult.ok(Unit)
+            override suspend fun getUserName(handle: Int, enrollNumber: Int) = FkResult.ok("Nguyễn Danh Hoà")
+            override suspend fun setUserName(handle: Int, enrollNumber: Int, name: String) = FkResult.ok(Unit)
+            override fun getConnectionInfo(handle: Int): FkConnectionInfo? = null
+        }
+
+        // Chiều 1: Đẩy nhân sự từ server tổng xuống Hikvision (giữ nguyên "001", "NV01", thẻ 10 số & tên tiếng Việt có dấu)
+        val members = listOf(
+            Member(cardId = "1", rawCard = "001", name = "Nguyễn Danh Hoà", classId = 1),
+            Member(cardId = "", rawCard = "NV01", name = "Trần Minh Khoa", classId = 1),
+            Member(cardId = "", rawCard = "3123456789", name = "Lê Thị Lan", classId = 1),
+        )
+        val pushSummary = PushMembersToDevicesUseCase(dummyGw, AbbreviateNamesUseCase(), fakeCtrl)(
+            targets = listOf(ConnectedDeviceHandle(hikDev, 100_001)),
+            members = members,
+        )
+        assertEquals(3, pushSummary.succeeded)
+        assertEquals(Triple("001", "Nguyễn Danh Hoà", "001"), enrolled[0])
+        assertEquals(Triple("NV01", "Trần Minh Khoa", ""), enrolled[1]) // Mã chữ không gắn CardInfo số
+        assertEquals(Triple("3123456789", "Lê Thị Lan", "3123456789"), enrolled[2])
+
+        // Chiều 2: Quét mặt trên Hikvision -> gửi chính xác nguyên mã "001", "NV01", "3123456789" lên server tổng Paluzz!
+        val sentToServer = mutableListOf<String>()
+        val repo = object : AttendanceRepository {
+            override suspend fun submitCheckInOut(apiDomain: String, accountId: String, studentCardId: String, device: DeviceConfig): ServerCheckInResult {
+                sentToServer.add(studentCardId)
+                return ServerCheckInResult(true, "08:00:00", 1_000L, "Chấm công thành công")
+            }
+            override suspend fun sendHeartbeat(apiDomain: String, accountId: String, primaryMachineNo: Int, running: Boolean, devices: List<DeviceHeartbeatItem>) = Unit
+            override fun lastKnownServerTimeMillis(): Long? = null
+            override fun resetNetworkConnections() = Unit
+        }
+        val pollOutcome = PollAttendanceUseCase(dummyGw, repo)(100_001, hikDev, "api.paluzz.com", "acc1", 60L)
+        assertEquals(listOf("001", "NV01", "3123456789"), sentToServer)
+        assertEquals(3, pollOutcome.events.size)
     }
 }

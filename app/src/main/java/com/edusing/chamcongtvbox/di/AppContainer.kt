@@ -99,8 +99,11 @@ class AppContainer(appContext: Context) {
         hikGateway = hikvisionGateway,
     )
 
-    fun handleHikvisionWebhook(remoteIp: String, rawBody: String): Boolean =
-        hikvisionGateway.onWebhookEvent(remoteIp, rawBody)
+    fun handleHikvisionWebhook(remoteIp: String, rawBody: String): Boolean {
+        val ok = hikvisionGateway.onWebhookEvent(remoteIp, rawBody)
+        if (ok) attendanceEngine.wakePollLoopNow()
+        return ok
+    }
 
     // Kho dữ liệu (Repositories)
     val authRepository: AuthRepository = AuthRepositoryImpl(apiClient)
@@ -127,6 +130,7 @@ class AppContainer(appContext: Context) {
         memberRepository = memberRepository,
         validateCredentialsUseCase = validateCredentialsUseCase,
         deviceGateway = deviceGateway,
+        hikControl = hikvisionControlGateway,
     )
     val pushMembersToDevicesUseCase = PushMembersToDevicesUseCase(deviceGateway, abbreviateNamesUseCase, hikvisionControlGateway)
     val autoPushMembersUseCase = AutoPushMembersUseCase(

@@ -14,11 +14,13 @@ import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -54,10 +56,11 @@ internal class AttendanceLoopRunner(
     private var authMonitorJob: Job? = null
     private var zeroDeviceCycles = 0
     private var runningOfflineCycles = 0
-    private val lastPollHeartbeatMs = AtomicLong(0L)
-    private val offlineBackoffByKey = mutableMapOf<String, Int>()
+    private val lastPollHeartbeatMs = AtomicLong(0L); private val offlineBackoffByKey = mutableMapOf<String, Int>()
+    private val pollWakeChannel = Channel<Unit>(Channel.CONFLATED)
 
     fun resetOfflineBackoff() = synchronized(offlineBackoffByKey) { offlineBackoffByKey.clear() }
+    fun wakePollNow() { pollWakeChannel.trySend(Unit) }
 
     suspend fun flushPendingQueueNow() {
         val cfg = configRepository.getConfig()
@@ -108,14 +111,12 @@ internal class AttendanceLoopRunner(
     }
 
     fun startPollLoop() {
-        pollJob?.cancel()
-        lastPollHeartbeatMs.set(System.currentTimeMillis())
+        pollJob?.cancel(); lastPollHeartbeatMs.set(System.currentTimeMillis())
         pollJob = scope.launch {
             while (isActive && stateStore.current.isRunning) {
+                lastPollHeartbeatMs.set(System.currentTimeMillis()); runSafe { runOnePollCycle() }
                 lastPollHeartbeatMs.set(System.currentTimeMillis())
-                runSafe { runOnePollCycle() }
-                lastPollHeartbeatMs.set(System.currentTimeMillis())
-                delay(configRepository.getConfig().pollIntervalMs.coerceAtLeast(3_000L))
+                withTimeoutOrNull(configRepository.getConfig().pollIntervalMs.coerceAtLeast(3_000L)) { pollWakeChannel.receive() }
             }
         }
     }

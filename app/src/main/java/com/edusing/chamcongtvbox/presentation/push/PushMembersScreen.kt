@@ -141,8 +141,8 @@ fun PushMembersScreen(
                             PushGroupHeaderRow(section, { viewModel.toggleGroupSelection(section) }, { viewModel.toggleGroupExpanded(section.classId) })
                         }
                         if (section.isExpanded) {
-                            items(section.rows, key = { r -> "m_${section.classId}_${r.member.cardId}_${r.member.rawCard}_${r.member.name}" }) { row ->
-                                PushMemberRowItem(row, isCompact = ui.isCompact) { row.member.cardIdInt?.let(viewModel::toggleMemberSelected) }
+                            items(section.rows, key = { r -> "m_${section.classId}_${r.pushKey}_${r.member.name}" }) { row ->
+                                PushMemberRowItem(row, isCompact = ui.isCompact) { if (row.isPushableOnTarget) viewModel.toggleMemberSelected(row.pushKey) }
                             }
                         }
                     }
@@ -166,7 +166,7 @@ fun PushMembersScreen(
                 TvActionButton(
                     text = state.pushButtonLabel,
                     containerColor = if (state.isTargetAll && state.targetHandles.size > 1) AppColors.Red else AppColors.Green,
-                    enabled = !state.isLoading && !state.isPushing && state.selectedCardIds.isNotEmpty() && state.targetHandles.isNotEmpty(),
+                    enabled = !state.isLoading && !state.isPushing && state.selectedKeys.isNotEmpty() && state.targetHandles.isNotEmpty(),
                     compact = false,
                     onClick = viewModel::requestPushSelected,
                     modifier = Modifier.weight(1f),
@@ -179,7 +179,7 @@ fun PushMembersScreen(
         val names = state.targetHandles.joinToString("\n• ") { "${it.device.displayName} (${it.device.ip})" }
         TvSafeConfirmDialog(
             title = "Đẩy xuống TẤT CẢ máy?",
-            message = "Sẽ đẩy ${state.selectedCardIds.size} ${state.personLabel.lowercase()} xuống ${state.targetHandles.size} máy:\n• $names",
+            message = "Sẽ đẩy ${state.selectedKeys.size} ${state.personLabel.lowercase()} xuống ${state.targetHandles.size} máy:\n• $names",
             confirmText = "Đẩy tất cả",
             cancelText = "Huỷ",
             confirmColor = AppColors.Red,
