@@ -3,6 +3,7 @@ package com.edusing.chamcongtvbox
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionDigestChallenge
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionGatewayImpl
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionIsapiParser
+import com.edusing.chamcongtvbox.data.hikvision.HikvisionLanTls
 import com.edusing.chamcongtvbox.data.protocol.HybridDeviceGatewayImpl
 import com.edusing.chamcongtvbox.domain.model.AttendanceLog
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
@@ -64,6 +65,21 @@ class HikvisionIsapiTest {
 
         val basic = HikvisionDigestChallenge.parse(listOf("""Basic realm="Hik""""))!!
         assertEquals("Basic YWRtaW46MTIzNA==", basic.buildAuthorization("GET", "/", "admin", "1234"))
+
+        // Kiểm thử đúng header WWW-Authenticate thực tế từ DS-K1T320MX (firmware 2024+, nonce base64 có dấu '=')
+        val realHeader = """Digest qop="auth", realm="DS-FC3B673D", nonce="NTcxZjM3NjA5NWFlMGRiMDc1YTgwMjA1OTRhY2E1MWU=", stale="false", opaque="", domain="::""""
+        val realChallenge = HikvisionDigestChallenge.parse(listOf(realHeader))!!
+        assertEquals("DS-FC3B673D", realChallenge.params["realm"])
+        assertEquals("NTcxZjM3NjA5NWFlMGRiMDc1YTgwMjA1OTRhY2E1MWU=", realChallenge.params["nonce"])
+        val realAuth = realChallenge.buildAuthorization("GET", "/ISAPI/System/deviceInfo", "admin", "Pass1234", 1, "abcd1234")
+        assertTrue(realAuth.contains("realm=\"DS-FC3B673D\""))
+        assertTrue(realAuth.contains("nonce=\"NTcxZjM3NjA5NWFlMGRiMDc1YTgwMjA1OTRhY2E1MWU=\""))
+
+        // Kiểm thử chỉ cho phép self-signed HTTPS ở IP LAN nội bộ & bóc IP từ đường dẫn web Hikvision
+        assertTrue(HikvisionLanTls.isPrivateLanIp("192.168.1.8"))
+        assertTrue(HikvisionLanTls.isPrivateLanIp("10.0.0.5"))
+        assertTrue(!HikvisionLanTls.isPrivateLanIp("8.8.8.8"))
+        assertEquals("192.168.1.8", HikvisionLanTls.extractHostFromInput("https://192.168.1.8/doc/index.html#/portal/login"))
     }
 
     @Test

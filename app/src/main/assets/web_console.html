@@ -210,10 +210,11 @@ function onProtoChange(){
 }
 function addDevice(){
   const protocol=document.getElementById('addProto').value;
-  const ip=document.getElementById('addIp').value.trim(), name=document.getElementById('addName').value.trim();
+  const rawIp=document.getElementById('addIp').value.trim(), name=document.getElementById('addName').value.trim();
+  const ip=rawIp.replace(/^https?:\/\//i,'').split(/[\/#?:]/)[0].trim();
   const port=parseInt(document.getElementById('addPort').value||(protocol==='HIKVISION'?'80':'5005'),10);
   if(!ip){toast('Nhập IP máy');return;}
-  const payload={protocol,ip,port,name};
+  const payload={protocol,ip,port,name,useHttps:port===443||/^https:\/\//i.test(rawIp)};
   if(protocol==='HIKVISION'){
     payload.username=(document.getElementById('addHikUser').value||'admin').trim();
     payload.accessPassword=document.getElementById('addHikPass').value;

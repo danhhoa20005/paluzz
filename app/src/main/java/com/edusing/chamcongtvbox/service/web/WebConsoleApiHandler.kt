@@ -135,19 +135,17 @@ internal class WebConsoleApiHandler(
     }
 
     private suspend fun handleAddDevice(rawBody: String): WebHttpResponse {
-        val j = JSONObject(rawBody); val ip = j.optString("ip", "").trim()
+        val j = JSONObject(rawBody); val rawIp = j.optString("ip", "").trim()
+        val ip = rawIp.substringAfter("://", rawIp).substringBefore('/').substringBefore('#').substringBefore('?').substringBefore(':').trim()
         if (ip.isBlank()) return jsonBad("Vui lòng nhập địa chỉ IP máy chấm công")
         val cfg = configRepository.getConfig()
         val proto = DeviceProtocol.fromCode(j.optString("protocol", "FK"))
-        val useHttps = j.optBoolean("useHttps", false)
-        val defaultPort = if (proto == DeviceProtocol.HIKVISION_ISAPI) {
-            if (useHttps) DeviceConfig.DEFAULT_HIK_HTTPS_PORT else DeviceConfig.DEFAULT_HIK_PORT
-        } else cfg.defaultPort
+        val portNum = j.optInt("port", if (proto == DeviceProtocol.HIKVISION_ISAPI) DeviceConfig.DEFAULT_HIK_PORT else cfg.defaultPort).coerceIn(1, 65535)
+        val useHttps = j.optBoolean("useHttps", false) || portNum == DeviceConfig.DEFAULT_HIK_HTTPS_PORT || rawIp.startsWith("https://", true)
         val accessPass = j.optString("accessPassword", "")
         if (proto == DeviceProtocol.HIKVISION_ISAPI && accessPass.isBlank()) return jsonBad("Thiếu mật khẩu thiết bị Hikvision")
         val dev = DeviceConfig(
-            ip = ip, port = j.optInt("port", defaultPort).coerceIn(1, 65535),
-            machineNo = j.optInt("machineNo", cfg.defaultMachineNo).coerceAtLeast(1),
+            ip = ip, port = portNum, machineNo = j.optInt("machineNo", cfg.defaultMachineNo).coerceAtLeast(1),
             name = j.optString("name", "").trim(), password = cfg.defaultPassword, license = cfg.defaultLicense,
             useUdp = cfg.udpMode, protocol = proto, useHttps = useHttps, accessPassword = accessPass,
             username = j.optString("username", DeviceConfig.DEFAULT_HIK_USERNAME).trim().ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },

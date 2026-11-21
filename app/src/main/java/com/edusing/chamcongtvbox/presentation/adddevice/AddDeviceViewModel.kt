@@ -79,26 +79,24 @@ class AddDeviceViewModel(
     }
 
     fun onProtocolChange(protocol: DeviceProtocol) {
-        val cfg = configRepository.getConfig()
         val defaultPort = if (protocol == DeviceProtocol.HIKVISION_ISAPI) {
             if (_uiState.value.useHttps) DeviceConfig.DEFAULT_HIK_HTTPS_PORT else DeviceConfig.DEFAULT_HIK_PORT
-        } else {
-            cfg.defaultPort
-        }
-        _uiState.update {
-            it.copy(
-                protocol = protocol,
-                port = defaultPort.toString(),
-                errorMessage = null,
-                infoMessage = if (protocol == DeviceProtocol.HIKVISION_ISAPI) {
-                    "Đã chọn cổng Hikvision ISAPI (DS-K1T320MX). Nhập IP, tài khoản admin và mật khẩu kích hoạt thiết bị."
-                } else null,
-            )
-        }
+        } else configRepository.getConfig().defaultPort
+        val hint = if (protocol == DeviceProtocol.HIKVISION_ISAPI) "Đã chọn cổng Hikvision ISAPI (DS-K1T320MX). Nhập IP, tài khoản admin & mật khẩu thiết bị." else null
+        _uiState.update { it.copy(protocol = protocol, port = defaultPort.toString(), errorMessage = null, infoMessage = hint) }
     }
 
     fun onNameChange(value: String) = _uiState.update { it.copy(name = value, errorMessage = null) }
-    fun onIpChange(value: String) = _uiState.update { it.copy(ip = value.trim(), errorMessage = null) }
+    fun onIpChange(value: String) {
+        val raw = value.trim()
+        if (raw.contains("://") || raw.contains('/')) {
+            val isHttpsUrl = raw.startsWith("https://", ignoreCase = true)
+            val authority = raw.substringAfter("://", raw).substringBefore('/').substringBefore('#').substringBefore('?')
+            val host = authority.substringBefore(':').trim()
+            val nextPort = authority.substringAfter(':', "").filter(Char::isDigit).ifBlank { if (isHttpsUrl) "443" else "80" }
+            _uiState.update { it.copy(protocol = DeviceProtocol.HIKVISION_ISAPI, ip = host, port = nextPort, useHttps = isHttpsUrl || nextPort == "443", errorMessage = null) }
+        } else _uiState.update { it.copy(ip = raw, errorMessage = null) }
+    }
     fun onPortChange(value: String) = _uiState.update { it.copy(port = value.filter(Char::isDigit), errorMessage = null) }
     fun onMachineNoChange(value: String) = _uiState.update { it.copy(machineNo = value.filter(Char::isDigit), errorMessage = null) }
     fun onCommPasswordChange(value: String) = _uiState.update { it.copy(commPassword = value.filter(Char::isDigit), errorMessage = null) }

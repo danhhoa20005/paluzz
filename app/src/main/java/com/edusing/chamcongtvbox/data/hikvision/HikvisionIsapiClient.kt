@@ -18,22 +18,25 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 internal class HikvisionIsapiClient(
     private val baseClient: OkHttpClient = createDefaultLanClient(),
+    private val lanHttpsClient: OkHttpClient = createLanHttpsClient(baseClient),
 ) {
     private val nonceCounter = AtomicInteger(1)
 
     /** Dò nhanh không cần mật khẩu xem địa chỉ IP có chạy Hikvision ISAPI hay không (`GET /ISAPI/System/deviceInfo`). */
     fun probeIsapiHost(ip: String, port: Int = DeviceConfig.DEFAULT_HIK_PORT, timeoutMs: Int = 700): String? {
-        val url = buildUrl(ip, port, useHttps = port == DeviceConfig.DEFAULT_HIK_HTTPS_PORT, "/ISAPI/System/deviceInfo")
+        val useHttps = port == DeviceConfig.DEFAULT_HIK_HTTPS_PORT
+        val url = buildUrl(ip, port, useHttps = useHttps, "/ISAPI/System/deviceInfo")
         val req = Request.Builder().url(url).get().header("Connection", "close").build()
         return runCatching {
-            clientWithTimeout(timeoutMs).newCall(req).execute().use { res ->
+            clientWithTimeout(timeoutMs, useHttps = useHttps, hostIp = ip).newCall(req).execute().use { res ->
                 val server = res.header("Server").orEmpty().lowercase()
                 val wwwAuth = res.headers("WWW-Authenticate").joinToString(" ")
                 val body = res.body?.string().orEmpty()
                 val isHikServer = server.contains("webs") || server.contains("hikvision") || server.contains("dnvrs")
                 val isHikRealm = wwwAuth.contains("DS-", true) || wwwAuth.contains("HIK", true) ||
                     wwwAuth.contains("IP Camera", true) || wwwAuth.contains("Embedded", true)
-                val isIsapiBody = body.contains("isapi.org", true) || body.contains("<DeviceInfo", true) || body.contains("<ResponseStatus", true)
+                val isIsapiBody = body.contains("isapi.org", true) || body.contains("<DeviceInfo", true) ||
+                    body.contains("<ResponseStatus", true) || body.contains("<userCheck", true)
                 when {
                     res.code in 200..299 && isIsapiBody -> "Hikvision ${HikvisionIsapiParser.parseDeviceInfo(body).model}"
                     res.code == 401 && wwwAuth.contains("Digest", true) && (isHikServer || isHikRealm || isIsapiBody) -> "Hikvision ISAPI"
@@ -110,7 +113,7 @@ internal class HikvisionIsapiClient(
         timeoutMs: Int = 6_000,
     ): HikHttpResponse {
         val url = buildUrl(device.ip, device.port, device.useHttps, pathWithQuery)
-        val client = clientWithTimeout(timeoutMs)
+        val client = clientWithTimeout(timeoutMs, useHttps = device.useHttps, hostIp = device.ip)
         val first = executeSingle(client, method, url, body, contentType, authHeader = null)
         if (!first.isUnauthorized) return first
 
@@ -144,9 +147,10 @@ internal class HikvisionIsapiClient(
         }
     }
 
-    private fun clientWithTimeout(timeoutMs: Int): OkHttpClient {
+    private fun clientWithTimeout(timeoutMs: Int, useHttps: Boolean = false, hostIp: String = ""): OkHttpClient {
         val ms = timeoutMs.coerceIn(500, 30_000).toLong()
-        return baseClient.newBuilder().connectTimeout(ms, TimeUnit.MILLISECONDS)
+        val root = if (useHttps && HikvisionLanTls.isPrivateLanIp(hostIp)) lanHttpsClient else baseClient
+        return root.newBuilder().connectTimeout(ms, TimeUnit.MILLISECONDS)
             .readTimeout(ms, TimeUnit.MILLISECONDS).writeTimeout(ms, TimeUnit.MILLISECONDS).build()
     }
 
@@ -168,5 +172,8 @@ internal class HikvisionIsapiClient(
             .followSslRedirects(false)
             .retryOnConnectionFailure(false)
             .build()
+
+        private fun createLanHttpsClient(base: OkHttpClient): OkHttpClient =
+            runCatching { HikvisionLanTls.applyLanSelfSignedTls(base.newBuilder()).build() }.getOrElse { base }
     }
 }
