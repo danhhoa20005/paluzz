@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -34,6 +35,7 @@ import com.edusing.chamcongtvbox.di.AppContainer
 import com.edusing.chamcongtvbox.di.AppViewModelFactory
 import com.edusing.chamcongtvbox.presentation.adddevice.AddDeviceScreen
 import com.edusing.chamcongtvbox.presentation.adddevice.AddDeviceViewModel
+import com.edusing.chamcongtvbox.presentation.components.AutoUpdateCountdownDialog
 import com.edusing.chamcongtvbox.presentation.login.LoginScreen
 import com.edusing.chamcongtvbox.presentation.login.LoginViewModel
 import com.edusing.chamcongtvbox.presentation.main.AppShellScaffold
@@ -110,7 +112,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         TvAutoBootHelper.setAppInForeground(true)
-        (application as AttendanceTvApp).container.attendanceEngine.onAppResumed()
+        val c = (application as AttendanceTvApp).container
+        c.attendanceEngine.onAppResumed()
+        c.appUpdateCoordinator.triggerBackgroundCheckIfDue()
     }
 
     override fun onPause() {
@@ -123,75 +127,52 @@ class MainActivity : ComponentActivity() {
         if (!isTv) return
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setTurnScreenOn(true)
-            setShowWhenLocked(true)
+            setTurnScreenOn(true); setShowWhenLocked(true)
         } else {
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-            )
+            window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
         }
     }
 
     private fun observeKeepScreenOn(container: AppContainer, isTv: Boolean) {
         if (isTv) return
         lifecycleScope.launch {
-            container.attendanceEngine.state
-                .map { it.isRunning }
-                .distinctUntilChanged()
-                .collect { running ->
-                    if (running) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                }
+            container.attendanceEngine.state.map { it.isRunning }.distinctUntilChanged().collect { running ->
+                if (running) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
         }
     }
 
     private fun requestStartupPermissionsIfNeeded() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-            if (!granted) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                return
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
         }
         promptOverlayPermissionIfNeeded()
     }
 
-    private fun promptOverlayPermissionIfNeeded() {
-        val isTv = detectIsTvDevice(this, resources.configuration)
-        TvAutoBootHelper.promptOverlayPermissionOnLaunchIfNeeded(this, isTvDevice = isTv)
-    }
+    private fun promptOverlayPermissionIfNeeded() =
+        TvAutoBootHelper.promptOverlayPermissionOnLaunchIfNeeded(this, isTvDevice = detectIsTvDevice(this, resources.configuration))
 }
 
 @Composable
-private fun AttendanceTvRoot(
-    container: AppContainer,
-    onMoveToBackground: () -> Unit,
-) {
+private fun AttendanceTvRoot(container: AppContainer, onMoveToBackground: () -> Unit) {
     val factory = remember(container) { AppViewModelFactory(container) }
+    val uiScope = rememberCoroutineScope()
     val engineSnap by container.attendanceEngine.state.collectAsStateWithLifecycle()
-    var screen by remember {
-        mutableStateOf<AppScreen>(
-            if (container.configRepository.getConfig().isLoggedIn) AppScreen.Shell else AppScreen.Login()
-        )
-    }
+    val updateSnap by container.appUpdateCoordinator.state.collectAsStateWithLifecycle()
+    var screen by remember { mutableStateOf<AppScreen>(if (container.configRepository.getConfig().isLoggedIn) AppScreen.Shell else AppScreen.Login()) }
     var suppressAutoLogin by remember { mutableStateOf(false) }
     var subScreenCounter by remember { mutableIntStateOf(1) }
 
-    // Lắng nghe yêu cầu đăng nhập lại từ bộ điều phối nền (401/403 hoặc đổi mật khẩu)
     LaunchedEffect(container) {
-        container.attendanceEngine.forceRelogin.collect { reason ->
-            suppressAutoLogin = true
-            screen = AppScreen.Login(notice = reason)
-        }
+        container.attendanceEngine.forceRelogin.collect { reason -> suppressAutoLogin = true; screen = AppScreen.Login(notice = reason) }
     }
-    // Tự vào thẳng màn hình chính nếu đăng nhập nền (boot / Web LAN) hoàn tất khi đang ở màn Login
     LaunchedEffect(container) {
         container.configRepository.configFlow.map { it.isLoggedIn }.distinctUntilChanged().collect { loggedIn ->
-            if (loggedIn && screen is AppScreen.Login) {
-                suppressAutoLogin = false
-                screen = AppScreen.Shell
-            }
+            if (loggedIn && screen is AppScreen.Login) { suppressAutoLogin = false; screen = AppScreen.Shell }
         }
     }
 
@@ -232,5 +213,17 @@ private fun AttendanceTvRoot(
             val vm: AddDeviceViewModel = viewModel(key = "add_device_${dest.session}", factory = factory)
             AddDeviceScreen(viewModel = vm, onBack = { screen = AppScreen.Shell })
         }
+    }
+
+    if (updateSnap.shouldAutoPromptNow) {
+        val verCode = updateSnap.availableRelease?.versionCode ?: 0
+        AutoUpdateCountdownDialog(
+            updateState = updateSnap,
+            onInstallNow = {
+                container.appUpdateCoordinator.markAutoPrompted(verCode)
+                uiScope.launch { container.appUpdateCoordinator.downloadAndInstallNow(allowInteractiveFallback = true) }
+            },
+            onSnooze = { container.appUpdateCoordinator.dismissUpdateBanner(verCode) },
+        )
     }
 }

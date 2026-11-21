@@ -96,6 +96,7 @@ fun MainScreen(
                             onReconnect = { viewModel.onReconnectDevice(it.key) },
                             onDelete = viewModel::requestDeleteDevice,
                             onOpenDoor = viewModel::onOpenHikvisionDoor,
+                            onBackfillToday = viewModel::onBackfillHikvisionToday,
                             modifier = Modifier.weight(0.95f).fillMaxHeight().verticalScroll(rememberScrollState()),
                         )
                     }
@@ -152,6 +153,7 @@ fun MainScreen(
                     onReconnect = { viewModel.onReconnectDevice(it.key) },
                     onDelete = viewModel::requestDeleteDevice,
                     onOpenDoor = viewModel::onOpenHikvisionDoor,
+                    onBackfillToday = viewModel::onBackfillHikvisionToday,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 LiveActivityPane(

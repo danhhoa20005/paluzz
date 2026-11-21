@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedTextField
@@ -145,20 +144,8 @@ private fun EssentialRuntimeCard(state: SettingsUiState, viewModel: SettingsView
             NumField("Chống trùng (giây)", state.dedupSeconds, viewModel::onDedupSecChange, Modifier.weight(1f))
         }
         Spacer(Modifier.size(TammiSpacing.sm))
-        var bootFocused by remember { mutableStateOf(false) }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .onFocusChanged { bootFocused = it.isFocused }
-                .tvFocusRing(bootFocused, 10)
-                .clickable { viewModel.onAutoStartOnBootChange(!state.autoStartOnBoot) },
-        ) {
-            Checkbox(checked = state.autoStartOnBoot, onCheckedChange = viewModel::onAutoStartOnBootChange)
-            Spacer(Modifier.width(4.dp))
-            Text("Tự chạy lại app khi bật nguồn", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = AppColors.Text)
-        }
+        SettingsCheckboxRow("Tự chạy lại app khi bật nguồn", state.autoStartOnBoot, viewModel::onAutoStartOnBootChange)
+        SettingsCheckboxRow("Đọc lời chào tiếng Việt qua loa khi chấm công", state.voiceGreetingEnabled, viewModel::onVoiceGreetingChange)
     }
 }
 

@@ -11,8 +11,11 @@ import com.edusing.chamcongtvbox.domain.model.LiveEventEntry
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.ConfigRepository
 import com.edusing.chamcongtvbox.domain.repository.InternetStatus
+import com.edusing.chamcongtvbox.domain.usecase.BackfillHikvisionEventsUseCase
 import com.edusing.chamcongtvbox.domain.usecase.LogoutUseCase
 import com.edusing.chamcongtvbox.service.AttendanceEngine
+import java.util.Calendar
+import java.util.TimeZone
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -65,6 +68,7 @@ class MainViewModel(
     private val attendanceEngine: AttendanceEngine,
     private val logoutUseCase: LogoutUseCase,
     private val hikControl: HikvisionControlGateway? = null,
+    private val backfillUseCase: BackfillHikvisionEventsUseCase? = null,
 ) : ViewModel() {
 
     private val dialogs = MutableStateFlow(MainDialogState())
@@ -158,6 +162,25 @@ class MainViewModel(
             ctrl.controlDoor(device, HikvisionDoorCommand.OPEN).fold(
                 onSuccess = { msg -> attendanceEngine.appendLog(device.displayName, "-", msg, EventSeverity.SUCCESS) },
                 onFailure = { err -> attendanceEngine.appendLog(device.displayName, "-", err.message ?: "Mở cửa lỗi", EventSeverity.ERROR) },
+            )
+        }
+    }
+
+    /** Đồng bộ bù toàn bộ lượt chấm công hôm nay còn trên máy Hikvision lên máy chủ tổng (1 chạm). */
+    fun onBackfillHikvisionToday(device: DeviceConfig) {
+        val uc = backfillUseCase ?: return
+        val cfg = configRepository.getConfig()
+        if (!cfg.isLoggedIn) return
+        viewModelScope.launch {
+            attendanceEngine.appendLog(device.displayName, "-", "Đang đồng bộ bù lượt chấm hôm nay...", EventSeverity.INFO)
+            val nowMs = attendanceEngine.currentServerTimeMillis()
+            val sinceMs = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh")).apply {
+                timeInMillis = nowMs; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            val domain = configRepository.getBranding().normalizeApiDomain(cfg.apiDomain)
+            attendanceEngine.withDeviceIoLock { uc(device, domain, cfg.accountId, sinceMs, nowMs + 60_000L, cfg.dedupSeconds) }.fold(
+                onSuccess = { s -> attendanceEngine.appendLog(device.displayName, "-", "Bù lượt hôm nay: ${s.message}", EventSeverity.SUCCESS) },
+                onFailure = { e -> attendanceEngine.appendLog(device.displayName, "-", e.message ?: "Đồng bộ bù lỗi", EventSeverity.ERROR) },
             )
         }
     }

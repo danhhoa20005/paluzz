@@ -90,6 +90,7 @@ class SecureConfigStore(
                 updateRepoSlug = AppConfig.sanitizeRepoSlug(root.optString("updateRepoSlug", AppConfig.DEFAULT_UPDATE_REPO)),
                 defaultHikUsername = root.optString("defaultHikUsername", DeviceConfig.DEFAULT_HIK_USERNAME).ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
                 defaultHikPassword = root.optString("defaultHikPassword", ""),
+                voiceGreetingEnabled = root.optBoolean("voiceGreetingEnabled", false),
             )
         }.getOrElse {
             AppConfig(mode = targetMode, apiDomain = branding.defaultApiDomain)
@@ -153,6 +154,7 @@ class SecureConfigStore(
             put("updateRepoSlug", config.safeUpdateRepoSlug)
             put("defaultHikUsername", config.resolvedHikUsername)
             put("defaultHikPassword", config.resolvedHikPassword)
+            put("voiceGreetingEnabled", config.voiceGreetingEnabled)
         }
         val json = root.toString()
         val key = modeKey(config.mode)

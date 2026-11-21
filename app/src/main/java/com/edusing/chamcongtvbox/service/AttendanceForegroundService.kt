@@ -54,6 +54,7 @@ class AttendanceForegroundService : Service() {
         val engine = container.attendanceEngine
         engine.startBackgroundMonitors()
         container.appUpdateCoordinator.startBackgroundLoop()
+        ServiceEnhancementsObserver.attach(serviceScope, container)
         acquireLocks()
         networkObserver = NetworkStateObserver(this, engine).also { it.register() }
         webConsole = LocalWebConsoleServer(

@@ -175,6 +175,7 @@ internal class WebConsoleApiHandler(
                 udpMode = j.optBoolean("udpMode", cur.udpMode),
                 defaultPort = j.optInt("defaultPort", cur.defaultPort).coerceIn(1, 65535),
                 autoStartOnBoot = j.optBoolean("autoStartOnBoot", cur.autoStartOnBoot),
+                voiceGreetingEnabled = j.optBoolean("voiceGreetingEnabled", cur.voiceGreetingEnabled),
                 autoUpdateEnabled = j.optBoolean("autoUpdateEnabled", cur.autoUpdateEnabled),
                 updateRepoSlug = newRepo,
             )

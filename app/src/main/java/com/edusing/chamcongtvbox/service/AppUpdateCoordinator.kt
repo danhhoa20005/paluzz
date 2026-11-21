@@ -21,11 +21,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Bộ điều phối tự động cập nhật OTA từ GitHub Releases (`danhhoa20005/paluzz`):
- * - Chạy nền nhẹ mỗi 6 giờ (chờ 90 giây sau khởi động để ưu tiên kết nối máy chấm công trước).
- * - Tải bản APK mới & kiểm tra SHA-256 + tên gói an toàn.
- * - Nếu TV Box có quyền **Device Owner** hoặc **Root (`su`)**: tự cài đè 100% âm thầm rồi `BootReceiver` tự bật lại app.
- * - Nếu là máy thường: tải sẵn vào bộ đệm và báo có bản mới để người dùng bấm cài 1 chạm (không bật popup bất ngờ).
+ * Bộ điều phối **Tự động cập nhật OTA không chạm** từ GitHub Releases (`danhhoa20005/paluzz`):
+ * - Tự kiểm tra sau **6 giây** khi mở app, lặp nền mỗi **30 phút**, và kiểm tra lại mỗi khi quay lại app / có mạng lại.
+ * - Tự tải sẵn APK & xác minh SHA-256 + tên gói an toàn.
+ * - **Device Owner / Root**: tự cài đè 100% âm thầm rồi tự mở lại app.
+ * - **Máy Android thường (OPPO / Box thường)**: tự tải sẵn và tự bật hộp thoại đếm ngược ngắn để cài đặt ngay mà không cần vào Cấu hình bấm tìm.
  */
 class AppUpdateCoordinator(
     private val configRepository: ConfigRepository,
@@ -34,10 +34,13 @@ class AppUpdateCoordinator(
     private val onLogEvent: (title: String, message: String, severity: EventSeverity) -> Unit = { _, _, _ -> },
     private val checkIntervalMs: Long = DEFAULT_CHECK_INTERVAL_MS,
     private val initialDelayMs: Long = DEFAULT_INITIAL_DELAY_MS,
+    private val clockMillis: () -> Long = { System.currentTimeMillis() },
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val opMutex = Mutex()
     private var bgJob: Job? = null
+    @Volatile private var lastCheckAtMs: Long = 0L
+    @Volatile private var waitingPermissionResume: Boolean = false
 
     private val _state = MutableStateFlow(buildInitialState())
     val state: StateFlow<UpdateStateSnapshot> = _state.asStateFlow()
@@ -74,6 +77,31 @@ class AppUpdateCoordinator(
                 delay(checkIntervalMs)
             }
         }
+    }
+
+    /** Tự kiểm tra ngầm khi mở lại app hoặc khi có mạng trở lại (chống gọi lặp trong 10 phút). */
+    fun triggerBackgroundCheckIfDue(force: Boolean = false) {
+        val cfg = configRepository.getConfig()
+        if (!cfg.autoUpdateEnabled) return
+        if (waitingPermissionResume && _state.value.isDownloadedReady) {
+            waitingPermissionResume = false
+            scope.launch { downloadAndInstallNow(allowInteractiveFallback = true) }
+            return
+        }
+        if (!isInternetOnline()) return
+        val now = clockMillis()
+        if (!force && lastCheckAtMs > 0L && (now - lastCheckAtMs) < RESUME_DEBOUNCE_MS) return
+        scope.launch {
+            runCatching { checkAndPrepareUpdate(triggerSilentInstall = true, isManual = false) }
+        }
+    }
+
+    fun markAutoPrompted(versionCode: Int) {
+        _state.update { it.copy(autoPromptedVersionCode = versionCode) }
+    }
+
+    fun dismissUpdateBanner(versionCode: Int) {
+        _state.update { it.copy(dismissedVersionCode = versionCode, autoPromptedVersionCode = versionCode) }
     }
 
     suspend fun checkNow(): UpdateStateSnapshot {
@@ -117,6 +145,9 @@ class AppUpdateCoordinator(
 
         _state.update { it.copy(isInstalling = true, installMode = mode, statusMessage = "Đang cài đặt v${release.versionName}...") }
         val outcome = updateRepository.installApk(apkPath, allowInteractiveFallback)
+        if (!outcome.success && outcome.message.contains("Cho phép từ nguồn này", ignoreCase = true)) {
+            waitingPermissionResume = true
+        }
         _state.update {
             it.copy(
                 isInstalling = false,
@@ -129,84 +160,64 @@ class AppUpdateCoordinator(
     }
 
     internal suspend fun checkAndPrepareUpdate(triggerSilentInstall: Boolean, isManual: Boolean) = opMutex.withLock {
+        lastCheckAtMs = clockMillis()
         val cfg = configRepository.getConfig()
         val mode = updateRepository.detectInstallMode()
         _state.update {
             it.copy(
-                isChecking = true,
-                installMode = mode,
-                repoSlug = cfg.safeUpdateRepoSlug,
+                isChecking = true, installMode = mode, repoSlug = cfg.safeUpdateRepoSlug,
                 errorMessage = if (isManual) null else it.errorMessage,
                 statusMessage = if (isManual) "Đang kiểm tra bản mới từ ${cfg.safeUpdateRepoSlug}..." else it.statusMessage,
             )
         }
 
         val fetched = updateRepository.fetchLatestRelease(cfg.safeUpdateRepoSlug).getOrElse { err ->
-            _state.update {
-                it.copy(
-                    isChecking = false,
-                    errorMessage = if (isManual) "Không kiểm tra được GitHub: ${err.message ?: "lỗi mạng"}" else null,
-                )
-            }
+            _state.update { it.copy(isChecking = false, errorMessage = if (isManual) "Không kiểm tra được GitHub: ${err.message ?: "lỗi mạng"}" else null) }
             return@withLock
         }
 
         if (fetched == null || !isRemoteNewer(fetched.versionCode, fetched.versionName)) {
             _state.update {
                 it.copy(
-                    isChecking = false,
-                    availableRelease = null,
-                    downloadedApkPath = null,
-                    errorMessage = null,
+                    isChecking = false, availableRelease = null, downloadedApkPath = null, errorMessage = null,
                     statusMessage = "Đang dùng bản mới nhất (v${updateRepository.currentVersionName()}).",
                 )
             }
             return@withLock
         }
 
-        _state.update {
-            it.copy(
-                isChecking = false,
-                availableRelease = fetched,
-                isDownloading = true,
-                statusMessage = "Phát hiện bản mới v${fetched.versionName} — đang tải APK...",
-            )
+        val alreadyDownloaded = _state.value.availableRelease?.versionCode == fetched.versionCode && !_state.value.downloadedApkPath.isNullOrBlank()
+        val apkPath = if (alreadyDownloaded) {
+            _state.value.downloadedApkPath!!
+        } else {
+            _state.update {
+                it.copy(isChecking = false, availableRelease = fetched, isDownloading = true, statusMessage = "Phát hiện bản mới v${fetched.versionName} — đang tự tải APK...")
+            }
+            updateRepository.downloadAndVerifyApk(fetched).getOrElse { err ->
+                _state.update { it.copy(isDownloading = false, errorMessage = "Tải v${fetched.versionName} lỗi: ${err.message}") }
+                return@withLock
+            }
         }
 
-        val apkPath = updateRepository.downloadAndVerifyApk(fetched).getOrElse { err ->
-            _state.update { it.copy(isDownloading = false, errorMessage = "Tải v${fetched.versionName} lỗi: ${err.message}") }
-            return@withLock
-        }
-
         _state.update {
             it.copy(
-                isDownloading = false,
-                downloadedApkPath = apkPath,
-                errorMessage = null,
-                statusMessage = "Đã tải sẵn v${fetched.versionName} (${fetched.source}).",
+                isChecking = false, isDownloading = false, availableRelease = fetched, downloadedApkPath = apkPath,
+                errorMessage = null, statusMessage = "Đã tự tải sẵn bản mới v${fetched.versionName} (${fetched.source}).",
             )
         }
-        onLogEvent("Cập nhật", "Đã tải sẵn bản mới v${fetched.versionName} từ GitHub.", EventSeverity.INFO)
+        if (!alreadyDownloaded) onLogEvent("Cập nhật", "Đã tự tải sẵn bản mới v${fetched.versionName} từ GitHub.", EventSeverity.INFO)
 
         if (triggerSilentInstall && mode.isSilentCapable) {
             _state.update { it.copy(isInstalling = true, statusMessage = "Đang tự cài âm thầm v${fetched.versionName}...") }
             val outcome = updateRepository.installApk(apkPath, allowInteractiveFallback = false)
-            _state.update {
-                it.copy(
-                    isInstalling = false,
-                    statusMessage = outcome.message,
-                    errorMessage = if (outcome.success) null else outcome.message,
-                )
-            }
+            _state.update { it.copy(isInstalling = false, statusMessage = outcome.message, errorMessage = if (outcome.success) null else outcome.message) }
             onLogEvent("Cập nhật", outcome.message, if (outcome.success) EventSeverity.SUCCESS else EventSeverity.WARNING)
         }
     }
 
     private fun isRemoteNewer(remoteCode: Int, remoteName: String): Boolean = AppVersionComparator.isNewer(
-        remoteVersionCode = remoteCode,
-        remoteVersionName = remoteName,
-        currentVersionCode = updateRepository.currentVersionCode(),
-        currentVersionName = updateRepository.currentVersionName(),
+        remoteVersionCode = remoteCode, remoteVersionName = remoteName,
+        currentVersionCode = updateRepository.currentVersionCode(), currentVersionName = updateRepository.currentVersionName(),
     )
 
     private fun buildInitialState(): UpdateStateSnapshot {
@@ -221,7 +232,8 @@ class AppUpdateCoordinator(
     }
 
     companion object {
-        private const val DEFAULT_INITIAL_DELAY_MS = 90_000L
-        private const val DEFAULT_CHECK_INTERVAL_MS = 6L * 60 * 60_000L
+        private const val DEFAULT_INITIAL_DELAY_MS = 6_000L
+        private const val DEFAULT_CHECK_INTERVAL_MS = 30L * 60_000L
+        private const val RESUME_DEBOUNCE_MS = 10L * 60_000L
     }
 }

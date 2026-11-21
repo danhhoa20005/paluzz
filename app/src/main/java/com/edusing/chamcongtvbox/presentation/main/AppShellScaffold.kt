@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -25,8 +26,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edusing.chamcongtvbox.di.AppContainer
 import com.edusing.chamcongtvbox.di.AppViewModelFactory
 import com.edusing.chamcongtvbox.presentation.components.AppModePickerDialog
+import com.edusing.chamcongtvbox.presentation.components.AutoUpdateReadyBanner
 import com.edusing.chamcongtvbox.presentation.components.TammiEmptyStateView
 import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
+import kotlinx.coroutines.launch
 import com.edusing.chamcongtvbox.presentation.push.PushMembersScreen
 import com.edusing.chamcongtvbox.presentation.push.PushMembersViewModel
 import com.edusing.chamcongtvbox.presentation.settings.SettingsScreen
@@ -53,6 +56,8 @@ fun AppShellScaffold(
 ) {
     val mainVm: MainViewModel = viewModel(key = "main", factory = factory)
     val mainState by mainVm.uiState.collectAsStateWithLifecycle()
+    val updateState by container.appUpdateCoordinator.state.collectAsStateWithLifecycle()
+    val shellScope = rememberCoroutineScope()
     val ui = rememberDeviceUiSpec()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var isKioskMode by rememberSaveable { mutableStateOf(false) }
@@ -115,12 +120,28 @@ fun AppShellScaffold(
                 if (mainState.isBusy) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(3.dp), color = AppColors.Primary)
                 }
+                if (updateState.shouldShowUpdateBanner) {
+                    AutoUpdateReadyBanner(
+                        updateState = updateState,
+                        onInstallNow = { shellScope.launch { container.appUpdateCoordinator.downloadAndInstallNow(true) } },
+                        onDismiss = { container.appUpdateCoordinator.dismissUpdateBanner(updateState.availableRelease?.versionCode ?: 0) },
+                        modifier = Modifier.padding(horizontal = ui.horizontalPadding, vertical = 6.dp),
+                    )
+                }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) { tabBody() }
             }
         }
     } else {
         Column(modifier = Modifier.fillMaxSize()) {
             MainTopAppBar(mainState, ui, mainVm::openModePicker, mainVm::requestLogout)
+            if (updateState.shouldShowUpdateBanner) {
+                AutoUpdateReadyBanner(
+                    updateState = updateState,
+                    onInstallNow = { shellScope.launch { container.appUpdateCoordinator.downloadAndInstallNow(true) } },
+                    onDismiss = { container.appUpdateCoordinator.dismissUpdateBanner(updateState.availableRelease?.versionCode ?: 0) },
+                    modifier = Modifier.padding(horizontal = ui.horizontalPadding, vertical = 4.dp),
+                )
+            }
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 CompositionLocalProvider(LocalFloatingNavBottomInset provides 78.dp) {
                     tabBody()

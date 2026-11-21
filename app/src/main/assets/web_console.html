@@ -65,6 +65,13 @@
       </div>
     </div>
 
+    <div id="updBanner" class="card hide" style="background:#ecfdf5;border:1.5px solid #34d399">
+      <div class="row sp">
+        <div><b id="updBannerTitle" style="color:#065f46">Có bản cập nhật mới</b><div class="sub" id="updBannerSub"></div></div>
+        <button class="ok" onclick="postAction('/api/update/install')">Cập nhật ngay</button>
+      </div>
+    </div>
+
     <div class="card">
       <div class="row sp"><h3>Tổng quan 24/7</h3><span class="sub" id="metaLine"></span></div>
       <div class="grid">
@@ -220,6 +227,7 @@
       <div class="row" style="margin-top:10px">
         <label class="row"><input id="tUdp" type="checkbox" style="width:auto" /> Dùng UDP</label>
         <label class="row"><input id="tBoot" type="checkbox" style="width:auto" /> Tự mở khi có điện</label>
+        <label class="row"><input id="tVoice" type="checkbox" style="width:auto" /> Đọc lời chào loa (TTS)</label>
         <label class="row"><input id="tAutoUpd" type="checkbox" style="width:auto" /> Tự cập nhật GitHub</label>
         <button onclick="saveTech()">Lưu cấu hình Box</button>
       </div>
@@ -261,7 +269,7 @@ let token = localStorage.getItem('cc_console_token') || '';
 let lastStatus = null, loadedUsers = [], loadedIsHik = false, scheduleDirty = false, techDirty = false;
 let pendingFaceTarget = null, camTimer = null, hikHealthLoadedKey = '', lastWebhookState = null;
 ['apOn','apCustomOn','apHour','apMin'].forEach(id => document.getElementById(id).addEventListener('change', () => scheduleDirty = true));
-['tHost','tRepo','tPoll','tDedup','tPort','tUdp','tBoot','tAutoUpd'].forEach(id => document.getElementById(id).addEventListener('change', () => techDirty = true));
+['tHost','tRepo','tPoll','tDedup','tPort','tUdp','tBoot','tVoice','tAutoUpd'].forEach(id => document.getElementById(id).addEventListener('change', () => techDirty = true));
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display='none',3600);}
 async function api(path, method='GET', body=null){
   const headers={'X-Console-Token': token};
@@ -484,7 +492,7 @@ function saveTech(){
     localHostName:document.getElementById('tHost').value.trim(), updateRepoSlug:document.getElementById('tRepo').value.trim(),
     pollIntervalSec:parseInt(document.getElementById('tPoll').value||'10',10), dedupSeconds:parseInt(document.getElementById('tDedup').value||'60',10),
     defaultPort:parseInt(document.getElementById('tPort').value||'5005',10), udpMode:document.getElementById('tUdp').checked,
-    autoStartOnBoot:document.getElementById('tBoot').checked, autoUpdateEnabled:document.getElementById('tAutoUpd').checked
+    autoStartOnBoot:document.getElementById('tBoot').checked, voiceGreetingEnabled:document.getElementById('tVoice').checked, autoUpdateEnabled:document.getElementById('tAutoUpd').checked
   });
 }
 async function testServer(){
@@ -559,7 +567,13 @@ async function refresh(){
       document.getElementById('tHost').value=s.localHostName||'chamcong'; document.getElementById('tRepo').value=s.updateRepoSlug||'danhhoa20005/paluzz';
       document.getElementById('tPoll').value=s.pollIntervalSec||10; document.getElementById('tDedup').value=s.dedupSeconds??60;
       document.getElementById('tPort').value=s.defaultPort||5005; document.getElementById('tUdp').checked=!!s.udpMode;
-      document.getElementById('tBoot').checked=!!s.autoStartOnBoot; document.getElementById('tAutoUpd').checked=s.autoUpdateEnabled!==false;
+      document.getElementById('tBoot').checked=!!s.autoStartOnBoot; document.getElementById('tVoice').checked=!!s.voiceGreetingEnabled; document.getElementById('tAutoUpd').checked=s.autoUpdateEnabled!==false;
+    }
+    const uBan=document.getElementById('updBanner');
+    uBan.classList.toggle('hide', !s.updateAvailableVersion);
+    if(s.updateAvailableVersion){
+      document.getElementById('updBannerTitle').textContent='Đã tải sẵn bản cập nhật mới v'+s.updateAvailableVersion;
+      document.getElementById('updBannerSub').textContent='Hiện tại: v'+s.appVersion+' • '+(s.updateStatus||'Bấm Cập nhật ngay để nâng cấp');
     }
     document.getElementById('updStatusLine').textContent='v'+s.appVersion+' • '+(s.updateInstallMode||'')+(s.updateAvailableVersion?(' • Bản mới: v'+s.updateAvailableVersion):'')+(s.updateStatus?(' • '+s.updateStatus):'');
     document.getElementById('modeSel').value=s.mode;

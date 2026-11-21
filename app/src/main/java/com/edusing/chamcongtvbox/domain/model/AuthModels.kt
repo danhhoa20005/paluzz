@@ -64,6 +64,8 @@ data class AppConfig(
     // Tài khoản quản trị Hikvision lưu 1 lần (tự điền khi thêm máy & tự nối máy SADP mới không cần nhập lại)
     val defaultHikUsername: String = DeviceConfig.DEFAULT_HIK_USERNAME,
     val defaultHikPassword: String = "",
+    // Đọc lời chào tiếng Việt qua loa TV Box / điện thoại mỗi khi có người chấm công thành công
+    val voiceGreetingEnabled: Boolean = false,
 ) {
     val isLoggedIn: Boolean get() = accountId.isNotBlank() && username.isNotBlank()
     val safeLocalHostName: String get() = sanitizeLocalHost(localHostName)

@@ -31,9 +31,23 @@ data class UpdateStateSnapshot(
     val downloadedApkPath: String? = null,
     val statusMessage: String = "",
     val errorMessage: String? = null,
+    val autoPromptedVersionCode: Int = 0,
+    val dismissedVersionCode: Int = 0,
 ) {
     val hasUpdateAvailable: Boolean get() = availableRelease != null
+    val isDownloadedReady: Boolean get() = availableRelease != null && !downloadedApkPath.isNullOrBlank()
     val isBusy: Boolean get() = isChecking || isDownloading || isInstalling
+    val shouldAutoPromptNow: Boolean
+        get() {
+            val code = availableRelease?.versionCode ?: 0
+            return autoUpdateEnabled && isDownloadedReady && !installMode.isSilentCapable && !isInstalling &&
+                code > 0 && code != autoPromptedVersionCode && code != dismissedVersionCode
+        }
+    val shouldShowUpdateBanner: Boolean
+        get() {
+            val code = availableRelease?.versionCode ?: 0
+            return isDownloadedReady && code > 0 && code != dismissedVersionCode
+        }
 }
 
 /**

@@ -32,6 +32,7 @@ data class SettingsUiState(
     val heartbeatIntervalSec: String = (AppConfig.DEFAULT_HEARTBEAT_INTERVAL_MS / 1000).toString(),
     val maxNameBytes: String = AppConfig.DEFAULT_MAX_NAME_BYTES.toString(),
     val autoStartOnBoot: Boolean = true,
+    val voiceGreetingEnabled: Boolean = false,
     val autoPushEnabled: Boolean = true,
     val autoPushCustomEnabled: Boolean = false,
     val autoPushCustomHour: Int = AutoPushScheduleConfig.DEFAULT_CUSTOM_HOUR,
@@ -100,6 +101,7 @@ class SettingsViewModel(
             heartbeatIntervalSec = (cfg.heartbeatIntervalMs / 1000L).toString(),
             maxNameBytes = cfg.maxDeviceNameBytes.toString(),
             autoStartOnBoot = cfg.autoStartOnBoot,
+            voiceGreetingEnabled = cfg.voiceGreetingEnabled,
             autoPushEnabled = cfg.autoPushEnabled,
             autoPushCustomEnabled = cfg.autoPushCustomEnabled,
             autoPushCustomHour = cfg.autoPushCustomHour.coerceIn(0, 23),
@@ -138,6 +140,10 @@ class SettingsViewModel(
     fun onHeartbeatSecChange(v: String) = _uiState.update { it.copy(heartbeatIntervalSec = v.filter(Char::isDigit), savedBanner = null) }
     fun onMaxNameBytesChange(v: String) = _uiState.update { it.copy(maxNameBytes = v.filter(Char::isDigit), savedBanner = null) }
     fun onAutoStartOnBootChange(v: Boolean) = _uiState.update { it.copy(autoStartOnBoot = v, savedBanner = null) }
+    fun onVoiceGreetingChange(v: Boolean) {
+        _uiState.update { it.copy(voiceGreetingEnabled = v, savedBanner = null) }
+        viewModelScope.launch { configRepository.saveConfig(configRepository.getConfig().copy(voiceGreetingEnabled = v)) }
+    }
 
     fun onAutoPushEnabledChange(enabled: Boolean) = updateAutoPushSchedule { it.copy(autoPushEnabled = enabled) }
     fun onAutoPushCustomEnabledChange(enabled: Boolean) = updateAutoPushSchedule { it.copy(autoPushCustomEnabled = enabled) }
@@ -218,6 +224,7 @@ class SettingsViewModel(
                 heartbeatIntervalMs = hbSec * 1_000L,
                 maxDeviceNameBytes = maxBytes,
                 autoStartOnBoot = s.autoStartOnBoot,
+                voiceGreetingEnabled = s.voiceGreetingEnabled,
                 autoPushEnabled = s.autoPushEnabled,
                 autoPushCustomEnabled = s.autoPushCustomEnabled,
                 autoPushCustomHour = s.autoPushCustomHour,

@@ -85,6 +85,7 @@ internal object WebConsoleStatusSerializer {
             .put("udpMode", cfg.udpMode)
             .put("defaultPort", cfg.defaultPort)
             .put("autoStartOnBoot", cfg.autoStartOnBoot)
+            .put("voiceGreetingEnabled", cfg.voiceGreetingEnabled)
             .put("autoUpdateEnabled", cfg.autoUpdateEnabled)
             .put("updateRepoSlug", cfg.safeUpdateRepoSlug)
             .put("updateInstallMode", updateSnap.installMode.label)

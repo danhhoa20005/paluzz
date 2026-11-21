@@ -30,6 +30,7 @@ class AppViewModelFactory(
             attendanceEngine = container.attendanceEngine,
             logoutUseCase = container.logoutUseCase,
             hikControl = container.hikvisionControlGateway,
+            backfillUseCase = container.backfillHikvisionEventsUseCase,
         ) as T
 
         modelClass.isAssignableFrom(AddDeviceViewModel::class.java) -> AddDeviceViewModel(

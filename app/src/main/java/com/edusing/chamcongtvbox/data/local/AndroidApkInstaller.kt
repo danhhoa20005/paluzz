@@ -6,7 +6,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.edusing.chamcongtvbox.domain.model.UpdateInstallMode
 import com.edusing.chamcongtvbox.domain.repository.ApkInstallOutcome
@@ -64,12 +66,32 @@ class AndroidApkInstaller(
             )
         }
 
-        // Tầng 3: Mở hộp thoại cài đặt chuẩn qua FileProvider
+        // Tầng 3: Mở hộp thoại cài đặt chuẩn qua FileProvider (tự dẫn sang màn cấp quyền nguồn lạ nếu Android 8+ chưa bật)
+        if (!canInstallUnknownSources()) {
+            openUnknownSourcesSettings()
+            return@withContext ApkInstallOutcome(
+                false,
+                "Hãy bật 'Cho phép từ nguồn này' 1 lần rồi quay lại — App sẽ tự cài bản mới ngay!",
+            )
+        }
         val launched = launchInteractiveInstallIntent(apkFile)
         if (launched) {
-            ApkInstallOutcome(true, "Đã mở hộp thoại cài đặt bản mới — bấm 'Cài đặt' để hoàn tất.")
+            ApkInstallOutcome(true, "Đã mở trình cài đặt bản mới — bấm 'Cài đặt' để hoàn tất.")
         } else {
             ApkInstallOutcome(false, "Không mở được trình cài đặt APK (hãy cấp quyền cài ứng dụng từ nguồn này).")
+        }
+    }
+
+    fun canInstallUnknownSources(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || runCatching { appContext.packageManager.canRequestPackageInstalls() }.getOrDefault(false)
+
+    private fun openUnknownSourcesSettings() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        runCatching {
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${appContext.packageName}")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            appContext.startActivity(intent)
         }
     }
 

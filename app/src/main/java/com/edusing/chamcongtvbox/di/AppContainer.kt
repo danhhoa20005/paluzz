@@ -6,6 +6,7 @@ import com.edusing.chamcongtvbox.data.hikvision.HikvisionControlApi
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionGatewayImpl
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionIsapiClient
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionSadpScanner
+import com.edusing.chamcongtvbox.data.local.HikvisionSyncWatermarkStore
 import com.edusing.chamcongtvbox.data.local.PendingCheckInStoreImpl
 import com.edusing.chamcongtvbox.data.local.SecureConfigStore
 import com.edusing.chamcongtvbox.data.local.WordDocExporter
@@ -53,6 +54,7 @@ import com.edusing.chamcongtvbox.domain.usecase.SuggestFreeIpUseCase
 import com.edusing.chamcongtvbox.domain.usecase.ValidateCredentialsUseCase
 import com.edusing.chamcongtvbox.service.AppUpdateCoordinator
 import com.edusing.chamcongtvbox.service.AttendanceEngine
+import com.edusing.chamcongtvbox.service.AttendanceVoiceAnnouncer
 import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
 
 /**
@@ -78,6 +80,8 @@ class AppContainer(appContext: Context) {
     val internetProbe = InternetProbeImpl(appContext)
     private val pendingCheckInStorage = PendingCheckInStoreImpl(appContext)
     private val wordDocExporter = WordDocExporter(appContext)
+    private val hikWatermarkStore = HikvisionSyncWatermarkStore(appContext)
+    internal val voiceAnnouncer = AttendanceVoiceAnnouncer(appContext)
 
     @Volatile
     var activeWebConsolePort: Int = 8080
@@ -92,6 +96,7 @@ class AppContainer(appContext: Context) {
             val lanIp = LocalWebConsoleServer.detectLanIpv4()
             if (lanIp.isNotBlank() && activeWebConsolePort > 0) lanIp to activeWebConsolePort else null
         },
+        onDeviceSynced = hikWatermarkStore::recordSynced,
     )
 
     // Cổng đa giao thức: hỗ trợ đồng thời máy FK (cổng 5005 TCP/UDP) và Hikvision DS-K1T320MX (ISAPI cổng 80/443)
@@ -107,6 +112,26 @@ class AppContainer(appContext: Context) {
     }
 
     fun hikvisionWebhookStats(): HikvisionWebhookStats = hikvisionGateway.webhookStats()
+
+    /** Tự đồng bộ bù lượt chấm công Hikvision bị gián đoạn trong lúc mất điện / rớt mạng (>= 90 giây). */
+    suspend fun autoBackfillHikvisionIfOutage(device: com.edusing.chamcongtvbox.domain.model.DeviceConfig) {
+        if (!device.isHikvision) return
+        val cfg = configRepository.getConfig()
+        if (!cfg.isLoggedIn) return
+        val now = attendanceEngine.currentServerTimeMillis()
+        val (sinceMs, untilMs) = hikWatermarkStore.computeRecoveryWindow(device.key, now) ?: run {
+            hikWatermarkStore.recordSynced(device.key, now); return
+        }
+        val domain = configRepository.getBranding().normalizeApiDomain(cfg.apiDomain)
+        attendanceEngine.withDeviceIoLock {
+            backfillHikvisionEventsUseCase(device, domain, cfg.accountId, sinceMs, untilMs, cfg.dedupSeconds)
+        }.onSuccess { s ->
+            hikWatermarkStore.recordSynced(device.key, now)
+            if (s.totalFound > 0) {
+                attendanceEngine.appendLog(device.displayName, "-", "Tự đồng bộ bù sau mất kết nối: ${s.message}", com.edusing.chamcongtvbox.domain.model.EventSeverity.SUCCESS)
+            }
+        }
+    }
 
     // Kho dữ liệu (Repositories)
     val authRepository: AuthRepository = AuthRepositoryImpl(apiClient)

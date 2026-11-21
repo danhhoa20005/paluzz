@@ -89,7 +89,7 @@ internal fun AppUpdateCard(
             ) {
                 Checkbox(checked = updateState.autoUpdateEnabled, onCheckedChange = onToggleAutoUpdate)
                 Spacer(Modifier.width(4.dp))
-                Text("Tự kiểm tra & tải bản mới mỗi 6 giờ", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Text)
+                Text("Tự kiểm tra, tải & cài bản mới (mỗi 30p & khi mở app)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Text)
             }
 
             if (updateState.statusMessage.isNotBlank()) {
@@ -121,5 +121,28 @@ internal fun AppUpdateCard(
                 }
             }
         }
+    }
+}
+
+/** Dòng checkbox chuẩn TV D-Pad (`tvFocusRing`) dùng chung cho các tuỳ chọn bật/tắt trong màn Cấu hình. */
+@Composable
+internal fun SettingsCheckboxRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .onFocusChanged { focused = it.isFocused }
+            .tvFocusRing(focused, 10)
+            .clickable { onCheckedChange(!checked) },
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Spacer(Modifier.width(4.dp))
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = AppColors.Text)
     }
 }

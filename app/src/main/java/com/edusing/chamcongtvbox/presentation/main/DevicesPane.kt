@@ -53,6 +53,7 @@ internal fun DevicesPane(
     isTv: Boolean = false,
     onAddDevice: (() -> Unit)? = null,
     onOpenDoor: ((DeviceConfig) -> Unit)? = null,
+    onBackfillToday: ((DeviceConfig) -> Unit)? = null,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
         Row(
@@ -117,6 +118,9 @@ internal fun DevicesPane(
                     onOpenDoor = if (item.config.isHikvision && item.isConnected && onOpenDoor != null) {
                         { onOpenDoor(item.config) }
                     } else null,
+                    onBackfillToday = if (item.config.isHikvision && item.isConnected && onBackfillToday != null) {
+                        { onBackfillToday(item.config) }
+                    } else null,
                 )
             }
         }
@@ -133,6 +137,7 @@ private fun TerminalCard(
     onReconnect: () -> Unit,
     onDelete: () -> Unit,
     onOpenDoor: (() -> Unit)? = null,
+    onBackfillToday: (() -> Unit)? = null,
 ) {
     val (accentColor, pillLabel, pillTone) = when (item.state) {
         DeviceConnectionState.CONNECTED -> Triple(AppColors.GreenBright, "Online", TammiBadgeTone.SUCCESS)
@@ -171,11 +176,15 @@ private fun TerminalCard(
 
         Spacer(Modifier.height(12.dp))
 
-        // 3 nút thao tác cân xứng đều nhau (không trùng tab Trên máy đã có ở thanh điều hướng)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (onOpenDoor != null) {
-                TvActionButton(text = "Mở cửa", containerColor = AppColors.Green, enabled = !isBusy, compact = true, onClick = onOpenDoor, modifier = Modifier.weight(1f))
+        // Hàng nhanh riêng cho Hikvision online (Mở cửa + Đồng bộ bù hôm nay) để tránh chật nút trên màn hình nhỏ
+        if (onOpenDoor != null || onBackfillToday != null) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (onOpenDoor != null) TvActionButton(text = "Mở cửa", containerColor = AppColors.Green, enabled = !isBusy, compact = true, onClick = onOpenDoor, modifier = Modifier.weight(1f))
+                if (onBackfillToday != null) TvActionButton(text = "Bù lượt hôm nay", containerColor = AppColors.OrbCobalt, enabled = !isBusy, compact = true, onClick = onBackfillToday, modifier = Modifier.weight(1f))
             }
+            Spacer(Modifier.height(8.dp))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TammiOutlinedButton(text = "Nối lại", enabled = !isBusy, compact = true, onClick = onReconnect, modifier = Modifier.weight(1f))
             if (!isRunning) {
                 TammiOutlinedButton(text = "Đổi tên", enabled = !isBusy, compact = true, contentColor = AppColors.Text, onClick = onRename, modifier = Modifier.weight(1f))

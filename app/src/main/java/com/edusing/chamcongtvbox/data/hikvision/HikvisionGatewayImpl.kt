@@ -26,6 +26,7 @@ internal class HikvisionGatewayImpl(
     private val sadpScanner: HikvisionSadpScanner = HikvisionSadpScanner(),
     private val webhookTargetProvider: () -> Pair<String, Int>? = { null },
     private val clockMillis: () -> Long = { System.currentTimeMillis() },
+    private val onDeviceSynced: (deviceKey: String, epochMs: Long) -> Unit = { _, _ -> },
 ) : FkDeviceGateway {
 
     private val enrollment = HikvisionEnrollmentApi(client)
@@ -143,7 +144,7 @@ internal class HikvisionGatewayImpl(
             if (res.isUnauthorized) return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Lỗi xác thực Hikvision (401)")
             if (!res.isSuccess) return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Lỗi đọc AcsEvent HTTP ${res.statusCode}")
 
-            collected.addAll(polled); session.lastPollMs = now
+            collected.addAll(polled); session.lastPollMs = now; onDeviceSynced(session.device.key, now)
             val freshLogs = collected.sortedBy { it.epochMs }.mapNotNull { ev ->
                 if (!synchronized(session.seenKeys) { recordSeenLocked(session, ev.eventKey) }) return@mapNotNull null
                 val enrollInt = ev.employeeNo.toIntOrNull() ?: (ev.employeeNo.hashCode() and 0x7FFFFFFF)
