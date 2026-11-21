@@ -47,22 +47,45 @@ class ScanLanDevicesUseCase(
         onProgress: (scanned: Int, total: Int) -> Unit = { _, _ -> },
     ): List<LanHostInfo> = coroutineScope {
         val gateway = deviceGateway
-        // Chạy song song: quét đa hướng SADP (~1.5s ra ngay mọi dòng Hikvision) + quét Ping dải LAN
+        val activeSubnets = lanDiscoveryRepository.detectActiveSubnets(configuredIps)
+        val sweepPrefixes = if (!customPrefix.isNullOrBlank()) {
+            listOf(customPrefix.trim().trimEnd('.') to activeSubnets.firstOrNull { it.prefix == customPrefix.trim().trimEnd('.') }?.localIp)
+        } else {
+            activeSubnets.map { it.prefix to it.localIp }
+        }
+        // Chạy song song 3 lớp: (1) SADP Multicast+Broadcast (~1.5s), (2) TCP cổng 80/443 ISAPI (vượt chặn Multicast & Ping), (3) Ping + FK 5005
         val sadpDeferred = async {
             val found = gateway?.discoverHikvisionSadp(timeoutMs = 1_500).orEmpty()
             val quickHosts = found.filter { it.isAccessTerminal }.map { dev -> toSadpHost(dev, configuredIps) }
             if (quickHosts.isNotEmpty()) onQuickResults(sortHosts(quickHosts))
             found
         }
+        val tcpHikDeferred = async {
+            if (gateway == null) return@async emptyList()
+            val list = mutableListOf<com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice>()
+            for ((prefix, localIp) in sweepPrefixes) {
+                list.addAll(gateway.sweepHikvisionSubnet(prefix, localIp = localIp))
+            }
+            if (list.isNotEmpty()) {
+                val quickHosts = list.filter { it.isAccessTerminal }.map { dev -> toSadpHost(dev, configuredIps) }
+                if (quickHosts.isNotEmpty()) onQuickResults(sortHosts(quickHosts))
+            }
+            list
+        }
         val pingHosts = lanDiscoveryRepository.scanLanHosts(configuredIps, port, customPrefix, onProgress)
         val sadpDevices = sadpDeferred.await()
+        val tcpHikDevices = tcpHikDeferred.await()
 
         val sadpByIp = sadpDevices.associateBy { it.ip }
         val mergedByIp = LinkedHashMap<String, LanHostInfo>()
 
-        // Đưa trước toàn bộ máy Hikvision phát hiện từ SADP (kể cả máy chặn Ping hoặc đổi cổng HTTP)
+        // Ưu tiên thông tin giàu từ SADP (có tên model/Serial/DHCP), sau đó gộp thêm máy tìm qua TCP cổng 80/443 ISAPI
         for (dev in sadpDevices) {
             if (!dev.isAccessTerminal) continue
+            mergedByIp[dev.ip] = toSadpHost(dev, configuredIps)
+        }
+        for (dev in tcpHikDevices) {
+            if (!dev.isAccessTerminal || mergedByIp.containsKey(dev.ip)) continue
             mergedByIp[dev.ip] = toSadpHost(dev, configuredIps)
         }
 
@@ -72,7 +95,7 @@ class ScanLanDevicesUseCase(
         }
 
         val fkPort = if (port == hikvisionPort) DeviceConfig.DEFAULT_PORT else port
-        val remainingPing = pingHosts.filter { it.ip !in sadpByIp }
+        val remainingPing = pingHosts.filter { it.ip !in sadpByIp && it.ip !in mergedByIp }
         val semaphore = Semaphore(12)
         val verified = remainingPing.map { host ->
             async {

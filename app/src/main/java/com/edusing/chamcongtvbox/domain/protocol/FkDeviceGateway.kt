@@ -41,6 +41,9 @@ interface FkDeviceGateway {
     /** Quét đa hướng SADP (`239.255.255.250:37020`) phát hiện TẤT CẢ mọi dòng máy Hikvision trong mạng LAN (< 2 giây). */
     suspend fun discoverHikvisionSadp(timeoutMs: Int = 1_800): List<HikvisionSadpDevice> = emptyList()
 
+    /** Quét dự phòng trực tiếp TCP cổng 80/443 + ISAPI trên 1 dải `/24` (vượt chặn Multicast Wi-Fi & chặn ICMP Ping). */
+    suspend fun sweepHikvisionSubnet(prefix: String, excludeIps: Set<String> = emptySet(), localIp: String? = null): List<HikvisionSadpDevice> = emptyList()
+
     /** Ngắt kết nối một phiên máy chấm công theo handle. */
     suspend fun disconnect(handle: Int)
 

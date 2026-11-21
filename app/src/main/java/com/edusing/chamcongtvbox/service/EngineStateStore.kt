@@ -5,6 +5,7 @@ import com.edusing.chamcongtvbox.domain.model.AutoPushScheduleConfig
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
 import com.edusing.chamcongtvbox.domain.model.DeviceRuntimeStatus
 import com.edusing.chamcongtvbox.domain.model.EventSeverity
+import com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice
 import com.edusing.chamcongtvbox.domain.model.LiveEventEntry
 import com.edusing.chamcongtvbox.domain.repository.AttendanceRepository
 import com.edusing.chamcongtvbox.domain.repository.InternetStatus
@@ -30,6 +31,7 @@ data class EngineSnapshot(
     val hasLanOrWifi: Boolean = true,
     val wifiHardwareDisabled: Boolean = false,
     val devices: List<DeviceRuntimeStatus> = emptyList(),
+    val unpairedHikvisionDevices: List<HikvisionSadpDevice> = emptyList(),
     val events: List<LiveEventEntry> = emptyList(),
     val lastPollTimeText: String = "",
     val totalCheckInsToday: Int = 0,
@@ -76,7 +78,11 @@ internal class EngineStateStore(
             val merged = configured.map { cfg ->
                 oldByKey[cfg.key]?.copy(config = cfg) ?: DeviceRuntimeStatus(config = cfg)
             }
-            snap.copy(devices = merged)
+            val configuredIps = configured.map { it.ip }.toSet()
+            snap.copy(
+                devices = merged,
+                unpairedHikvisionDevices = snap.unpairedHikvisionDevices.filterNot { it.ip in configuredIps },
+            )
         }
     }
 

@@ -82,23 +82,20 @@ fun MainScreen(
                             modifier = Modifier.weight(0.68f).fillMaxHeight().verticalScroll(rememberScrollState()),
                         )
                     } else {
-                        DevicesPane(
-                            devices = state.devices,
-                            isRunning = false,
-                            isBusy = state.isBusy,
-                            isDiscovering = state.isDiscovering,
-                            showQuickToolbar = true,
-                            isTv = ui.isTvDevice,
-                            onDiscover = viewModel::onDiscoverDevicesClicked,
-                            onAddDevice = onOpenAddDevice,
-                            onReconnectAll = viewModel::onConnectAllClicked,
-                            onRename = viewModel::requestRenameDevice,
-                            onReconnect = { viewModel.onReconnectDevice(it.key) },
-                            onDelete = viewModel::requestDeleteDevice,
-                            onOpenDoor = viewModel::onOpenHikvisionDoor,
-                            onBackfillToday = viewModel::onBackfillHikvisionToday,
+                        Column(
                             modifier = Modifier.weight(0.95f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                        )
+                            verticalArrangement = Arrangement.spacedBy(ui.cardSpacing),
+                        ) {
+                            UnpairedHikvisionCard(state.unpairedHikvisionDevices, state.isPairingHikvision, state.pairHikvisionError, viewModel::pairDiscoveredHikvision)
+                            DevicesPane(
+                                devices = state.devices, isRunning = false, isBusy = state.isBusy, isDiscovering = state.isDiscovering,
+                                showQuickToolbar = true, isTv = ui.isTvDevice,
+                                onDiscover = viewModel::onDiscoverDevicesClicked, onAddDevice = onOpenAddDevice,
+                                onReconnectAll = viewModel::onConnectAllClicked, onRename = viewModel::requestRenameDevice,
+                                onReconnect = { viewModel.onReconnectDevice(it.key) }, onDelete = viewModel::requestDeleteDevice,
+                                onOpenDoor = viewModel::onOpenHikvisionDoor, onBackfillToday = viewModel::onBackfillHikvisionToday,
+                            )
+                        }
                     }
                     LiveActivityPane(
                         events = state.events,
@@ -141,6 +138,7 @@ fun MainScreen(
             ) {
                 GatewayHeroPanel(state, ui, onStartStop = viewModel::onStartOrStopClicked, onOpenKiosk = onOpenKiosk)
                 TammiQuickActionDock(actions = phoneQuickActions, isTv = false)
+                UnpairedHikvisionCard(state.unpairedHikvisionDevices, state.isPairingHikvision, state.pairHikvisionError, viewModel::pairDiscoveredHikvision)
                 DevicesPane(
                     devices = state.devices,
                     isRunning = false,

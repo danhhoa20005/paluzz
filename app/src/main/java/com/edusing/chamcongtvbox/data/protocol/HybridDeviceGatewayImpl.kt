@@ -40,6 +40,9 @@ internal class HybridDeviceGatewayImpl(
     override suspend fun discoverHikvisionSadp(timeoutMs: Int): List<HikvisionSadpDevice> =
         hikGateway.discoverHikvisionSadp(timeoutMs)
 
+    override suspend fun sweepHikvisionSubnet(prefix: String, excludeIps: Set<String>, localIp: String?): List<HikvisionSadpDevice> =
+        hikGateway.sweepHikvisionSubnet(prefix, excludeIps, localIp)
+
     override suspend fun disconnect(handle: Int) = forHandle(handle).disconnect(handle)
 
     override suspend fun disconnectAll() {

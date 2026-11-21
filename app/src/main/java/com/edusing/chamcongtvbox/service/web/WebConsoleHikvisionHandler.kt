@@ -58,7 +58,14 @@ internal class WebConsoleHikvisionHandler(
 
     private suspend fun handleDiscoverSadp(): WebHttpResponse {
         val savedIps = configRepository.getConfig().devices.map { it.ip }.toSet()
-        val found = deviceGateway.discoverHikvisionSadp(timeoutMs = 1_800)
+        val merged = LinkedHashMap<String, com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice>()
+        deviceGateway.discoverHikvisionSadp(timeoutMs = 1_600).forEach { merged[it.ip] = it }
+        val lanIp = LocalWebConsoleServer.detectLanIpv4()
+        val prefix = lanIp.substringBeforeLast('.', "")
+        if (prefix.count { it == '.' } == 2) {
+            deviceGateway.sweepHikvisionSubnet(prefix, excludeIps = merged.keys, localIp = lanIp).forEach { merged.putIfAbsent(it.ip, it) }
+        }
+        val found = merged.values.toList()
         val arr = JSONArray().apply {
             found.forEach { d ->
                 put(JSONObject().put("ip", d.ip).put("port", d.httpPort).put("model", d.model)
@@ -67,7 +74,7 @@ internal class WebConsoleHikvisionHandler(
                     .put("isAccessTerminal", d.isAccessTerminal).put("alreadyAdded", d.ip in savedIps))
             }
         }
-        return jsonOk(JSONObject().put("ok", true).put("devices", arr).put("message", "Phát hiện ${found.size} thiết bị Hikvision trong LAN (SADP)").toString())
+        return jsonOk(JSONObject().put("ok", true).put("devices", arr).put("message", "Phát hiện ${found.size} thiết bị Hikvision trong LAN (SADP & ISAPI)").toString())
     }
 
     private suspend fun handleHealth(rawBody: String): WebHttpResponse {

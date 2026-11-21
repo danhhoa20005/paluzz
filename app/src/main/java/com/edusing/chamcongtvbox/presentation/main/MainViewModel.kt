@@ -4,13 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.edusing.chamcongtvbox.domain.model.AppMode
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
-import com.edusing.chamcongtvbox.domain.model.DeviceRuntimeStatus
+import com.edusing.chamcongtvbox.domain.model.DeviceProtocol
 import com.edusing.chamcongtvbox.domain.model.EventSeverity
 import com.edusing.chamcongtvbox.domain.model.HikvisionDoorCommand
-import com.edusing.chamcongtvbox.domain.model.LiveEventEntry
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.ConfigRepository
-import com.edusing.chamcongtvbox.domain.repository.InternetStatus
 import com.edusing.chamcongtvbox.domain.usecase.BackfillHikvisionEventsUseCase
 import com.edusing.chamcongtvbox.domain.usecase.LogoutUseCase
 import com.edusing.chamcongtvbox.service.AttendanceEngine
@@ -23,43 +21,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** Trạng thái UI của màn hình chính. */
-data class MainUiState(
-    val activeMode: AppMode = AppMode.PALUZZ,
-    val appTitle: String = "",
-    val orgLabel: String = "Trường",
-    val isOffice: Boolean = false,
-    val orgName: String = "",
-    val accountId: String = "",
-    val apiDomain: String = "",
-    val isRunning: Boolean = false,
-    val isBusy: Boolean = false,
-    val isDiscovering: Boolean = false,
-    val statusHint: String = "",
-    val internetStatus: InternetStatus = InternetStatus.CHECKING,
-    val internetDetail: String = "",
-    val hasLanOrWifi: Boolean = true,
-    val wifiHardwareDisabled: Boolean = false,
-    val devices: List<DeviceRuntimeStatus> = emptyList(),
-    val events: List<LiveEventEntry> = emptyList(),
-    val lastPollTimeText: String = "",
-    val totalCheckInsToday: Int = 0,
-    val showStopConfirmDialog: Boolean = false,
-    val showLogoutConfirmDialog: Boolean = false,
-    val showModePickerDialog: Boolean = false,
-    val renameTarget: DeviceConfig? = null,
-    val deleteTarget: DeviceConfig? = null,
-) {
-    val connectedCount: Int get() = devices.count { it.isConnected }
-    val totalDeviceCount: Int get() = devices.size
-}
-
 private data class MainDialogState(
-    val showStopConfirm: Boolean = false,
-    val showLogoutConfirm: Boolean = false,
-    val showModePicker: Boolean = false,
-    val renameTarget: DeviceConfig? = null,
-    val deleteTarget: DeviceConfig? = null,
+    val showStopConfirm: Boolean = false, val showLogoutConfirm: Boolean = false, val showModePicker: Boolean = false,
+    val renameTarget: DeviceConfig? = null, val deleteTarget: DeviceConfig? = null,
+    val isPairingHik: Boolean = false, val pairHikError: String? = null,
 )
 
 /** ViewModel điều khiển màn hình chính: dò máy, kết nối, bật/tắt chấm công, chuyển chế độ và quản lý máy. */
@@ -97,6 +62,9 @@ class MainViewModel(
             hasLanOrWifi = engine.hasLanOrWifi,
             wifiHardwareDisabled = engine.wifiHardwareDisabled,
             devices = engine.devices,
+            unpairedHikvisionDevices = engine.unpairedHikvisionDevices,
+            isPairingHikvision = dlg.isPairingHik,
+            pairHikvisionError = dlg.pairHikError,
             events = engine.events,
             lastPollTimeText = engine.lastPollTimeText,
             totalCheckInsToday = engine.totalCheckInsToday,
@@ -155,6 +123,31 @@ class MainViewModel(
 
     fun onConnectAllClicked() { viewModelScope.launch { attendanceEngine.connectAllDevices(autoResumeIfConfigured = true) } }
     fun onReconnectDevice(deviceKey: String) { viewModelScope.launch { attendanceEngine.reconnectDevice(deviceKey) } }
+
+    /** Ghép nối đồng loạt các máy Hikvision vừa tự dò thấy bằng 1 lần nhập mật khẩu thiết bị. */
+    fun pairDiscoveredHikvision(username: String, password: String) {
+        val targets = uiState.value.unpairedHikvisionDevices
+        if (targets.isEmpty() || password.isBlank() || dialogs.value.isPairingHik) return
+        val cleanUser = username.trim().ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME }
+        dialogs.value = dialogs.value.copy(isPairingHik = true, pairHikError = null)
+        viewModelScope.launch {
+            var connected = 0
+            var lastErr: String? = null
+            for (d in targets) {
+                val cfg = DeviceConfig(
+                    ip = d.ip, port = d.httpPort, machineNo = DeviceConfig.DEFAULT_MACHINE_NO,
+                    name = d.model.ifBlank { "Hikvision" }, protocol = DeviceProtocol.HIKVISION_ISAPI,
+                    username = cleanUser, accessPassword = password, useHttps = d.httpPort == 443, serialNumber = d.serialNumber,
+                )
+                val (ok, msg) = attendanceEngine.testConnectDevice(cfg)
+                if (ok) { attendanceEngine.addAndConnectDevice(cfg); connected++ } else lastErr = "${d.ip}: $msg"
+            }
+            dialogs.value = dialogs.value.copy(
+                isPairingHik = false,
+                pairHikError = if (connected == 0) (lastErr ?: "Sai mật khẩu hoặc không nối được máy Hikvision.") else null,
+            )
+        }
+    }
 
     fun onOpenHikvisionDoor(device: DeviceConfig) {
         val ctrl = hikControl ?: return

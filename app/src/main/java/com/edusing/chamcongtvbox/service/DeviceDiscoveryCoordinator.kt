@@ -123,11 +123,18 @@ internal class DeviceDiscoveryCoordinator(
                 // Đưa máy mới tìm thấy lên đầu danh sách để kết nối tức thì, đồng thời lưu IP mới của máy Hikvision vừa định vị lại
                 configRepository.updateDevices(newlyAdded + updatedExisting)
             }
+            val finalIps = configRepository.getConfig().devices.map { it.ip }.toSet()
+            val unpaired = report.unpairedHikDevices.filterNot { it.ip in finalIps }
+            stateStore.update { it.copy(unpairedHikvisionDevices = unpaired) }
+
             val scanned = report.scannedPrefixes.joinToString(", ") { "$it.x" }.ifBlank { "chưa có mạng LAN/Wi-Fi" }
-            val (msg, sev) = if (report.foundIps.isNotEmpty()) {
-                "Dò xong ($scanned): tìm thấy ${report.foundIps.size} máy chấm công (${newlyAdded.size} máy mới)." to EventSeverity.SUCCESS
-            } else {
-                "Chưa thấy máy ở [$scanned] (${report.pingAliveCount} máy đáp Ping). Hệ thống sẽ tự dò lại." to EventSeverity.WARNING
+            val (msg, sev) = when {
+                report.foundIps.isNotEmpty() ->
+                    "Dò xong ($scanned): tìm thấy ${report.foundIps.size} máy chấm công (${newlyAdded.size} máy mới)." to EventSeverity.SUCCESS
+                unpaired.isNotEmpty() ->
+                    "Tìm thấy ${unpaired.size} máy Hikvision (${unpaired.joinToString { it.ip }}) — nhập mật khẩu thiết bị 1 lần trên Trạm trực để tự nối!" to EventSeverity.SUCCESS
+                else ->
+                    "Chưa thấy máy ở [$scanned] (${report.pingAliveCount} máy đáp Ping). Hệ thống sẽ tự dò lại." to EventSeverity.WARNING
             }
             stateStore.appendSystemEvent("Mạng LAN", "-", msg, sev)
         } catch (ce: CancellationException) {

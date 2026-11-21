@@ -1,6 +1,7 @@
 package com.edusing.chamcongtvbox.domain.usecase
 
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
+import com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice
 import com.edusing.chamcongtvbox.domain.model.SubnetInfo
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
@@ -29,6 +30,7 @@ data class DiscoveryReport(
     val directHandshakeUsed: Boolean,
     val relocatedDevices: List<DeviceConfig> = emptyList(),
     val autoDiscoveredHikDevices: List<DeviceConfig> = emptyList(),
+    val unpairedHikDevices: List<HikvisionSadpDevice> = emptyList(),
 )
 
 /**
@@ -58,6 +60,7 @@ class DiscoverDevicesUseCase(
         val targets = mutableListOf<SubnetTarget>()
         val relocatedDevices = mutableListOf<DeviceConfig>()
         val autoDiscoveredHik = mutableListOf<DeviceConfig>()
+        val unpairedHik = mutableListOf<HikvisionSadpDevice>()
         val missingHikDevices = mutableListOf<DeviceConfig>()
         val knownIps = knownDevices.map { it.ip.trim() }.filter { it.isNotEmpty() }.toSet()
         var totalPingAlive = 0
@@ -76,14 +79,14 @@ class DiscoverDevicesUseCase(
             if (ok) foundIps.add(ip) else if (known.isHikvision && known.serialNumber.isNotBlank()) missingHikDevices.add(known)
         }
 
-        // 1b. Dùng SADP Multicast định vị máy Hikvision đổi IP DHCP & tự nối máy Hikvision mới bằng tài khoản đã lưu 1 lần
+        // 1b. Quét 3 lớp tìm mọi máy Hikvision (SADP Multicast + Broadcast + TCP 80/443 ISAPI) — tự nối nếu đã nhớ MK hoặc báo ngay lên Trạm trực
+        val localSubnets = lanDiscoveryRepository.detectActiveSubnets(knownIps)
         HikvisionSadpDiscoveryHelper.discoverAndMatch(
-            deviceGateway, knownDevices, missingHikDevices, checkedIps, foundIps,
-            relocatedDevices, autoDiscoveredHik, hikUsername, hikPassword, onProgress,
+            deviceGateway, knownDevices, localSubnets, missingHikDevices, checkedIps, foundIps,
+            relocatedDevices, autoDiscoveredHik, unpairedHik, hikUsername, hikPassword, onProgress,
         )
 
         // 2. Quét Ping + xác nhận FK (và dự phòng định vị Hikvision qua HTTP nếu khác subnet)
-        val localSubnets = lanDiscoveryRepository.detectActiveSubnets(knownIps)
         var foundInLocalSubnets = 0
         for (subnet in localSubnets) {
             val t = SubnetTarget(subnet.prefix, subnet.localIp, "${subnet.prefix}.x (${subnet.interfaceName})")
@@ -131,7 +134,7 @@ class DiscoverDevicesUseCase(
 
         return DiscoveryReport(
             foundIps.toList(), localSubnets, scannedPrefixes.toList(), totalPingAlive,
-            usedDirectFallback, relocatedDevices.toList(), autoDiscoveredHik.toList(),
+            usedDirectFallback, relocatedDevices.toList(), autoDiscoveredHik.toList(), unpairedHik.toList(),
         )
     }
 

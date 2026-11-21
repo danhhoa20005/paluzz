@@ -27,6 +27,7 @@ import com.edusing.chamcongtvbox.domain.repository.LanDiscoveryRepository
 import com.edusing.chamcongtvbox.domain.usecase.ClearDeviceLogsUseCase
 import com.edusing.chamcongtvbox.domain.usecase.DiscoverDevicesUseCase
 import com.edusing.chamcongtvbox.domain.usecase.PollAttendanceUseCase
+import com.edusing.chamcongtvbox.domain.usecase.ScanLanDevicesUseCase
 import com.edusing.chamcongtvbox.domain.usecase.SendHeartbeatUseCase
 import com.edusing.chamcongtvbox.domain.usecase.ValidateCredentialsUseCase
 import com.edusing.chamcongtvbox.service.AttendanceLoopRunner
@@ -96,6 +97,40 @@ class AutoLoginAndReconnectTest {
         // Máy sai mật khẩu chỉ thử đúng 1 lần duy nhất (tuyệt đối không brute-force khoá 30p) và camera bị bỏ qua (0 lần)
         assertEquals(1, attemptsByIp["192.168.1.22"])
         assertEquals(null, attemptsByIp["192.168.1.99"])
+        // Máy sai mật khẩu được báo vào unpairedHikDevices để người dùng nhập MK riêng nếu muốn
+        assertEquals(1, report.unpairedHikDevices.size)
+        assertEquals("192.168.1.22", report.unpairedHikDevices[0].ip)
+    }
+
+    @Test
+    fun `3-layer discovery still finds Hikvision via TCP 80 ISAPI when both SADP multicast and ICMP ping fail`() = runBlocking {
+        val lanRepo = object : LanDiscoveryRepository {
+            override suspend fun detectActiveSubnets(preferredIps: Set<String>) = listOf(SubnetInfo("192.168.1.50", "192.168.1", "255.255.255.0", "192.168.1.1", "wlan0"))
+            override suspend fun detectActiveSubnet() = detectActiveSubnets().first()
+            override suspend fun detectRoutableExtraPrefixes(localSubnets: List<SubnetInfo>, knownIps: Set<String>) = emptyList<String>()
+            override suspend fun scanSubnetByPing(prefix: String, localIp: String?, configuredIps: Set<String>, port: Int, onProgress: (Int, Int) -> Unit) = emptyList<LanHostInfo>()
+            override suspend fun scanLanHosts(configuredIps: Set<String>, port: Int, customPrefix: String?, onProgress: (Int, Int) -> Unit) = emptyList<LanHostInfo>()
+            override suspend fun suggestFreeIp(port: Int, excludeIps: Set<String>): IpSuggestion? = null
+        }
+        val fakeGw = object : StubGateway() {
+            override suspend fun discoverHikvisionSadp(timeoutMs: Int) = emptyList<HikvisionSadpDevice>() // Router chặn multicast
+            override suspend fun sweepHikvisionSubnet(prefix: String, excludeIps: Set<String>, localIp: String?) = listOf(
+                HikvisionSadpDevice("192.168.1.8", 80, "Hikvision ISAPI", "", isAccessTerminal = true, activated = true),
+                HikvisionSadpDevice("192.168.1.22", 80, "Hikvision ISAPI", "", isAccessTerminal = true, activated = true),
+            )
+        }
+        // 1. Dò LAN trên Trạm trực khi chưa lưu MK -> báo cả 2 máy vào unpairedHikDevices
+        val discoverUc = DiscoverDevicesUseCase(lanRepo, fakeGw)
+        val report = discoverUc(emptyList(), 5005, 1, 0, 5912, false, hikUsername = "admin", hikPassword = "")
+        assertEquals(2, report.unpairedHikDevices.size)
+        assertEquals("192.168.1.8", report.unpairedHikDevices[0].ip)
+
+        // 2. ScanLanDevicesUseCase (màn Thêm & Nhận máy) -> hiện ngay qua onQuickResults dù Ping & SADP đều 0
+        var quickCount = 0
+        val scanUc = ScanLanDevicesUseCase(lanRepo, fakeGw)
+        val hosts = scanUc(configuredIps = emptySet(), onQuickResults = { quickCount = it.size })
+        assertEquals(2, quickCount)
+        assertEquals(2, hosts.count { it.isHikvisionTerminal })
     }
 
     @Test

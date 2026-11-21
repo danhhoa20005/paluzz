@@ -211,7 +211,14 @@ class AddDeviceViewModel(
                 configuredIps = configuredIps, port = cfg.defaultPort, customPrefix = targetPrefix,
                 machineNo = cfg.defaultMachineNo, password = cfg.defaultPassword, license = cfg.defaultLicense,
                 useUdp = cfg.udpMode, hikvisionPort = DeviceConfig.DEFAULT_HIK_PORT,
-                onQuickResults = { quick -> _uiState.update { cur -> if (cur.discoveredHosts.isEmpty()) cur.copy(discoveredHosts = quick) else cur } },
+                onQuickResults = { quick ->
+                    _uiState.update { cur ->
+                        val merged = LinkedHashMap<String, LanHostInfo>()
+                        cur.discoveredHosts.forEach { merged[it.ip] = it }
+                        quick.forEach { q -> if (!merged.containsKey(q.ip) || q.serialHint.isNotBlank()) merged[q.ip] = q }
+                        cur.copy(discoveredHosts = merged.values.toList())
+                    }
+                },
                 onProgress = { done, total -> _uiState.update { it.copy(scanCompleted = done, scanTotal = total) } },
             )
             _uiState.update { it.copy(isScanning = false, discoveredHosts = hosts) }

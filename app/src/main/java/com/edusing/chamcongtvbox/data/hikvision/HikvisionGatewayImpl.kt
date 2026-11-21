@@ -30,6 +30,7 @@ internal class HikvisionGatewayImpl(
 ) : FkDeviceGateway {
 
     private val enrollment = HikvisionEnrollmentApi(client)
+    private val tcpSweeper = HikvisionLanTcpSweeper(client)
     private val handleSeq = AtomicInteger(HANDLE_OFFSET)
     private val sessions = ConcurrentHashMap<Int, HikSession>()
     private val webhookEventCount = AtomicInteger(0)
@@ -84,6 +85,9 @@ internal class HikvisionGatewayImpl(
     override suspend fun probeHikvisionHost(ip: String, port: Int): String? = withContext(Dispatchers.IO) { client.probeIsapiHost(ip, port) }
 
     override suspend fun discoverHikvisionSadp(timeoutMs: Int): List<HikvisionSadpDevice> = sadpScanner.discover(timeoutMs)
+
+    override suspend fun sweepHikvisionSubnet(prefix: String, excludeIps: Set<String>, localIp: String?): List<HikvisionSadpDevice> =
+        tcpSweeper.sweepSubnet(prefix, excludeIps, localIp)
 
     /** Nhận sự kiện quét mặt/thẻ & heartbeat đẩy trực tiếp từ Hikvision HTTP Listening (`POST /hikvision/event`). */
     fun onWebhookEvent(remoteIp: String, rawBody: String): Boolean {

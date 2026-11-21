@@ -17,56 +17,57 @@ import java.net.SocketTimeoutException
 import java.util.UUID
 
 /**
- * Bộ quét chuẩn **Hikvision SADP** (`UDP Multicast 239.255.255.250:37020`):
- * phát hiện tức thì (< 2 giây, không cần mật khẩu) TẤT CẢ mọi dòng máy Hikvision trong LAN
- * (`DS-K1T320MX`, `DS-K1T320MFWX`, `DS-K1T341/342/343`, `DS-K1T671/673`, `DS-K1T804`, `DS-K1A802`...),
- * kể cả khi máy chặn Ping ICMP hoặc đã đổi cổng HTTP khỏi `80`.
+ * Bộ quét chuẩn **Hikvision SADP** (`UDP Multicast 239.255.255.250:37020` + **Subnet Broadcast**):
+ * - Mở đồng thời socket lắng nghe đa hướng chuẩn Linux/Android (`0.0.0.0:37020` tham gia nhóm `239.255.255.250`)
+ *   lẫn socket từng card mạng gửi cả Multicast và Broadcast nội bộ để nhận đủ phản hồi trên mọi dòng Android/OPPO.
  */
 internal class HikvisionSadpScanner(
     private val context: Context? = null,
 ) {
+    private data class InterfaceTarget(val ni: NetworkInterface, val ipv4: Inet4Address, val broadcast: InetAddress?)
+
     suspend fun discover(timeoutMs: Int = 1_800): List<HikvisionSadpDevice> = withContext(Dispatchers.IO) {
         val lock = acquireMulticastLock()
         val foundByKey = LinkedHashMap<String, HikvisionSadpDevice>()
         try {
             val probeBytes = buildProbeXml().toByteArray(Charsets.UTF_8)
             val groupAddr = InetAddress.getByName(SADP_MULTICAST_IP)
-            val sockets = openSocketsPerInterface()
+            val targets = collectActiveInterfaces()
+            val sockets = openSockets(targets, groupAddr)
             try {
-                // Gửi gói dò SADP 2 nhịp cách nhau 120ms trên mọi card mạng vật lý (Ethernet + Wi-Fi)
+                // Gửi gói dò SADP 2 nhịp cách nhau 120ms tới cả Multicast 239.255.255.250 và Subnet Broadcast (.255)
                 repeat(2) { pass ->
-                    for (sock in sockets) {
+                    for ((sock, bcast) in sockets) {
                         runCatching { sock.send(DatagramPacket(probeBytes, probeBytes.size, groupAddr, SADP_PORT)) }
+                        if (bcast != null) {
+                            runCatching { sock.send(DatagramPacket(probeBytes, probeBytes.size, bcast, SADP_PORT)) }
+                        }
                     }
                     if (pass == 0) Thread.sleep(120L)
                 }
                 val deadline = System.currentTimeMillis() + timeoutMs.coerceIn(600, 4_000)
                 val buf = ByteArray(8_192)
-                for (sock in sockets) {
-                    runCatching { sock.soTimeout = 180 }
-                }
+                sockets.forEach { (sock, _) -> runCatching { sock.soTimeout = 160 } }
                 while (System.currentTimeMillis() < deadline) {
                     var anyPacket = false
-                    for (sock in sockets) {
+                    for ((sock, _) in sockets) {
                         val packet = DatagramPacket(buf, buf.size)
                         try {
                             sock.receive(packet)
                             anyPacket = true
                             val xml = String(packet.data, 0, packet.length, Charsets.UTF_8)
-                            val fallbackIp = packet.address?.hostAddress.orEmpty()
-                            val parsed = parseProbeMatchXml(xml, fallbackIp) ?: continue
-                            val dedupKey = parsed.serialNumber.ifBlank { parsed.ip }
-                            foundByKey[dedupKey] = parsed
+                            val parsed = parseProbeMatchXml(xml, packet.address?.hostAddress.orEmpty()) ?: continue
+                            foundByKey[parsed.serialNumber.ifBlank { parsed.ip }] = parsed
                         } catch (_: SocketTimeoutException) {
-                            // Tiếp tục kiểm tra card mạng kế tiếp cho đến hết thời gian chờ
+                            // Tiếp tục kiểm tra socket kế tiếp
                         } catch (_: Exception) {
-                            // Bỏ qua lỗi đọc đơn lẻ
+                            // Bỏ qua gói hỏng
                         }
                     }
                     if (!anyPacket && foundByKey.isNotEmpty() && System.currentTimeMillis() > deadline - 500L) break
                 }
             } finally {
-                sockets.forEach { runCatching { it.close() } }
+                sockets.forEach { (sock, _) -> runCatching { sock.close() } }
             }
         } finally {
             runCatching { if (lock?.isHeld == true) lock.release() }
@@ -77,38 +78,57 @@ internal class HikvisionSadpScanner(
         )
     }
 
-    private fun openSocketsPerInterface(): List<DatagramSocket> {
-        val result = mutableListOf<DatagramSocket>()
+    private fun collectActiveInterfaces(): List<InterfaceTarget> {
+        val out = mutableListOf<InterfaceTarget>()
         val ifaces = runCatching { NetworkInterface.getNetworkInterfaces()?.toList().orEmpty() }.getOrDefault(emptyList())
         for (ni in ifaces) {
             if (!ni.isUp || ni.isLoopback || ni.isVirtual) continue
             val name = ni.name.lowercase()
             if (name.startsWith("tun") || name.startsWith("wg") || name.startsWith("rmnet") || name.startsWith("ccmni") || name.startsWith("p2p")) continue
-            val ipv4 = ni.interfaceAddresses.mapNotNull { it.address as? Inet4Address }
-                .firstOrNull { !it.isLoopbackAddress && !it.isLinkLocalAddress } ?: continue
+            val ia = ni.interfaceAddresses.firstOrNull {
+                val a = it.address as? Inet4Address
+                a != null && !a.isLoopbackAddress && !a.isLinkLocalAddress
+            } ?: continue
+            out.add(InterfaceTarget(ni, ia.address as Inet4Address, ia.broadcast))
+        }
+        return out
+    }
+
+    private fun openSockets(targets: List<InterfaceTarget>, groupAddr: InetAddress): List<Pair<DatagramSocket, InetAddress?>> {
+        val result = mutableListOf<Pair<DatagramSocket, InetAddress?>>()
+        // 1. Socket wildcard cổng 37020 tham gia nhóm multicast 239.255.255.250 (chuẩn Linux/Android nhận gói phản hồi multicast)
+        runCatching {
+            val listener = MulticastSocket(null).apply {
+                reuseAddress = true
+                bind(InetSocketAddress(SADP_PORT))
+                timeToLive = 2
+            }
+            targets.forEach { t ->
+                runCatching { listener.joinGroup(InetSocketAddress(groupAddr, SADP_PORT), t.ni) }
+            }
+            result.add(listener to null)
+        }
+        // 2. Socket gửi/nhận unicast trên từng card mạng (kèm broadcast nội bộ)
+        for (t in targets) {
             runCatching {
-                val ms = MulticastSocket(InetSocketAddress(ipv4, 0)).apply {
+                val ms = MulticastSocket(InetSocketAddress(t.ipv4, 0)).apply {
                     reuseAddress = true
+                    broadcast = true
                     timeToLive = 2
-                    networkInterface = ni
+                    networkInterface = t.ni
                 }
-                result.add(ms)
+                result.add(ms to t.broadcast)
             }
         }
         if (result.isEmpty()) {
-            runCatching {
-                result.add(MulticastSocket().apply { reuseAddress = true; timeToLive = 2 })
-            }
+            runCatching { result.add(MulticastSocket().apply { reuseAddress = true; broadcast = true; timeToLive = 2 } to null) }
         }
         return result
     }
 
     private fun acquireMulticastLock(): WifiManager.MulticastLock? = runCatching {
         val wm = context?.applicationContext?.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-        wm?.createMulticastLock("AppTVBox::HikSadpLock")?.apply {
-            setReferenceCounted(false)
-            acquire()
-        }
+        wm?.createMulticastLock("AppTVBox::HikSadpLock")?.apply { setReferenceCounted(false); acquire() }
     }.getOrNull()
 
     companion object {
@@ -125,30 +145,19 @@ internal class HikvisionSadpScanner(
             if (ip.isEmpty() || ip == "0.0.0.0") return null
             val model = tag(xml, "DeviceDescription").ifBlank { tag(xml, "DeviceType") }.ifBlank { "Hikvision" }
             val httpPort = tag(xml, "HttpPort").toIntOrNull()?.takeIf { it in 1..65535 } ?: DeviceConfig.DEFAULT_HIK_PORT
-            val serial = tag(xml, "DeviceSN")
-            val mac = tag(xml, "MAC")
-            val fw = tag(xml, "SoftwareVersion")
-            val dhcp = tag(xml, "DHCP").equals("true", ignoreCase = true)
-            val activated = !tag(xml, "Activated").equals("false", ignoreCase = true)
             return HikvisionSadpDevice(
-                ip = ip,
-                httpPort = httpPort,
-                model = model,
-                serialNumber = serial,
-                mac = mac,
-                firmwareVersion = fw,
-                dhcpEnabled = dhcp,
-                activated = activated,
+                ip = ip, httpPort = httpPort, model = model,
+                serialNumber = tag(xml, "DeviceSN"), mac = tag(xml, "MAC"), firmwareVersion = tag(xml, "SoftwareVersion"),
+                dhcpEnabled = tag(xml, "DHCP").equals("true", ignoreCase = true),
+                activated = !tag(xml, "Activated").equals("false", ignoreCase = true),
                 isAccessTerminal = classifyAccessTerminal(model),
             )
         }
 
-        /** Phân biệt máy chấm công / kiểm soát cửa (`DS-K*`, `MinMoe`, `SH-K*`) với camera/đầu ghi (`DS-2CD`, `DS-76`...). */
+        /** Phân biệt máy chấm công / kiểm soát cửa (`DS-K*`, `MinMoe`) với camera/đầu ghi (`DS-2CD`, `DS-76`...). */
         fun classifyAccessTerminal(model: String): Boolean {
             val u = model.trim().uppercase()
-            if (u.startsWith("DS-K") || u.startsWith("DS-56") || u.contains("MINMOE") || u.contains("ACCESS") || u.contains("ACS")) {
-                return true
-            }
+            if (u.startsWith("DS-K") || u.startsWith("DS-56") || u.contains("MINMOE") || u.contains("ACCESS") || u.contains("ACS")) return true
             val isCameraOrNvr = u.startsWith("DS-2C") || u.startsWith("DS-7") || u.startsWith("DS-8") ||
                 u.startsWith("DS-9") || u.startsWith("IDS-7") || u.startsWith("IPC") || u.startsWith("NVR") || u.startsWith("DVR")
             return !isCameraOrNvr
