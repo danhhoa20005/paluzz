@@ -71,13 +71,11 @@ internal class HikvisionIsapiClient(
             val isOwnedOrEmpty = curIp.isEmpty() || curIp == "0.0.0.0" || curUrl.equals("/hikvision/event", ignoreCase = true)
             if (!isOwnedOrEmpty) return current
         }
-        val xml = """<?xml version="1.0" encoding="UTF-8"?>""" +
-            """<HttpHostNotification version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema">""" +
-            """<id>1</id><url>/hikvision/event</url><protocolType>HTTP</protocolType>""" +
-            """<parameterFormatType>JSON</parameterFormatType><addressingFormatType>ipaddress</addressingFormatType>""" +
-            """<ipAddress>$listenerIp</ipAddress><portNo>$listenerPort</portNo>""" +
-            """<httpAuthenticationMethod>none</httpAuthenticationMethod></HttpHostNotification>"""
-        return request(device, "PUT", "/ISAPI/Event/notification/httpHosts/1", body = xml, contentType = XML_MEDIA, timeoutMs = 4_000)
+        val fullXml = HikvisionWebhookApi.buildWebhookXml("HTTP", "ipaddress", listenerIp, listenerPort, "/hikvision/event", includeSubscribe = true)
+        val first = request(device, "PUT", "/ISAPI/Event/notification/httpHosts/1", body = fullXml, contentType = XML_MEDIA, timeoutMs = 4_000)
+        if (first.isSuccess || first.isUnauthorized) return first
+        val simpleXml = HikvisionWebhookApi.buildWebhookXml("HTTP", "ipaddress", listenerIp, listenerPort, "/hikvision/event", includeSubscribe = false)
+        return request(device, "PUT", "/ISAPI/Event/notification/httpHosts/1", body = simpleXml, contentType = XML_MEDIA, timeoutMs = 4_000)
     }
 
     fun fetchAccessEvents(

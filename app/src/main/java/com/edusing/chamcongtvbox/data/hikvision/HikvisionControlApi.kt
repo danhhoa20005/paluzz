@@ -5,6 +5,7 @@ import com.edusing.chamcongtvbox.domain.model.DeviceUser
 import com.edusing.chamcongtvbox.domain.model.HikvisionDoorCommand
 import com.edusing.chamcongtvbox.domain.model.HikvisionHealthStatus
 import com.edusing.chamcongtvbox.domain.model.HikvisionHistoryItem
+import com.edusing.chamcongtvbox.domain.model.HikvisionWebhookConfig
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,6 +26,7 @@ internal class HikvisionControlApi(
 ) : HikvisionControlGateway {
 
     private val enrollment = HikvisionEnrollmentApi(client)
+    private val webhookApi = HikvisionWebhookApi(client)
     private val avatarClient = OkHttpClient.Builder()
         .connectTimeout(6, TimeUnit.SECONDS).readTimeout(8, TimeUnit.SECONDS).build()
 
@@ -210,6 +212,10 @@ internal class HikvisionControlApi(
             }
         }.getOrNull()
     }
+
+    override suspend fun fetchWebhookConfig(device: DeviceConfig): Result<HikvisionWebhookConfig> = webhookApi.fetchWebhookConfig(device)
+    override suspend fun configureWebhook(device: DeviceConfig, config: HikvisionWebhookConfig): Result<String> = webhookApi.configureWebhook(device, config)
+    override suspend fun clearWebhook(device: DeviceConfig): Result<String> = webhookApi.clearWebhook(device)
 
     private fun buildFaceMultipart(employeeNo: String, jpegBytes: ByteArray): Pair<String, ByteArray> {
         val boundary = "----HikvisionMinMoeBoundary7e9a3c1d"

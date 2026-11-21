@@ -3,6 +3,7 @@ package com.edusing.chamcongtvbox.data.hikvision
 import com.edusing.chamcongtvbox.domain.model.AttendanceLog
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
 import com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice
+import com.edusing.chamcongtvbox.domain.model.HikvisionWebhookStats
 import com.edusing.chamcongtvbox.domain.protocol.FkConnectionInfo
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
 import com.edusing.chamcongtvbox.domain.protocol.FkErrorCode
@@ -30,6 +31,11 @@ internal class HikvisionGatewayImpl(
     private val enrollment = HikvisionEnrollmentApi(client)
     private val handleSeq = AtomicInteger(HANDLE_OFFSET)
     private val sessions = ConcurrentHashMap<Int, HikSession>()
+    private val webhookEventCount = AtomicInteger(0)
+    private val webhookHeartbeatCount = AtomicInteger(0)
+    @Volatile private var lastWebhookAtMs: Long = 0L
+    @Volatile private var lastWebhookIp: String = ""
+    @Volatile private var lastWebhookSummary: String = ""
 
     private class HikSession(
         val device: DeviceConfig,
@@ -78,17 +84,35 @@ internal class HikvisionGatewayImpl(
 
     override suspend fun discoverHikvisionSadp(timeoutMs: Int): List<HikvisionSadpDevice> = sadpScanner.discover(timeoutMs)
 
-    /** Nhận sự kiện quét mặt/thẻ đẩy trực tiếp từ Hikvision HTTP Listening (`POST /hikvision/event`). */
+    /** Nhận sự kiện quét mặt/thẻ & heartbeat đẩy trực tiếp từ Hikvision HTTP Listening (`POST /hikvision/event`). */
     fun onWebhookEvent(remoteIp: String, rawBody: String): Boolean {
-        val parsed = HikvisionIsapiParser.parseWebhookPayload(rawBody, remoteIp, clockMillis()) ?: return false
+        val now = clockMillis()
+        val cleanIp = remoteIp.trim().removePrefix("::ffff:")
+        val parsed = HikvisionIsapiParser.parseWebhookPayload(rawBody, cleanIp, now)
+        if (parsed == null) {
+            if (rawBody.contains("heartBeat", true) || rawBody.contains("EventNotificationAlert", true) || rawBody.contains("AccessControllerEvent", true)) {
+                webhookHeartbeatCount.incrementAndGet()
+                lastWebhookAtMs = now; lastWebhookIp = cleanIp
+                lastWebhookSummary = if (rawBody.contains("heartBeat", true)) "Heartbeat OK" else "Gói sự kiện hệ thống"
+            }
+            return false
+        }
+        webhookEventCount.incrementAndGet()
+        lastWebhookAtMs = now; lastWebhookIp = cleanIp
+        lastWebhookSummary = "#${parsed.employeeNo}${if (parsed.employeeName.isNotBlank()) " ${parsed.employeeName}" else ""}"
         var delivered = false
         for (session in sessions.values) {
-            if (session.device.ip.equals(remoteIp.trim(), ignoreCase = true) || sessions.size == 1) {
+            if (session.device.ip.equals(cleanIp, ignoreCase = true) || sessions.size == 1) {
                 session.webhookQueue.offer(parsed); delivered = true
             }
         }
         return delivered
     }
+
+    /** Trả thống kê gói tin Webhook đã nhận trực tiếp trên TV Box kể từ khi khởi động dịch vụ. */
+    fun webhookStats(): HikvisionWebhookStats = HikvisionWebhookStats(
+        webhookEventCount.get(), webhookHeartbeatCount.get(), lastWebhookAtMs, lastWebhookIp, lastWebhookSummary,
+    )
 
     override suspend fun disconnect(handle: Int) { sessions.remove(handle) }
     override suspend fun disconnectAll() { sessions.clear() }

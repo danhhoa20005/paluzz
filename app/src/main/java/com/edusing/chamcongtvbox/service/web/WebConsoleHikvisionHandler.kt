@@ -4,6 +4,7 @@ import android.util.Base64
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
 import com.edusing.chamcongtvbox.domain.model.EventSeverity
 import com.edusing.chamcongtvbox.domain.model.HikvisionDoorCommand
+import com.edusing.chamcongtvbox.domain.model.HikvisionWebhookStats
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.ConfigRepository
@@ -29,8 +30,15 @@ internal class WebConsoleHikvisionHandler(
     private val deviceGateway: FkDeviceGateway,
     private val hikControl: HikvisionControlGateway,
     private val backfillUseCase: BackfillHikvisionEventsUseCase,
+    activePortProvider: () -> Int = { 8080 },
+    webhookStatsProvider: () -> HikvisionWebhookStats = { HikvisionWebhookStats() },
 ) {
+    private val webhookHelper = WebConsoleWebhookHelper(
+        configRepository, attendanceEngine, hikControl, activePortProvider, webhookStatsProvider,
+    )
+
     suspend fun handle(method: String, path: String, query: String, rawBody: String): WebHttpResponse {
+        webhookHelper.handle(method, path, rawBody)?.let { return it }
         val params = parseQuery(query)
         return when {
             path == "/api/hikvision/discover-sadp" && method == "POST" -> handleDiscoverSadp()

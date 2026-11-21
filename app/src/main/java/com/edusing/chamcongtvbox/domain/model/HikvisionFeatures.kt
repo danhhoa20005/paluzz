@@ -58,6 +58,33 @@ data class HikvisionSadpDevice(
     val isAccessTerminal: Boolean = true,
 )
 
+/** Cấu hình Webhook (`HTTP Listening` — `/ISAPI/Event/notification/httpHosts/1`) trên máy Hikvision. */
+data class HikvisionWebhookConfig(
+    val enabled: Boolean,
+    val protocolType: String = "HTTP",       // "HTTP" hoặc "HTTPS"
+    val addressingType: String = "ipaddress", // "ipaddress" hoặc "hostname"
+    val hostOrIp: String = "",
+    val port: Int = 8080,
+    val url: String = "/hikvision/event",
+) {
+    val summaryUrl: String
+        get() = if (!enabled || hostOrIp.isBlank() || hostOrIp == "0.0.0.0" || port <= 0) {
+            "Chưa bật Webhook"
+        } else {
+            val cleanPath = if (url.startsWith("/")) url else "/$url"
+            "${protocolType.lowercase()}://$hostOrIp:$port$cleanPath"
+        }
+}
+
+/** Thống kê nhận gói tin Webhook trực tiếp trên TV Box (`POST /hikvision/event`). */
+data class HikvisionWebhookStats(
+    val eventCount: Int = 0,
+    val heartbeatCount: Int = 0,
+    val lastReceivedAtMs: Long = 0L,
+    val lastSourceIp: String = "",
+    val lastSummary: String = "",
+)
+
 /** Kết quả đồng bộ bù các lượt quét còn lưu trên máy Hikvision lên máy chủ Paluzz/ĐiểmDanh. */
 data class BackfillSummary(
     val totalFound: Int,

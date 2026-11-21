@@ -5,6 +5,7 @@ import com.edusing.chamcongtvbox.domain.model.DeviceUser
 import com.edusing.chamcongtvbox.domain.model.HikvisionDoorCommand
 import com.edusing.chamcongtvbox.domain.model.HikvisionHealthStatus
 import com.edusing.chamcongtvbox.domain.model.HikvisionHistoryItem
+import com.edusing.chamcongtvbox.domain.model.HikvisionWebhookConfig
 
 /**
  * Cổng điều khiển chuyên sâu cho máy chấm công khuôn mặt Hikvision `DS-K1T320MX` tầng Domain (100% thuần Kotlin):
@@ -30,4 +31,7 @@ interface HikvisionControlGateway {
     suspend fun deleteUserByEmployeeNo(device: DeviceConfig, employeeNo: String): Result<Unit>
     suspend fun fetchSerialNumber(device: DeviceConfig, timeoutMs: Int = 2_500): String?
     suspend fun downloadAvatarBytes(url: String): ByteArray?
+    suspend fun fetchWebhookConfig(device: DeviceConfig): Result<HikvisionWebhookConfig>
+    suspend fun configureWebhook(device: DeviceConfig, config: HikvisionWebhookConfig): Result<String>
+    suspend fun clearWebhook(device: DeviceConfig): Result<String>
 }

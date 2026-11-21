@@ -11,7 +11,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.BufferedInputStream
-import java.io.ByteArrayOutputStream
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.ServerSocket
@@ -105,10 +104,10 @@ internal class LocalWebConsoleServer(
         try {
             client.soTimeout = CLIENT_TIMEOUT_MS
             val input = BufferedInputStream(client.getInputStream())
-            val req = parseRequest(input) ?: return
+            val req = HttpRequestBodyReader.parseRequest(input, client.getOutputStream()) ?: return
             val response = when {
                 req.path == "/" || req.path == "/index.html" -> WebHttpResponse(200, HTML_TYPE, dashboardHtml)
-                req.path == "/hikvision/event" && req.method == "POST" -> {
+                req.path.trimEnd('/') == "/hikvision/event" && req.method == "POST" -> {
                     val remoteIp = client.inetAddress?.hostAddress.orEmpty()
                     onHikvisionWebhook(remoteIp, req.body)
                     WebHttpResponse(200, "application/json; charset=utf-8", """{"status":"ok"}""")
@@ -124,62 +123,6 @@ internal class LocalWebConsoleServer(
         } finally {
             runCatching { client.close() }
         }
-    }
-
-    private data class ParsedHttpRequest(
-        val method: String, val path: String, val query: String, val token: String?, val body: String,
-    )
-
-    private fun parseRequest(input: BufferedInputStream): ParsedHttpRequest? {
-        val headerBuf = ByteArrayOutputStream()
-        var matched = 0
-        while (headerBuf.size() < MAX_HEADER_BYTES) {
-            val b = input.read()
-            if (b == -1) return null
-            headerBuf.write(b)
-            matched = when {
-                matched == 0 && b == '\r'.code -> 1
-                matched == 1 && b == '\n'.code -> 2
-                matched == 2 && b == '\r'.code -> 3
-                matched == 3 && b == '\n'.code -> 4
-                b == '\r'.code -> 1
-                else -> 0
-            }
-            if (matched == 4) break
-        }
-        val lines = headerBuf.toString(Charsets.UTF_8.name()).split("\r\n")
-        val firstParts = lines.firstOrNull()?.split(' ') ?: return null
-        if (firstParts.size < 2) return null
-        val method = firstParts[0].uppercase()
-        val rawTarget = firstParts[1]
-        val path = rawTarget.substringBefore('?')
-        val query = rawTarget.substringAfter('?', "")
-
-        var contentLength = 0
-        var token: String? = null
-        val bodyLimit = when {
-            path == "/api/hikvision/face-upload" || path == "/api/hikvision/quick-enroll" -> MAX_FACE_UPLOAD_BYTES
-            path == "/hikvision/event" -> MAX_WEBHOOK_BODY_BYTES
-            else -> MAX_BODY_BYTES
-        }
-        for (line in lines.drop(1)) {
-            val idx = line.indexOf(':')
-            if (idx <= 0) continue
-            val k = line.substring(0, idx).trim().lowercase()
-            val v = line.substring(idx + 1).trim()
-            when (k) {
-                "content-length" -> contentLength = v.toIntOrNull()?.coerceIn(0, bodyLimit) ?: 0
-                "x-console-token" -> token = v
-            }
-        }
-        val bodyBytes = ByteArray(contentLength)
-        var readTotal = 0
-        while (readTotal < contentLength) {
-            val n = input.read(bodyBytes, readTotal, contentLength - readTotal)
-            if (n <= 0) break
-            readTotal += n
-        }
-        return ParsedHttpRequest(method, path, query, token, String(bodyBytes, 0, readTotal, Charsets.UTF_8))
     }
 
     private fun writeResponse(client: Socket, res: WebHttpResponse) {
@@ -208,10 +151,6 @@ internal class LocalWebConsoleServer(
     companion object {
         private const val TAG = "LocalWebConsole"
         private const val CLIENT_TIMEOUT_MS = 12_000
-        private const val MAX_HEADER_BYTES = 8_192
-        private const val MAX_BODY_BYTES = 32_768
-        private const val MAX_WEBHOOK_BODY_BYTES = 65_536
-        private const val MAX_FACE_UPLOAD_BYTES = 400_000
         private const val HTML_TYPE = "text/html; charset=utf-8"
         private val CANDIDATE_PORTS = listOf(8080, 8081, 8082, 8088)
 

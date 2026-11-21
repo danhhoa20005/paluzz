@@ -23,6 +23,7 @@ import com.edusing.chamcongtvbox.data.repository.LanDiscoveryRepositoryImpl
 import com.edusing.chamcongtvbox.data.repository.MemberRepositoryImpl
 import com.edusing.chamcongtvbox.domain.model.AppMode
 import com.edusing.chamcongtvbox.domain.model.BrandingConfig
+import com.edusing.chamcongtvbox.domain.model.HikvisionWebhookStats
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.AppUpdateRepository
@@ -104,6 +105,8 @@ class AppContainer(appContext: Context) {
         if (ok) attendanceEngine.wakePollLoopNow()
         return ok
     }
+
+    fun hikvisionWebhookStats(): HikvisionWebhookStats = hikvisionGateway.webhookStats()
 
     // Kho dữ liệu (Repositories)
     val authRepository: AuthRepository = AuthRepositoryImpl(apiClient)

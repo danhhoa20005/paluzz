@@ -134,6 +134,30 @@
         <img id="camImg" class="cam" alt="Camera máy chấm công" />
       </div>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2eaf6">
+        <div class="row sp">
+          <div class="sub" style="font-weight:700">Webhook đẩy sự kiện tức thì (&lt;0.5s • HTTP Listening)</div>
+          <span class="pill" id="whStatusPill">Đang kiểm tra...</span>
+        </div>
+        <div class="sub" id="whInfoLine" style="margin-top:4px">Đích hiện tại trên máy chấm công: —</div>
+        <div class="sub" id="whStatsLine" style="margin-top:2px">TV Box đã nhận: 0 lượt quét • 0 heartbeat</div>
+        <div class="row" style="margin-top:8px">
+          <button class="ok" onclick="applyWebhookTvBox()">Gắn Webhook về TV Box này</button>
+          <button class="ghost" onclick="loadHikWebhook()">Đọc lại Webhook</button>
+          <button class="ghost" onclick="toggleCustomWebhook()">Tuỳ chỉnh máy chủ khác</button>
+          <button class="err" onclick="clearHikWebhook()">Tắt Webhook</button>
+        </div>
+        <div id="whCustomBox" class="hide" style="margin-top:8px;padding:10px;border-radius:12px;background:#f4f8ff;border:1px solid var(--b)">
+          <div class="sub" style="margin-bottom:6px">Trỏ sự kiện quét trực tiếp từ máy chấm công sang máy chủ riêng (IP nội bộ HTTP hoặc tên miền HTTPS):</div>
+          <div class="row">
+            <select id="whProto" style="width:96px"><option value="HTTP">HTTP</option><option value="HTTPS">HTTPS</option></select>
+            <input id="whHost" placeholder="IP hoặc tên miền (vd 192.168.1.50 hoặc api.congty.vn)" style="flex:2;min-width:170px" />
+            <input id="whPort" type="number" value="8080" style="width:82px" />
+            <input id="whPath" value="/hikvision/event" placeholder="/hikvision/event" style="flex:1;min-width:130px" />
+            <button onclick="applyWebhookCustom()">Lưu Webhook</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2eaf6">
         <div class="sub" style="font-weight:700;margin-bottom:6px">Tạo nhanh nhân sự + nạp ảnh khuôn mặt AI (tự nén JPEG chuẩn Hikvision)</div>
         <div class="row">
           <input id="qeNo" placeholder="Mã nhân sự / thẻ *" style="width:140px" />
@@ -230,7 +254,7 @@
 <script>
 let token = localStorage.getItem('cc_console_token') || '';
 let lastStatus = null, loadedUsers = [], loadedIsHik = false, scheduleDirty = false, techDirty = false;
-let pendingFaceTarget = null, camTimer = null, hikHealthLoadedKey = '';
+let pendingFaceTarget = null, camTimer = null, hikHealthLoadedKey = '', lastWebhookState = null;
 ['apOn','apCustomOn','apHour','apMin'].forEach(id => document.getElementById(id).addEventListener('change', () => scheduleDirty = true));
 ['tHost','tRepo','tPoll','tDedup','tPort','tUdp','tBoot','tAutoUpd'].forEach(id => document.getElementById(id).addEventListener('change', () => techDirty = true));
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(()=>t.style.display='none',3600);}
@@ -297,6 +321,7 @@ function addDevice(){
 function curHikKey(){return document.getElementById('hikDevSel').value;}
 async function loadHikHealth(){
   const key=curHikKey(); if(!key) return; hikHealthLoadedKey=key;
+  loadHikWebhook();
   try{
     const r=await api('/api/hikvision/health','POST',{key});
     if(!r.ok){toast(r.error||'Không đọc được sức khoẻ máy');return;}
@@ -304,6 +329,61 @@ async function loadHikHealth(){
     document.getElementById('hkCap').textContent=r.userCount+' người • '+r.faceCount+'/'+r.maxFaceCapacity+' mặt • '+r.cardCount+' thẻ';
     document.getElementById('hkNet').textContent=r.ipAddress+(r.isDhcp?' (DHCP — nên khoá tĩnh)':' (IP tĩnh ✓)');
     document.getElementById('hkDoor').textContent=(r.doorLocked?'Đang khoá':'Đang mở')+(r.antiDismantleAlert?' • Cạy vỏ!':'')+(r.deviceTimeText?' • '+r.deviceTimeText.slice(11,19):'');
+  }catch(e){toast(e.message);}
+}
+async function loadHikWebhook(){
+  const key=curHikKey(); if(!key) return;
+  const pill=document.getElementById('whStatusPill'), info=document.getElementById('whInfoLine'), stLine=document.getElementById('whStatsLine');
+  try{
+    const r=await api('/api/hikvision/webhook/get','POST',{key});
+    lastWebhookState=r;
+    const st=r.stats||{};
+    const lastPart=st.lastTimeText?(' • Gần nhất '+st.lastTimeText+(st.lastSummary?' ('+st.lastSummary+')':'')):'';
+    stLine.textContent='TV Box đã nhận: '+(st.eventCount||0)+' lượt quét • '+(st.heartbeatCount||0)+' heartbeat'+lastPart+(r.tvBoxUrl?' • Cổng nhận Box: '+r.tvBoxUrl:'');
+    if(!r.ok){pill.className='pill err';pill.textContent='Chưa đọc được';info.textContent=r.error||'Không đọc được Webhook';return;}
+    if(r.pointsToThisBox){pill.className='pill ok';pill.textContent='Đang trỏ về TV Box này ✓';}
+    else if(r.enabled){pill.className='pill warn';pill.textContent='Đang trỏ hệ thống khác';}
+    else{pill.className='pill';pill.textContent='Chưa bật Webhook';}
+    info.textContent='Đích hiện tại trên máy chấm công: '+r.summaryUrl;
+    if(document.getElementById('whCustomBox').classList.contains('hide')){
+      document.getElementById('whProto').value=r.protocolType||'HTTP';
+      document.getElementById('whHost').value=r.enabled?(r.hostOrIp||''):(r.tvBoxIp||'');
+      document.getElementById('whPort').value=r.enabled?(r.port||8080):(r.tvBoxPort||8080);
+      document.getElementById('whPath').value=r.enabled?(r.url||'/hikvision/event'):'/hikvision/event';
+    }
+  }catch(e){pill.className='pill err';pill.textContent='Lỗi đọc';info.textContent=e.message;}
+}
+function toggleCustomWebhook(){document.getElementById('whCustomBox').classList.toggle('hide');}
+async function applyWebhookTvBox(){
+  const key=curHikKey(); if(!key) return;
+  if(lastWebhookState && lastWebhookState.enabled && !lastWebhookState.pointsToThisBox){
+    if(!confirm('Máy đang gắn Webhook tới '+lastWebhookState.summaryUrl+'.\nBạn có muốn chuyển sang TV Box này ('+(lastWebhookState.tvBoxUrl||'TV Box')+')?')) return;
+  }
+  try{
+    const r=await api('/api/hikvision/webhook/apply','POST',{key,mode:'tvbox'});
+    toast(r.message||r.error||'Xong'); loadHikWebhook(); refresh();
+  }catch(e){toast(e.message);}
+}
+async function applyWebhookCustom(){
+  const key=curHikKey(); if(!key) return;
+  const protocolType=document.getElementById('whProto').value;
+  const hostOrIp=document.getElementById('whHost').value.trim();
+  const port=parseInt(document.getElementById('whPort').value||'8080',10);
+  const url=document.getElementById('whPath').value.trim()||'/hikvision/event';
+  if(!hostOrIp){toast('Nhập IP hoặc tên miền máy chủ nhận Webhook');return;}
+  try{
+    const r=await api('/api/hikvision/webhook/apply','POST',{key,mode:'custom',protocolType,hostOrIp,port,url});
+    toast(r.message||r.error||'Xong');
+    if(r.ok) document.getElementById('whCustomBox').classList.add('hide');
+    loadHikWebhook(); refresh();
+  }catch(e){toast(e.message);}
+}
+async function clearHikWebhook(){
+  const key=curHikKey(); if(!key) return;
+  if(!confirm('Tắt Webhook (HTTP Listening) trên máy chấm công này?\nApp vẫn sẽ tiếp tục quét tự động định kỳ.')) return;
+  try{
+    const r=await api('/api/hikvision/webhook/clear','POST',{key});
+    toast(r.message||r.error||'Xong'); loadHikWebhook(); refresh();
   }catch(e){toast(e.message);}
 }
 async function hikPost(path, extra={}){
