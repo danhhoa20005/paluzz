@@ -1,7 +1,7 @@
 {
-  "versionCode": 8,
-  "versionName": "1.7.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v1.7.0/ChamCong_DiemDanh_v1.7.0.apk",
-  "sha256": "18e75c8fd95fe946c157c80a7b9a60dadba4734946b9bccaca90ad0de1d26c02",
-  "notes": "Hỗ trợ song song máy chấm công khuôn mặt Hikvision DS-K1T320MX (cổng 80/443 ISAPI + Digest Auth MD5/SHA-256 + Webhook /hikvision/event tức thì + đồng bộ giờ Việt Nam + đẩy tên tiếng Việt UTF-8 đầy đủ + dò LAN tự động nhận diện cả máy FK và Hikvision + thêm máy Hikvision trực tiếp từ Web LAN http://chamcong.local:8080)."
+  "versionCode": 9,
+  "versionName": "1.7.1",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v1.7.1/ChamCong_DiemDanh_v1.7.1.apk",
+  "sha256": "49b268900a6ae52671add88e7b7d198b3b8892a22d89ac73cf6d1bfea1c03537",
+  "notes": "Hỗ trợ chứng chỉ HTTPS tự ký nội bộ (cổng 443) cho Hikvision DS-K1T320MX đời 2024+ và tự bóc IP khi dán nguyên đường dẫn web https://192.168.1.x/doc/index.html."
 }
