@@ -1,7 +1,7 @@
 {
-  "versionCode": 16,
-  "versionName": "2.3.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.3.0/ChamCong_DiemDanh_v2.3.0.apk",
-  "sha256": "970f40b070e8ed3d421bebbd2985771577b12480e0e2bb23f739dc38cb9837fb",
-  "notes": "Thiết kế lại hoàn toàn giao diện Thêm & Nhận máy chấm công siêu đơn giản: mở màn hình tự quét tức thì (~1.5s hiện ngay mọi máy Hikvision qua SADP và tiếp tục dò FK), tách riêng thẻ lớn máy chấm công với nút 1 chạm Nhận máy ngay (hộp nhập mật khẩu gọn 1 ô cho lần đầu), thu gọn toàn bộ thông số kỹ thuật vào Tuỳ chọn nâng cao, và nâng cấp nút Nhận máy ngay 1 chạm trên Web quản trị LAN."
+  "versionCode": 17,
+  "versionName": "2.4.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.4.0/ChamCong_DiemDanh_v2.4.0.apk",
+  "sha256": "b75c7b5cfa46125dee666765e0dbdb7e0c835ddc56fe8985e4b9fb5bb1ac8436",
+  "notes": "Nâng cấp Tự động cập nhật hoàn toàn không cần bấm kiểm tra (tự dò sau 6s, mỗi 30 phút & khi mở app/có mạng lại, tự tải sẵn APK, tự cài âm thầm trên TV Box Root/Device Owner hoặc tự bật đếm ngược 4s cài ngay + thanh thông báo nổi trên mọi tab & Web LAN), Tự đồng bộ bù lượt chấm Hikvision còn tồn sau mất điện/mất mạng + nút Bù lượt hôm nay 1 chạm trên App, và Tuỳ chọn đọc lời chào tiếng Việt qua loa (TTS offline)."
 }
