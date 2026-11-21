@@ -82,7 +82,7 @@ class AddDeviceViewModel(
         val defaultPort = if (protocol == DeviceProtocol.HIKVISION_ISAPI) {
             if (_uiState.value.useHttps) DeviceConfig.DEFAULT_HIK_HTTPS_PORT else DeviceConfig.DEFAULT_HIK_PORT
         } else configRepository.getConfig().defaultPort
-        val hint = if (protocol == DeviceProtocol.HIKVISION_ISAPI) "Đã chọn cổng Hikvision ISAPI (DS-K1T320MX). Nhập IP, tài khoản admin & mật khẩu thiết bị." else null
+        val hint = if (protocol == DeviceProtocol.HIKVISION_ISAPI) "Đã chọn cổng Hikvision ISAPI (mọi dòng máy). Bấm Quét LAN (SADP) hoặc nhập IP, admin & mật khẩu thiết bị." else null
         _uiState.update { it.copy(protocol = protocol, port = defaultPort.toString(), errorMessage = null, infoMessage = hint) }
     }
 
@@ -112,16 +112,18 @@ class AddDeviceViewModel(
     fun selectDiscoveredHost(host: LanHostInfo) {
         val nextProto = if (host.isHikvisionTerminal) DeviceProtocol.HIKVISION_ISAPI else if (host.isFkTerminal) DeviceProtocol.FK else _uiState.value.protocol
         val nextPort = if (host.isDetectedTerminal) host.port else _uiState.value.port.toIntOrNull() ?: nextProto.defaultPort
+        val suggestedName = if (_uiState.value.name.isBlank() && host.modelHint.isNotBlank()) host.modelHint else _uiState.value.name
         _uiState.update {
             it.copy(
                 protocol = nextProto,
+                name = suggestedName,
                 ip = host.ip,
                 port = nextPort.toString(),
                 useHttps = nextPort == DeviceConfig.DEFAULT_HIK_HTTPS_PORT,
                 errorMessage = null,
                 infoMessage = when {
                     host.alreadyConfigured -> "IP ${host.ip} đã có trong danh sách máy."
-                    host.isHikvisionTerminal -> "Đã chọn Hikvision ${host.ip}:$nextPort — nhập mật khẩu thiết bị rồi bấm Kết nối & Lưu."
+                    host.isHikvisionTerminal -> "Đã chọn ${host.modelHint.ifBlank { "Hikvision" }} (${host.ip}:$nextPort) — nhập mật khẩu thiết bị rồi bấm Kết nối & Lưu."
                     else -> "Đã chọn IP ${host.ip}:$nextPort."
                 },
             )

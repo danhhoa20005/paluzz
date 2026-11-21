@@ -14,8 +14,8 @@ internal object HikvisionIsapiParser {
     private val VN_TZ: TimeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
     private val ISO_DATE_REGEX = Regex("""(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})""")
 
-    /** Mã `minor` thuộc `major = 5` biểu thị xác thực ĐẠT HỢP LỆ trên Hikvision DS-K1T320MX. */
-    val VALID_PASS_MINORS: Set<Int> = setOf(1, 2, 25, 38, 40, 43, 75, 77, 78, 79, 80)
+    /** Mã `minor` thuộc `major = 5` biểu thị xác thực ĐẠT HỢP LỆ trên mọi dòng máy chấm công Hikvision (Mặt/Thẻ/Vân tay/QR/Mống mắt). */
+    val VALID_PASS_MINORS: Set<Int> = setOf(1, 2, 25, 38, 40, 43, 75, 77, 78, 79, 80, 104, 105, 112)
 
     fun parseDeviceInfo(rawText: String): HikDeviceInfo {
         val trimmed = rawText.trim()
@@ -25,7 +25,7 @@ internal object HikvisionIsapiParser {
                 val info = root.optJSONObject("DeviceInfo") ?: root
                 return HikDeviceInfo(
                     deviceName = info.optString("deviceName", "").trim(),
-                    model = info.optString("model", "").trim().ifEmpty { "DS-K1T320MX" },
+                    model = info.optString("model", "").trim().ifEmpty { "Hikvision" },
                     serialNumber = info.optString("serialNumber", "").trim(),
                     firmwareVersion = info.optString("firmwareVersion", "").trim(),
                 )
@@ -33,7 +33,7 @@ internal object HikvisionIsapiParser {
         }
         return HikDeviceInfo(
             deviceName = extractXmlTag(trimmed, "deviceName"),
-            model = extractXmlTag(trimmed, "model").ifEmpty { "DS-K1T320MX" },
+            model = extractXmlTag(trimmed, "model").ifEmpty { "Hikvision" },
             serialNumber = extractXmlTag(trimmed, "serialNumber"),
             firmwareVersion = extractXmlTag(trimmed, "firmwareVersion"),
         )

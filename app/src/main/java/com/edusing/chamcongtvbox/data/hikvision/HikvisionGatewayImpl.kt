@@ -2,6 +2,7 @@ package com.edusing.chamcongtvbox.data.hikvision
 
 import com.edusing.chamcongtvbox.domain.model.AttendanceLog
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
+import com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice
 import com.edusing.chamcongtvbox.domain.protocol.FkConnectionInfo
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
 import com.edusing.chamcongtvbox.domain.protocol.FkErrorCode
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 internal class HikvisionGatewayImpl(
     private val client: HikvisionIsapiClient = HikvisionIsapiClient(),
+    private val sadpScanner: HikvisionSadpScanner = HikvisionSadpScanner(),
     private val webhookTargetProvider: () -> Pair<String, Int>? = { null },
     private val clockMillis: () -> Long = { System.currentTimeMillis() },
 ) : FkDeviceGateway {
@@ -73,6 +75,8 @@ internal class HikvisionGatewayImpl(
     }
 
     override suspend fun probeHikvisionHost(ip: String, port: Int): String? = withContext(Dispatchers.IO) { client.probeIsapiHost(ip, port) }
+
+    override suspend fun discoverHikvisionSadp(timeoutMs: Int): List<HikvisionSadpDevice> = sadpScanner.discover(timeoutMs)
 
     /** Nhận sự kiện quét mặt/thẻ đẩy trực tiếp từ Hikvision HTTP Listening (`POST /hikvision/event`). */
     fun onWebhookEvent(remoteIp: String, rawBody: String): Boolean {

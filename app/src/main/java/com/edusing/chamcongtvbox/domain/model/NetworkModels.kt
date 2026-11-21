@@ -20,6 +20,8 @@ data class LanHostInfo(
     val isFkTerminal: Boolean = false,
     val isHikvisionTerminal: Boolean = false,
     val detectedProtocol: DeviceProtocol = DeviceProtocol.FK,
+    val modelHint: String = "",
+    val serialHint: String = "",
     val note: String = "",
 ) {
     val isDetectedTerminal: Boolean get() = isFkTerminal || isHikvisionTerminal

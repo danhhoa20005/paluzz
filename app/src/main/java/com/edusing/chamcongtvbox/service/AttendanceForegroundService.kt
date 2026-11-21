@@ -62,7 +62,7 @@ class AttendanceForegroundService : Service() {
                 this, container.configRepository, engine, container.loginUseCase,
                 container.readDeviceUsersUseCase, container.deleteDeviceUsersUseCase, container.appUpdateCoordinator,
                 hikHandler = WebConsoleHikvisionHandler(
-                    container.configRepository, engine, container.hikvisionControlGateway, container.backfillHikvisionEventsUseCase,
+                    container.configRepository, engine, container.deviceGateway, container.hikvisionControlGateway, container.backfillHikvisionEventsUseCase,
                 ),
                 onLocalHostChanged = { webConsole?.refreshPublishedUrl() },
             ),

@@ -3,6 +3,7 @@ package com.edusing.chamcongtvbox.data.protocol
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionGatewayImpl
 import com.edusing.chamcongtvbox.domain.model.AttendanceLog
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
+import com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice
 import com.edusing.chamcongtvbox.domain.protocol.FkConnectionInfo
 import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
 import com.edusing.chamcongtvbox.domain.protocol.FkResult
@@ -35,6 +36,9 @@ internal class HybridDeviceGatewayImpl(
 
     override suspend fun probeHikvisionHost(ip: String, port: Int): String? =
         hikGateway.probeHikvisionHost(ip, port)
+
+    override suspend fun discoverHikvisionSadp(timeoutMs: Int): List<HikvisionSadpDevice> =
+        hikGateway.discoverHikvisionSadp(timeoutMs)
 
     override suspend fun disconnect(handle: Int) = forHandle(handle).disconnect(handle)
 

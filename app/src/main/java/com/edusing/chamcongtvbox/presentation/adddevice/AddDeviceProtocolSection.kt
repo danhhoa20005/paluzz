@@ -62,7 +62,7 @@ internal fun AddDeviceProtocolSection(
             FilterChip(
                 selected = state.protocol == DeviceProtocol.HIKVISION_ISAPI,
                 onClick = { viewModel.onProtocolChange(DeviceProtocol.HIKVISION_ISAPI) },
-                label = { Text("Hikvision DS-K1T320MX (80)") },
+                label = { Text("Hikvision (Mọi dòng)") },
                 colors = chipColors,
                 modifier = Modifier.onFocusChanged { hikFocused = it.isFocused }.tvFocusRing(hikFocused, 8),
             )
@@ -116,7 +116,7 @@ internal fun AddDeviceProtocolSection(
                 )
             }
             Text(
-                text = "Hỗ trợ DS-K1T320MX: tự đồng bộ giờ VN, nhận quét tức thì + đẩy tên tiếng Việt đầy đủ.",
+                text = "Hỗ trợ mọi dòng Hikvision ISAPI (DS-K1T320/341/343/671/804...): quét SADP tự tìm mọi mã máy, đồng bộ giờ VN & đẩy tên tiếng Việt đầy đủ.",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = AppColors.Primary,

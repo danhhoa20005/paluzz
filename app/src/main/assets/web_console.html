@@ -76,12 +76,16 @@
     </div>
 
     <div class="card">
-      <h3>Máy chấm công trong LAN (FK & Hikvision)</h3>
+      <div class="row sp">
+        <h3>Máy chấm công trong LAN (FK & mọi dòng Hikvision)</h3>
+        <button class="ghost" onclick="scanHikSadp()">Tìm mọi máy Hikvision (SADP)</button>
+      </div>
+      <div id="sadpBox" class="hide" style="margin-top:8px;padding:10px;border-radius:12px;background:#f4f8ff;border:1px solid var(--b)"></div>
       <div id="devList" style="margin-top:8px"></div>
       <div class="row" style="margin-top:10px">
-        <select id="addProto" onchange="onProtoChange()" style="width:178px">
+        <select id="addProto" onchange="onProtoChange()" style="width:190px">
           <option value="FK">FK (Cổng 5005)</option>
-          <option value="HIKVISION">Hikvision DS-K1T320MX (80)</option>
+          <option value="HIKVISION">Hikvision ISAPI (Mọi dòng)</option>
         </select>
         <input id="addIp" placeholder="IP hoặc link web (vd 192.168.1.8)" style="flex:2;min-width:160px" />
         <input id="addPort" type="number" value="5005" style="width:82px" />
@@ -96,7 +100,7 @@
 
     <div id="hikCard" class="card hide">
       <div class="row sp">
-        <h3>Trung tâm điều khiển Hikvision DS-K1T320MX</h3>
+        <h3>Trung tâm điều khiển Hikvision ISAPI</h3>
         <div class="row">
           <select id="hikDevSel" style="width:200px" onchange="loadHikHealth()"></select>
           <button class="ghost" onclick="loadHikHealth()">Đọc sức khoẻ</button>
@@ -249,6 +253,27 @@ async function doConsoleLogin(){
 }
 async function postAction(path, body={}){try{const r=await api(path,'POST',body);toast(r.message||r.error||'Xong');refresh();}catch(e){toast(e.message);}}
 function toggleRun(){postAction(lastStatus && lastStatus.isRunning ? '/api/attendance/stop' : '/api/attendance/start');}
+async function scanHikSadp(){
+  const box=document.getElementById('sadpBox');
+  box.classList.remove('hide');
+  box.innerHTML='<div class="sub">Đang quét đa hướng SADP tìm mọi máy Hikvision trong mạng LAN (~2 giây)...</div>';
+  try{
+    const r=await api('/api/hikvision/discover-sadp','POST',{});
+    const list=r.devices||[];
+    if(!list.length){box.innerHTML='<div class="sub">Không tìm thấy thiết bị Hikvision nào đáp SADP trên cùng mạng LAN.</div>';return;}
+    box.innerHTML='<div class="sub" style="font-weight:700;margin-bottom:6px">Phát hiện '+list.length+' máy Hikvision (bấm Chọn rồi nhập mật khẩu máy):</div>'+list.map(d=>
+      `<div class="dev"><div><b>${esc(d.model)}</b> <span class="sub">${esc(d.ip)}:${d.port} • ${d.dhcp?'DHCP':'IP tĩnh'}${d.firmware?' • '+esc(d.firmware):''}</span> ${d.alreadyAdded?'<span class="pill ok">Đã thêm</span>':''}</div>
+      <button class="ghost" onclick="fillSadp('${esc(d.ip)}',${d.port},'${esc(d.model)}')">Chọn</button></div>`
+    ).join('');
+  }catch(e){box.innerHTML='<div class="sub" style="color:var(--err)">'+esc(e.message)+'</div>';}
+}
+function fillSadp(ip, port, model){
+  document.getElementById('addProto').value='HIKVISION'; onProtoChange();
+  document.getElementById('addIp').value=ip; document.getElementById('addPort').value=String(port||80);
+  if(!document.getElementById('addName').value) document.getElementById('addName').value=model;
+  document.getElementById('addHikPass').focus();
+  toast('Đã điền '+model+' ('+ip+':'+port+') — nhập mật khẩu thiết bị rồi bấm Thêm & Nối');
+}
 function onProtoChange(){
   const p=document.getElementById('addProto').value;
   document.getElementById('addPort').value = p==='HIKVISION' ? '80' : '5005';

@@ -45,6 +45,19 @@ data class HikvisionHistoryItem(
     val serialNo: Int,
 )
 
+/** Thiết bị Hikvision bất kỳ phát hiện tức thì qua giao thức đa hướng SADP (`239.255.255.250:37020`). */
+data class HikvisionSadpDevice(
+    val ip: String,
+    val httpPort: Int = DeviceConfig.DEFAULT_HIK_PORT,
+    val model: String = "Hikvision",
+    val serialNumber: String = "",
+    val mac: String = "",
+    val firmwareVersion: String = "",
+    val dhcpEnabled: Boolean = false,
+    val activated: Boolean = true,
+    val isAccessTerminal: Boolean = true,
+)
+
 /** Kết quả đồng bộ bù các lượt quét còn lưu trên máy Hikvision lên máy chủ Paluzz/ĐiểmDanh. */
 data class BackfillSummary(
     val totalFound: Int,

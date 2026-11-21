@@ -14,8 +14,11 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
 /**
- * Quét thiết bị đang hoạt động trong mạng LAN (Ping ICMP an toàn + nhận diện song song cả máy FK và Hikvision ISAPI).
- * Hỗ trợ chọn dải `/24` tuỳ ý (ví dụ quét `192.168.1` khi điện thoại ở Wi-Fi phụ `192.168.2.x`).
+ * Quét thiết bị trong mạng LAN kết hợp 3 nguồn:
+ * 1. **Hikvision SADP Multicast (`239.255.255.250:37020`)**: phát hiện tức thì TẤT CẢ mọi dòng máy Hikvision
+ *    (`DS-K1T320MX`, `DS-K1T320MFWX`, `DS-K1T341/343`, `DS-K1T671/673`, `DS-K1T804`...) kèm đúng cổng HTTP và tên model.
+ * 2. **Ping ICMP an toàn + HTTP/HTTPS ISAPI probe**: phát hiện máy Hikvision ở dải LAN khác định tuyến (khác subnet).
+ * 3. **Bắt tay FK thật (cổng 5005)**: phát hiện toàn bộ máy chấm công dòng FK.
  */
 class ScanLanDevicesUseCase(
     private val lanDiscoveryRepository: LanDiscoveryRepository,
@@ -41,48 +44,80 @@ class ScanLanDevicesUseCase(
         useUdp: Boolean = false,
         hikvisionPort: Int = DeviceConfig.DEFAULT_HIK_PORT,
         onProgress: (scanned: Int, total: Int) -> Unit = { _, _ -> },
-    ): List<LanHostInfo> {
-        val hosts = lanDiscoveryRepository.scanLanHosts(configuredIps, port, customPrefix, onProgress)
-        val gateway = deviceGateway ?: return hosts
-        if (hosts.isEmpty()) return hosts
+    ): List<LanHostInfo> = coroutineScope {
+        val gateway = deviceGateway
+        // Chạy song song: quét đa hướng SADP cho mọi dòng Hikvision + quét Ping dải LAN
+        val sadpDeferred = async { gateway?.discoverHikvisionSadp(timeoutMs = 1_800).orEmpty() }
+        val pingHosts = lanDiscoveryRepository.scanLanHosts(configuredIps, port, customPrefix, onProgress)
+        val sadpDevices = sadpDeferred.await()
+
+        val sadpByIp = sadpDevices.associateBy { it.ip }
+        val mergedByIp = LinkedHashMap<String, LanHostInfo>()
+
+        // Đưa trước toàn bộ máy Hikvision phát hiện từ SADP (kể cả máy chặn Ping hoặc đổi cổng HTTP)
+        for (dev in sadpDevices) {
+            if (!dev.isAccessTerminal) continue
+            val already = dev.ip in configuredIps
+            val ipMode = if (dev.dhcpEnabled) "DHCP" else "IP tĩnh"
+            val actTag = if (dev.activated) "" else " • Chưa kích hoạt"
+            mergedByIp[dev.ip] = LanHostInfo(
+                ip = dev.ip,
+                port = dev.httpPort,
+                reachableByPing = true,
+                alreadyConfigured = already,
+                isHikvisionTerminal = true,
+                detectedProtocol = DeviceProtocol.HIKVISION_ISAPI,
+                modelHint = dev.model,
+                serialHint = dev.serialNumber,
+                note = "${dev.model} (cổng ${dev.httpPort} • $ipMode$actTag)${if (already) " • Đã lưu" else " ✓"}",
+            )
+        }
+
+        if (gateway == null) {
+            pingHosts.forEach { h -> mergedByIp.putIfAbsent(h.ip, h) }
+            return@coroutineScope sortHosts(mergedByIp.values)
+        }
 
         val fkPort = if (port == hikvisionPort) DeviceConfig.DEFAULT_PORT else port
-        // Xác nhận song song cả Hikvision ISAPI (cổng 80 an toàn, không cần mật khẩu) và máy chấm công FK (cổng 5005)
+        val remainingPing = pingHosts.filter { it.ip !in sadpByIp }
         val semaphore = Semaphore(12)
-        val verified = coroutineScope {
-            hosts.map { host ->
-                async {
-                    semaphore.withPermit {
-                        val hikLabel = gateway.probeHikvisionHost(host.ip, hikvisionPort)
-                        if (!hikLabel.isNullOrBlank()) {
-                            return@withPermit host.copy(
-                                port = hikvisionPort,
-                                isHikvisionTerminal = true,
-                                detectedProtocol = DeviceProtocol.HIKVISION_ISAPI,
-                                note = if (host.alreadyConfigured) "Máy $hikLabel • Đã lưu" else "Máy $hikLabel (cổng $hikvisionPort) ✓",
-                            )
-                        }
-                        val res = gateway.connect(machineNo, host.ip, fkPort, timeoutMs = 2_000, netPassword = password, license = license, useUdp = useUdp)
-                        if (res.isSuccess && res.data != null) {
-                            val profile = res.data.profile.displayName
-                            gateway.disconnect(res.data.handle)
-                            host.copy(
-                                port = fkPort,
-                                isFkTerminal = true,
-                                detectedProtocol = DeviceProtocol.FK,
-                                note = if (host.alreadyConfigured) "Máy chấm công FK ($profile) • Đã lưu" else "Máy chấm công FK ($profile) ✓",
-                            )
-                        } else host
+        val verified = remainingPing.map { host ->
+            async {
+                semaphore.withPermit {
+                    val hikLabel = gateway.probeHikvisionHost(host.ip, hikvisionPort)
+                    if (!hikLabel.isNullOrBlank()) {
+                        return@withPermit host.copy(
+                            port = hikvisionPort,
+                            isHikvisionTerminal = true,
+                            detectedProtocol = DeviceProtocol.HIKVISION_ISAPI,
+                            modelHint = hikLabel.removePrefix("Hikvision ").trim(),
+                            note = if (host.alreadyConfigured) "$hikLabel • Đã lưu" else "$hikLabel (cổng $hikvisionPort) ✓",
+                        )
                     }
+                    val res = gateway.connect(machineNo, host.ip, fkPort, timeoutMs = 2_000, netPassword = password, license = license, useUdp = useUdp)
+                    if (res.isSuccess && res.data != null) {
+                        val profile = res.data.profile.displayName
+                        gateway.disconnect(res.data.handle)
+                        host.copy(
+                            port = fkPort,
+                            isFkTerminal = true,
+                            detectedProtocol = DeviceProtocol.FK,
+                            note = if (host.alreadyConfigured) "Máy chấm công FK ($profile) • Đã lưu" else "Máy chấm công FK ($profile) ✓",
+                        )
+                    } else host
                 }
-            }.awaitAll()
-        }
-        return verified.sortedWith(
-            compareByDescending<LanHostInfo> { it.isDetectedTerminal }
-                .thenByDescending { it.alreadyConfigured }
-                .thenBy { it.ip.substringAfterLast('.').toIntOrNull() ?: 999 }
-        )
+            }
+        }.awaitAll()
+
+        verified.forEach { mergedByIp.putIfAbsent(it.ip, it) }
+        sortHosts(mergedByIp.values)
     }
+
+    private fun sortHosts(hosts: Collection<LanHostInfo>): List<LanHostInfo> = hosts.sortedWith(
+        compareByDescending<LanHostInfo> { it.isDetectedTerminal }
+            .thenByDescending { it.alreadyConfigured }
+            .thenBy { it.ip.substringAfterLast('.').toIntOrNull() ?: 999 }
+    )
 }
 
 /** Gợi ý một địa chỉ IP tĩnh trống (dải .240..200) chưa dùng trong mạng LAN. */

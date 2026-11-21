@@ -4,10 +4,12 @@ import android.util.Base64
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
 import com.edusing.chamcongtvbox.domain.model.EventSeverity
 import com.edusing.chamcongtvbox.domain.model.HikvisionDoorCommand
+import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.ConfigRepository
 import com.edusing.chamcongtvbox.domain.usecase.BackfillHikvisionEventsUseCase
 import com.edusing.chamcongtvbox.service.AttendanceEngine
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLDecoder
 import java.text.SimpleDateFormat
@@ -24,12 +26,14 @@ import java.util.TimeZone
 internal class WebConsoleHikvisionHandler(
     private val configRepository: ConfigRepository,
     private val attendanceEngine: AttendanceEngine,
+    private val deviceGateway: FkDeviceGateway,
     private val hikControl: HikvisionControlGateway,
     private val backfillUseCase: BackfillHikvisionEventsUseCase,
 ) {
     suspend fun handle(method: String, path: String, query: String, rawBody: String): WebHttpResponse {
         val params = parseQuery(query)
         return when {
+            path == "/api/hikvision/discover-sadp" && method == "POST" -> handleDiscoverSadp()
             path == "/api/hikvision/health" && method == "POST" -> handleHealth(rawBody)
             path == "/api/hikvision/door" && method == "POST" -> handleDoor(rawBody)
             path == "/api/hikvision/sync-time" && method == "POST" -> handleSyncTime(rawBody)
@@ -42,6 +46,20 @@ internal class WebConsoleHikvisionHandler(
             path == "/api/hikvision/export-csv" && method == "GET" -> handleExportCsv(params["key"].orEmpty(), params["hours"]?.toIntOrNull() ?: 24)
             else -> WebHttpResponse(404, JSON_TYPE, """{"ok":false,"error":"Không tìm thấy API Hikvision"}""")
         }
+    }
+
+    private suspend fun handleDiscoverSadp(): WebHttpResponse {
+        val savedIps = configRepository.getConfig().devices.map { it.ip }.toSet()
+        val found = deviceGateway.discoverHikvisionSadp(timeoutMs = 1_800)
+        val arr = JSONArray().apply {
+            found.forEach { d ->
+                put(JSONObject().put("ip", d.ip).put("port", d.httpPort).put("model", d.model)
+                    .put("serialNumber", d.serialNumber).put("firmware", d.firmwareVersion)
+                    .put("dhcp", d.dhcpEnabled).put("activated", d.activated)
+                    .put("isAccessTerminal", d.isAccessTerminal).put("alreadyAdded", d.ip in savedIps))
+            }
+        }
+        return jsonOk(JSONObject().put("ok", true).put("devices", arr).put("message", "Phát hiện ${found.size} thiết bị Hikvision trong LAN (SADP)").toString())
     }
 
     private suspend fun handleHealth(rawBody: String): WebHttpResponse {

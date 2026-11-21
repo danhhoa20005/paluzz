@@ -35,6 +35,7 @@ internal class HikvisionControlApi(
 
             val userCountJson = runCatching { JSONObject(client.request(device, "GET", "/ISAPI/AccessControl/UserInfo/Count?format=json").body).optJSONObject("UserInfoCount") }.getOrNull()
             val cardCountJson = runCatching { JSONObject(client.request(device, "GET", "/ISAPI/AccessControl/CardInfo/Count?format=json").body).optJSONObject("CardInfoCount") }.getOrNull()
+            val fdCapJson = runCatching { JSONObject(client.request(device, "GET", "/ISAPI/Intelligent/FDLib/capabilities?format=json").body) }.getOrNull()
             val workJson = runCatching { JSONObject(client.request(device, "GET", "/ISAPI/AccessControl/AcsWorkStatus?format=json").body).optJSONObject("AcsWorkStatus") }.getOrNull()
             val ipXml = runCatching { client.request(device, "GET", "/ISAPI/System/Network/interfaces/1/ipAddress").body }.getOrDefault("")
             val timeXml = runCatching { client.request(device, "GET", "/ISAPI/System/time").body }.getOrDefault("")
@@ -43,6 +44,7 @@ internal class HikvisionControlApi(
             val doorLocked = (doorLockArr?.optInt(0, 0) ?: 0) == 0
             val tamper = workJson?.optString("hostAntiDismantleStatus", "").equals("open", ignoreCase = true)
             val addrType = xmlTag(ipXml, "addressingType")
+            val maxFaces = fdCapJson?.optInt("FDRecordDataMaxNum", 0)?.takeIf { it > 0 } ?: 500
 
             HikvisionHealthStatus(
                 model = info.model,
@@ -51,7 +53,7 @@ internal class HikvisionControlApi(
                 userCount = userCountJson?.optInt("userNumber", 0) ?: 0,
                 faceCount = userCountJson?.optInt("bindFaceUserNumber", 0) ?: 0,
                 cardCount = cardCountJson?.optInt("cardNumber", userCountJson?.optInt("bindCardUserNumber", 0) ?: 0) ?: 0,
-                maxFaceCapacity = 500,
+                maxFaceCapacity = maxFaces,
                 doorLocked = doorLocked,
                 antiDismantleAlert = tamper,
                 isDhcp = addrType.equals("dynamic", ignoreCase = true),
@@ -225,7 +227,9 @@ internal class HikvisionControlApi(
         75, 77, 78, 79, 80 -> "Khuôn mặt"
         38, 40, 43 -> "Vân tay"
         1, 2 -> "Thẻ từ"
-        25 -> "Mật khẩu"
+        25, 105 -> "Mật khẩu"
+        104 -> "Mã QR"
+        112 -> "Mống mắt"
         else -> "Xác thực #$minor"
     }
 

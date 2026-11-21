@@ -5,6 +5,7 @@ import com.edusing.chamcongtvbox.BuildConfig
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionControlApi
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionGatewayImpl
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionIsapiClient
+import com.edusing.chamcongtvbox.data.hikvision.HikvisionSadpScanner
 import com.edusing.chamcongtvbox.data.local.PendingCheckInStoreImpl
 import com.edusing.chamcongtvbox.data.local.SecureConfigStore
 import com.edusing.chamcongtvbox.data.local.WordDocExporter
@@ -85,6 +86,7 @@ class AppContainer(appContext: Context) {
 
     private val hikvisionGateway = HikvisionGatewayImpl(
         client = hikIsapiClient,
+        sadpScanner = HikvisionSadpScanner(appContext),
         webhookTargetProvider = {
             val lanIp = LocalWebConsoleServer.detectLanIpv4()
             if (lanIp.isNotBlank() && activeWebConsolePort > 0) lanIp to activeWebConsolePort else null

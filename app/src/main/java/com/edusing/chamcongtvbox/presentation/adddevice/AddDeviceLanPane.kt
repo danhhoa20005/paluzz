@@ -197,7 +197,7 @@ private fun LanHostRowItem(host: LanHostInfo, selected: Boolean, onClick: () -> 
             Spacer(Modifier.width(8.dp))
             val badgeLabel = when {
                 host.alreadyConfigured -> "Đã thêm"
-                host.isHikvisionTerminal -> "Hikvision"
+                host.isHikvisionTerminal -> host.modelHint.ifBlank { "Hikvision" }.take(14)
                 else -> "Máy FK"
             }
             TammiStatusPill(

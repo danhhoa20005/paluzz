@@ -2,6 +2,7 @@ package com.edusing.chamcongtvbox.domain.protocol
 
 import com.edusing.chamcongtvbox.domain.model.AttendanceLog
 import com.edusing.chamcongtvbox.domain.model.DeviceConfig
+import com.edusing.chamcongtvbox.domain.model.HikvisionSadpDevice
 
 /**
  * Cổng giao tiếp máy chấm công tầng Domain (thay thế hoàn toàn P/Invoke trong `FKAttend.cs`).
@@ -34,8 +35,11 @@ interface FkDeviceGateway {
         useUdp = device.useUdp,
     )
 
-    /** Dò nhanh không cần mật khẩu xem IP có chạy giao thức Hikvision ISAPI (DS-K1T320MX...) hay không. */
+    /** Dò nhanh không cần mật khẩu xem IP có chạy giao thức Hikvision ISAPI hay không. */
     suspend fun probeHikvisionHost(ip: String, port: Int = DeviceConfig.DEFAULT_HIK_PORT): String? = null
+
+    /** Quét đa hướng SADP (`239.255.255.250:37020`) phát hiện TẤT CẢ mọi dòng máy Hikvision trong mạng LAN (< 2 giây). */
+    suspend fun discoverHikvisionSadp(timeoutMs: Int = 1_800): List<HikvisionSadpDevice> = emptyList()
 
     /** Ngắt kết nối một phiên máy chấm công theo handle. */
     suspend fun disconnect(handle: Int)
