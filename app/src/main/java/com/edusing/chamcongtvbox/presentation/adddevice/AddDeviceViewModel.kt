@@ -48,6 +48,8 @@ class AddDeviceViewModel(
             machineNo = cfg.defaultMachineNo.toString(),
             commPassword = cfg.defaultPassword.toString(),
             useUdp = cfg.udpMode,
+            hikUsername = cfg.resolvedHikUsername,
+            hikPassword = cfg.resolvedHikPassword,
         )
     }
 

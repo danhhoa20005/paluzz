@@ -311,9 +311,9 @@ function addDevice(){
   if(!ip){toast('Nhập IP máy');return;}
   const payload={protocol,ip,port,name,useHttps:port===443||/^https:\/\//i.test(rawIp)};
   if(protocol==='HIKVISION'){
-    payload.username=(document.getElementById('addHikUser').value||'admin').trim();
+    payload.username=(document.getElementById('addHikUser').value||(lastStatus&&lastStatus.savedHikUser)||'admin').trim();
     payload.accessPassword=document.getElementById('addHikPass').value;
-    if(!payload.accessPassword){toast('Nhập mật khẩu thiết bị Hikvision');return;}
+    if(!payload.accessPassword && !(lastStatus&&lastStatus.hasSavedHikAuth)){toast('Nhập mật khẩu thiết bị Hikvision (chỉ cần nhập 1 lần)');return;}
   }
   postAction('/api/devices/add',payload);
   document.getElementById('addIp').value='';document.getElementById('addName').value='';document.getElementById('addHikPass').value='';
@@ -543,6 +543,8 @@ async function refresh(){
     document.getElementById('updStatusLine').textContent='v'+s.appVersion+' • '+(s.updateInstallMode||'')+(s.updateAvailableVersion?(' • Bản mới: v'+s.updateAvailableVersion):'')+(s.updateStatus?(' • '+s.updateStatus):'');
     document.getElementById('modeSel').value=s.mode;
     if(!document.getElementById('accUser').value) document.getElementById('accUser').value=s.username||'';
+    document.getElementById('addHikPass').placeholder=s.hasSavedHikAuth?'Đã nhớ mật khẩu Hikvision (để trống = dùng lại)':'Mật khẩu thiết bị Hikvision * (chỉ nhập 1 lần)';
+    if(!document.getElementById('addHikUser').value && s.savedHikUser) document.getElementById('addHikUser').value=s.savedHikUser;
     const dBox=document.getElementById('devList');
     dBox.innerHTML = s.devices.length ? s.devices.map(d =>
       `<div class="dev"><div><b>${esc(d.name)}</b> <span class="sub">${esc(d.ip)}:${d.port}${d.protocol==='HIKVISION'?' • Hikvision':''}</span><div><span class="pill ${d.connected?'ok':'warn'}">${esc(d.statusText)}</span></div></div>

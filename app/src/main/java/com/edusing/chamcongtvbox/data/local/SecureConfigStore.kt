@@ -88,6 +88,8 @@ class SecureConfigStore(
                 localHostName = AppConfig.sanitizeLocalHost(root.optString("localHostName", AppConfig.DEFAULT_LOCAL_HOST)),
                 autoUpdateEnabled = root.optBoolean("autoUpdateEnabled", true),
                 updateRepoSlug = AppConfig.sanitizeRepoSlug(root.optString("updateRepoSlug", AppConfig.DEFAULT_UPDATE_REPO)),
+                defaultHikUsername = root.optString("defaultHikUsername", DeviceConfig.DEFAULT_HIK_USERNAME).ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
+                defaultHikPassword = root.optString("defaultHikPassword", ""),
             )
         }.getOrElse {
             AppConfig(mode = targetMode, apiDomain = branding.defaultApiDomain)
@@ -149,6 +151,8 @@ class SecureConfigStore(
             put("localHostName", config.safeLocalHostName)
             put("autoUpdateEnabled", config.autoUpdateEnabled)
             put("updateRepoSlug", config.safeUpdateRepoSlug)
+            put("defaultHikUsername", config.resolvedHikUsername)
+            put("defaultHikPassword", config.resolvedHikPassword)
         }
         val json = root.toString()
         val key = modeKey(config.mode)

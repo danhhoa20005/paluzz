@@ -185,6 +185,15 @@ private fun AttendanceTvRoot(
             screen = AppScreen.Login(notice = reason)
         }
     }
+    // Tự vào thẳng màn hình chính nếu đăng nhập nền (boot / Web LAN) hoàn tất khi đang ở màn Login
+    LaunchedEffect(container) {
+        container.configRepository.configFlow.map { it.isLoggedIn }.distinctUntilChanged().collect { loggedIn ->
+            if (loggedIn && screen is AppScreen.Login) {
+                suppressAutoLogin = false
+                screen = AppScreen.Shell
+            }
+        }
+    }
 
     BackHandler(enabled = screen is AppScreen.AddDevice) {
         screen = AppScreen.Shell

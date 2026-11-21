@@ -70,44 +70,38 @@ internal class AttendanceLoopRunner(
         val outcome = pollAttendanceUseCase.flushPendingCheckIns(domain, cfg.accountId, cfg.dedupSeconds)
         stateStore.update { it.copy(pendingCheckInCount = pollAttendanceUseCase.pendingCount) }
         stateStore.appendPolledEvents(outcome.events)
-        if (outcome.authError) onAuthInvalid("Phiên đăng nhập hết hiệu lực (401/403). Vui lòng đăng nhập lại.")
+        if (outcome.authError) handleApiAuthError()
     }
 
     fun ensureBackgroundMonitorsStarted() {
         if (heartbeatJob?.isActive != true) {
             heartbeatJob = launchPeriodic(false, { configRepository.getConfig().heartbeatIntervalMs.coerceAtLeast(3_000L) }) { sendHeartbeatNow() }
         }
-        if (autoReconnectJob?.isActive != true) {
-            autoReconnectJob = launchPeriodic(true, { AUTO_RECONNECT_INTERVAL_MS }) {
-                if (stateStore.ensureCurrentDay()) {
-                    pollAttendanceUseCase.clearNameCache(); runSafe { onNewDayTasks() }
-                    stateStore.appendSystemEvent("Hệ thống", "-", "Bước sang ngày mới — đã làm mới bộ đếm & đồng bộ giờ máy.", EventSeverity.INFO)
-                }
-                val snap = stateStore.current
-                val cfg = configRepository.getConfig()
-                if (cfg.isLoggedIn && snap.isRunning && snap.connectedCount > 0 && !snap.isAutoPushing && !snap.isBusy) {
-                    val lastTick = lastPollHeartbeatMs.get()
-                    if (lastTick > 0L && (System.currentTimeMillis() - lastTick) > POLL_FREEZE_THRESHOLD_MS) {
-                        lastPollHeartbeatMs.set(System.currentTimeMillis())
-                        stateStore.appendSystemEvent("Hệ thống", "-", "Phát hiện vòng quét treo > 3 phút — tự nối lại máy chấm công...", EventSeverity.WARNING)
-                        onPollFreezeDetected()
-                        return@launchPeriodic
-                    }
-                }
-                if (cfg.isLoggedIn && !snap.isRunning && !snap.isDiscovering && !snap.isBusy) {
-                    recoverIdleDevicesOrDiscover(cfg.devices, cfg.autoStartRunning)
-                }
-            }
-        }
+        if (autoReconnectJob?.isActive != true) autoReconnectJob = launchPeriodic(true, { AUTO_RECONNECT_INTERVAL_MS }) { runAutoReconnectTick() }
         if (idleCleanJob?.isActive != true) {
             idleCleanJob = launchPeriodic(true, { configRepository.getConfig().idleCleanIntervalMs.coerceAtLeast(30_000L) }) {
                 val snap = stateStore.current
                 if (!snap.isRunning && !snap.isBusy && !snap.isDiscovering && configRepository.getConfig().isLoggedIn) drainLogsWhileStopped()
             }
         }
-        if (authMonitorJob?.isActive != true) {
-            authMonitorJob = launchPeriodic(true, { AUTH_MONITOR_INTERVAL_MS }) { checkCredentialsNow() }
+        if (authMonitorJob?.isActive != true) authMonitorJob = launchPeriodic(true, { AUTH_MONITOR_INTERVAL_MS }) { checkCredentialsNow() }
+    }
+
+    private suspend fun runAutoReconnectTick() {
+        if (stateStore.ensureCurrentDay()) {
+            pollAttendanceUseCase.clearNameCache(); runSafe { onNewDayTasks() }
+            stateStore.appendSystemEvent("Hệ thống", "-", "Bước sang ngày mới — đã làm mới bộ đếm & đồng bộ giờ máy.", EventSeverity.INFO)
         }
+        val snap = stateStore.current; val cfg = configRepository.getConfig()
+        if (cfg.isLoggedIn && snap.isRunning && snap.connectedCount > 0 && !snap.isAutoPushing && !snap.isBusy) {
+            val lastTick = lastPollHeartbeatMs.get()
+            if (lastTick > 0L && (System.currentTimeMillis() - lastTick) > POLL_FREEZE_THRESHOLD_MS) {
+                lastPollHeartbeatMs.set(System.currentTimeMillis())
+                stateStore.appendSystemEvent("Hệ thống", "-", "Phát hiện vòng quét treo > 3 phút — tự nối lại máy chấm công...", EventSeverity.WARNING)
+                onPollFreezeDetected(); return
+            }
+        }
+        if (cfg.isLoggedIn && !snap.isRunning && !snap.isDiscovering && !snap.isBusy) recoverIdleDevicesOrDiscover(cfg.devices, cfg.autoStartRunning)
     }
 
     fun startPollLoop() {
@@ -128,17 +122,18 @@ internal class AttendanceLoopRunner(
     private suspend fun checkCredentialsNow() {
         if (configRepository.getConfig().isLoggedIn && stateStore.current.isInternetOnline &&
             validateCredentialsUseCase() == CredentialCheckStatus.INVALID_CREDENTIALS
-        ) {
-            onAuthInvalid("Tài khoản hoặc mật khẩu đã thay đổi trên hệ thống. Vui lòng đăng nhập lại.")
-        }
+        ) onAuthInvalid("Tài khoản hoặc mật khẩu đã thay đổi trên hệ thống. Vui lòng đăng nhập lại.")
+    }
+
+    /** Thử tự đăng nhập lại âm thầm bằng tài khoản đã lưu 1 lần khi gặp 401/403; chỉ đá ra Login nếu đổi mật khẩu thật sự. */
+    private suspend fun handleApiAuthError(): Boolean = when (validateCredentialsUseCase()) {
+        CredentialCheckStatus.VALID -> { stateStore.appendSystemEvent("Tài khoản", "-", "Phiên cũ hết hạn — đã tự làm mới đăng nhập thành công.", EventSeverity.SUCCESS); true }
+        CredentialCheckStatus.NETWORK_ERROR -> false
+        CredentialCheckStatus.INVALID_CREDENTIALS, CredentialCheckStatus.SKIPPED -> { onAuthInvalid("Phiên đăng nhập hết hiệu lực (401/403). Vui lòng đăng nhập lại."); false }
     }
 
     private fun launchPeriodic(delayFirst: Boolean, intervalMs: () -> Long, action: suspend () -> Unit): Job = scope.launch {
-        while (isActive) {
-            if (delayFirst) delay(intervalMs())
-            runSafe { action() }
-            if (!delayFirst) delay(intervalMs())
-        }
+        while (isActive) { if (delayFirst) delay(intervalMs()); runSafe { action() }; if (!delayFirst) delay(intervalMs()) }
     }
 
     private suspend fun sendHeartbeatNow() {
@@ -203,7 +198,7 @@ internal class AttendanceLoopRunner(
             val nowMs = attendanceRepository.lastKnownServerTimeMillis() ?: System.currentTimeMillis()
             stateStore.updateDevice(device.key) { it.copy(lastPollAtMs = nowMs) }
             stateStore.update { it.copy(lastPollTimeText = ServerTimeParser.formatVietnamTime(nowMs)) }
-            if (outcome.authError) { onAuthInvalid("Phiên đăng nhập hết hiệu lực (401/403). Vui lòng đăng nhập lại."); return }
+            if (outcome.authError && !handleApiAuthError()) return
         }
 
         val snap = stateStore.current

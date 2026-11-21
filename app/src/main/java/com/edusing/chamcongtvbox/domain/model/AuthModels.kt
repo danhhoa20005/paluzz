@@ -61,10 +61,21 @@ data class AppConfig(
     // Tự động kiểm tra & cập nhật bản APK mới từ GitHub Releases
     val autoUpdateEnabled: Boolean = true,
     val updateRepoSlug: String = DEFAULT_UPDATE_REPO,
+    // Tài khoản quản trị Hikvision lưu 1 lần (tự điền khi thêm máy & tự nối máy SADP mới không cần nhập lại)
+    val defaultHikUsername: String = DeviceConfig.DEFAULT_HIK_USERNAME,
+    val defaultHikPassword: String = "",
 ) {
     val isLoggedIn: Boolean get() = accountId.isNotBlank() && username.isNotBlank()
     val safeLocalHostName: String get() = sanitizeLocalHost(localHostName)
     val safeUpdateRepoSlug: String get() = sanitizeRepoSlug(updateRepoSlug)
+    val resolvedHikUsername: String
+        get() = defaultHikUsername.ifBlank {
+            devices.lastOrNull { it.isHikvision && it.username.isNotBlank() }?.username ?: DeviceConfig.DEFAULT_HIK_USERNAME
+        }
+    val resolvedHikPassword: String
+        get() = defaultHikPassword.ifBlank {
+            devices.lastOrNull { it.isHikvision && it.accessPassword.isNotBlank() }?.accessPassword.orEmpty()
+        }
     val autoPushSchedule: AutoPushScheduleConfig
         get() = AutoPushScheduleConfig(
             enabled = autoPushEnabled,

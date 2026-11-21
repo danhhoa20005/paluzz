@@ -28,6 +28,7 @@ data class DiscoveryReport(
     val pingAliveCount: Int,
     val directHandshakeUsed: Boolean,
     val relocatedDevices: List<DeviceConfig> = emptyList(),
+    val autoDiscoveredHikDevices: List<DeviceConfig> = emptyList(),
 )
 
 /**
@@ -47,6 +48,8 @@ class DiscoverDevicesUseCase(
         password: Int,
         license: Int,
         useUdp: Boolean,
+        hikUsername: String = "",
+        hikPassword: String = "",
         onProgress: (DiscoveryProgress) -> Unit = {},
     ): DiscoveryReport {
         val foundIps = LinkedHashSet<String>()
@@ -54,6 +57,7 @@ class DiscoverDevicesUseCase(
         val scannedPrefixes = LinkedHashSet<String>()
         val targets = mutableListOf<SubnetTarget>()
         val relocatedDevices = mutableListOf<DeviceConfig>()
+        val autoDiscoveredHik = mutableListOf<DeviceConfig>()
         val missingHikDevices = mutableListOf<DeviceConfig>()
         val knownIps = knownDevices.map { it.ip.trim() }.filter { it.isNotEmpty() }.toSet()
         var totalPingAlive = 0
@@ -72,23 +76,11 @@ class DiscoverDevicesUseCase(
             if (ok) foundIps.add(ip) else if (known.isHikvision && known.serialNumber.isNotBlank()) missingHikDevices.add(known)
         }
 
-        // 1b. Nếu có máy Hikvision bị đổi IP DHCP -> dùng SADP Multicast định vị tức thì theo SerialNumber (0 lần thử mật khẩu!)
-        if (missingHikDevices.isNotEmpty()) {
-            onProgress(DiscoveryProgress("Đang dò đa hướng SADP tìm lại máy Hikvision bị đổi IP..."))
-            val sadpFound = deviceGateway.discoverHikvisionSadp(timeoutMs = 1_800)
-            val iter = missingHikDevices.iterator()
-            while (iter.hasNext()) {
-                val missing = iter.next()
-                val match = sadpFound.firstOrNull { it.serialNumber.equals(missing.serialNumber, ignoreCase = true) }
-                if (match != null) {
-                    val moved = missing.copy(ip = match.ip, port = match.httpPort)
-                    relocatedDevices.add(moved)
-                    foundIps.add(match.ip)
-                    checkedIps.add(match.ip)
-                    iter.remove()
-                }
-            }
-        }
+        // 1b. Dùng SADP Multicast định vị máy Hikvision đổi IP DHCP & tự nối máy Hikvision mới bằng tài khoản đã lưu 1 lần
+        HikvisionSadpDiscoveryHelper.discoverAndMatch(
+            deviceGateway, knownDevices, missingHikDevices, checkedIps, foundIps,
+            relocatedDevices, autoDiscoveredHik, hikUsername, hikPassword, onProgress,
+        )
 
         // 2. Quét Ping + xác nhận FK (và dự phòng định vị Hikvision qua HTTP nếu khác subnet)
         val localSubnets = lanDiscoveryRepository.detectActiveSubnets(knownIps)
@@ -137,7 +129,10 @@ class DiscoverDevicesUseCase(
             }
         }
 
-        return DiscoveryReport(foundIps.toList(), localSubnets, scannedPrefixes.toList(), totalPingAlive, usedDirectFallback, relocatedDevices.toList())
+        return DiscoveryReport(
+            foundIps.toList(), localSubnets, scannedPrefixes.toList(), totalPingAlive,
+            usedDirectFallback, relocatedDevices.toList(), autoDiscoveredHik.toList(),
+        )
     }
 
     private suspend fun pingAndVerifySubnet(

@@ -93,6 +93,8 @@ internal class DeviceDiscoveryCoordinator(
                 password = cfg.defaultPassword,
                 license = cfg.defaultLicense,
                 useUdp = cfg.udpMode,
+                hikUsername = cfg.resolvedHikUsername,
+                hikPassword = cfg.resolvedHikPassword,
                 onProgress = { prog -> stateStore.update { it.copy(statusHint = prog.stageText) } },
             )
             val existing = configRepository.getConfig().devices
@@ -101,13 +103,22 @@ internal class DeviceDiscoveryCoordinator(
                 val moved = dev.serialNumber.takeIf { it.isNotBlank() }?.let { relocatedBySerial[it] }
                 if (moved != null && moved.ip != dev.ip) {
                     stateStore.appendSystemEvent(dev.displayName, "-", "Tự tìm lại Hikvision sau khi đổi IP DHCP: ${dev.ip} → ${moved.ip}", EventSeverity.SUCCESS)
-                    dev.copy(ip = moved.ip)
+                    dev.copy(ip = moved.ip, port = moved.port)
                 } else dev
             }
-            val existingIps = updatedExisting.map { it.ip }.toSet()
-            val newlyAdded = report.foundIps.filterNot { it in existingIps }.map { ip ->
+            val existingIps = updatedExisting.map { it.ip }.toMutableSet()
+            val existingSerials = updatedExisting.mapNotNull { it.serialNumber.takeIf { sn -> sn.isNotBlank() }?.uppercase() }.toSet()
+            val newlyAddedHik = report.autoDiscoveredHikDevices.filter { h ->
+                h.ip !in existingIps && (h.serialNumber.isBlank() || h.serialNumber.uppercase() !in existingSerials)
+            }
+            newlyAddedHik.forEach { h ->
+                existingIps.add(h.ip)
+                stateStore.appendSystemEvent(h.displayName, "-", "Tự động nối máy Hikvision mới ${h.ip}:${h.port} bằng tài khoản đã lưu", EventSeverity.SUCCESS)
+            }
+            val newlyAddedFk = report.foundIps.filterNot { it in existingIps }.map { ip ->
                 DeviceConfig(ip, cfg.defaultPort, cfg.defaultMachineNo, "", cfg.defaultPassword, cfg.defaultLicense, cfg.udpMode)
             }
+            val newlyAdded = newlyAddedHik + newlyAddedFk
             if (newlyAdded.isNotEmpty() || relocatedBySerial.isNotEmpty()) {
                 // Đưa máy mới tìm thấy lên đầu danh sách để kết nối tức thì, đồng thời lưu IP mới của máy Hikvision vừa định vị lại
                 configRepository.updateDevices(newlyAdded + updatedExisting)

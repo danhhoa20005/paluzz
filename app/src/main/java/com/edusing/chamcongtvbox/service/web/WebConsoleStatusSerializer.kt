@@ -91,6 +91,8 @@ internal object WebConsoleStatusSerializer {
             .put("updateAvailableVersion", updateSnap.availableRelease?.versionName.orEmpty())
             .put("updateStatus", updateSnap.statusMessage)
             .put("updateError", updateSnap.errorMessage.orEmpty())
+            .put("hasSavedHikAuth", cfg.resolvedHikPassword.isNotBlank())
+            .put("savedHikUser", cfg.resolvedHikUsername)
             .put("devices", devicesArr)
             .put("events", eventsArr)
     }

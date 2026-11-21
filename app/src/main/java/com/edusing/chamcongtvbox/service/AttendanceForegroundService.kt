@@ -103,17 +103,16 @@ class AttendanceForegroundService : Service() {
             when (intent?.action) {
                 ACTION_BOOT_AUTOSTART -> {
                     engine.startBackgroundMonitors()
-                    val cfg = container.configRepository.getConfig()
+                    var cfg = container.configRepository.getConfig()
+                    if (cfg.autoStartOnBoot && !cfg.isLoggedIn && cfg.rememberAccount && cfg.username.isNotBlank() && cfg.password.isNotBlank()) {
+                        runCatching { container.validateCredentialsUseCase() }
+                        cfg = container.configRepository.getConfig()
+                    }
                     if (cfg.autoStartOnBoot && cfg.isLoggedIn) {
-                        // Bảo vệ chống Launcher gốc của TV Box đè lên app vài giây sau khi boot
                         serviceScope.launch {
-                            if (!TvAutoBootHelper.isAppInForeground()) {
-                                TvAutoBootHelper.launchMainActivitySafe(applicationContext)
-                            }
+                            if (!TvAutoBootHelper.isAppInForeground()) TvAutoBootHelper.launchMainActivitySafe(applicationContext)
                             delay(BOOT_LAUNCHER_GUARD_DELAY_MS)
-                            if (container.configRepository.getConfig().autoStartOnBoot &&
-                                !TvAutoBootHelper.isAppInForeground()
-                            ) {
+                            if (container.configRepository.getConfig().autoStartOnBoot && !TvAutoBootHelper.isAppInForeground()) {
                                 TvAutoBootHelper.launchMainActivitySafe(applicationContext)
                             }
                         }

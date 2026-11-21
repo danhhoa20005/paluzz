@@ -33,20 +33,21 @@ internal class WebConsoleApiHandler(
     private val appUpdateCoordinator: AppUpdateCoordinator,
     private val hikHandler: WebConsoleHikvisionHandler? = null,
     private val onLocalHostChanged: () -> Unit = {},
-    private val auth: WebConsoleAuth = WebConsoleAuth(),
+    private val auth: WebConsoleAuth = WebConsoleAuth(persistentSalt = WebConsoleAuth.loadOrCreateDeviceSalt(context)),
     private val startedAtMs: Long = System.currentTimeMillis(),
 ) {
     suspend fun handle(method: String, path: String, query: String = "", token: String?, rawBody: String): WebHttpResponse {
         val effectiveToken = token?.takeIf { it.isNotBlank() } ?: WebConsoleHikvisionHandler.parseQuery(query)["token"]
         if (path == "/api/console-login" && method == "POST") return handleConsoleLogin(rawBody)
+        val authCfg = configRepository.getConfig()
+        val isAuthed = auth.isTokenValid(effectiveToken, authCfg.password, authCfg.isLoggedIn)
         if (path == "/api/auth-check" && method == "GET") {
-            val cfg = configRepository.getConfig()
-            val body = JSONObject().put("authenticated", auth.isTokenValid(effectiveToken))
-                .put("needsInitialSetup", !cfg.isLoggedIn && cfg.password.isBlank())
-                .put("orgName", cfg.orgName.ifBlank { cfg.username }).put("mode", cfg.mode.shortLabel).toString()
+            val body = JSONObject().put("authenticated", isAuthed)
+                .put("needsInitialSetup", !authCfg.isLoggedIn && authCfg.password.isBlank())
+                .put("orgName", authCfg.orgName.ifBlank { authCfg.username }).put("mode", authCfg.mode.shortLabel).toString()
             return jsonOk(body)
         }
-        if (!auth.isTokenValid(effectiveToken)) {
+        if (!isAuthed) {
             return WebHttpResponse(401, JSON_TYPE, """{"ok":false,"error":"Chưa đăng nhập quản trị"}""")
         }
         return try {
@@ -124,7 +125,7 @@ internal class WebConsoleApiHandler(
         if (!auth.verifyPassword(json.optString("password", ""), cfg.password, cfg.isLoggedIn)) {
             return WebHttpResponse(401, JSON_TYPE, """{"ok":false,"error":"Sai mật khẩu quản trị"}""")
         }
-        return jsonOk(JSONObject().put("ok", true).put("token", auth.issueToken()).toString())
+        return jsonOk(JSONObject().put("ok", true).put("token", auth.issuePersistentToken(cfg.password, cfg.isLoggedIn)).toString())
     }
 
     private suspend fun handleAddDevice(rawBody: String): WebHttpResponse {
@@ -135,13 +136,13 @@ internal class WebConsoleApiHandler(
         val proto = DeviceProtocol.fromCode(j.optString("protocol", "FK"))
         val portNum = j.optInt("port", if (proto == DeviceProtocol.HIKVISION_ISAPI) DeviceConfig.DEFAULT_HIK_PORT else cfg.defaultPort).coerceIn(1, 65535)
         val useHttps = j.optBoolean("useHttps", false) || portNum == DeviceConfig.DEFAULT_HIK_HTTPS_PORT || rawIp.startsWith("https://", true)
-        val accessPass = j.optString("accessPassword", "")
+        val accessPass = j.optString("accessPassword", "").ifBlank { if (proto == DeviceProtocol.HIKVISION_ISAPI) cfg.resolvedHikPassword else "" }
         if (proto == DeviceProtocol.HIKVISION_ISAPI && accessPass.isBlank()) return jsonBad("Thiếu mật khẩu thiết bị Hikvision")
         val dev = DeviceConfig(
             ip = ip, port = portNum, machineNo = j.optInt("machineNo", cfg.defaultMachineNo).coerceAtLeast(1),
             name = j.optString("name", "").trim(), password = cfg.defaultPassword, license = cfg.defaultLicense,
             useUdp = cfg.udpMode, protocol = proto, useHttps = useHttps, accessPassword = accessPass,
-            username = j.optString("username", DeviceConfig.DEFAULT_HIK_USERNAME).trim().ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
+            username = j.optString("username", "").trim().ifBlank { cfg.resolvedHikUsername },
         )
         val added = attendanceEngine.addAndConnectDevice(dev)
         val msg = if (added) "Đã thêm và kết nối ${proto.shortLabel} $ip:${dev.port}" else "Máy $ip:${dev.port} đã tồn tại"

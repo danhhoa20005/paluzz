@@ -46,11 +46,14 @@ class ConfigRepositoryImpl(
         if (prev.mode == targetMode) return@withLock prev
         store.save(prev)
         val loaded = store.load(targetMode)
-        // Nếu chế độ mới chưa khai báo máy nào, giữ sẵn danh sách máy LAN đã dò để khỏi phải nhập lại
-        val next = if (loaded.devices.isEmpty() && prev.devices.isNotEmpty()) {
+        // Nếu chế độ mới chưa khai báo máy hoặc mật khẩu Hikvision, giữ sẵn từ chế độ trước để khỏi phải nhập lại
+        var next = if (loaded.devices.isEmpty() && prev.devices.isNotEmpty()) {
             loaded.copy(devices = prev.devices)
         } else {
             loaded
+        }
+        if (next.resolvedHikPassword.isBlank() && prev.resolvedHikPassword.isNotBlank()) {
+            next = next.copy(defaultHikUsername = prev.resolvedHikUsername, defaultHikPassword = prev.resolvedHikPassword)
         }
         store.save(next)
         _configFlow.value = next
@@ -82,7 +85,13 @@ class ConfigRepositoryImpl(
     }
 
     override suspend fun updateDevices(devices: List<DeviceConfig>) = mutex.withLock {
-        val updated = _configFlow.value.copy(devices = devices)
+        val cur = _configFlow.value
+        val latestHik = devices.lastOrNull { it.isHikvision && it.accessPassword.isNotBlank() }
+        val updated = cur.copy(
+            devices = devices,
+            defaultHikUsername = latestHik?.username ?: cur.defaultHikUsername,
+            defaultHikPassword = latestHik?.accessPassword ?: cur.defaultHikPassword,
+        )
         store.save(updated)
         _configFlow.value = updated
     }
