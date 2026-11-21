@@ -1,7 +1,7 @@
 {
-  "versionCode": 13,
-  "versionName": "2.0.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.0.0/ChamCong_DiemDanh_v2.0.0.apk",
-  "sha256": "3dd473315993b57f91f8f58a1210c3a0180457a564069f3af4f2072ecebde83f",
-  "notes": "Phiên bản v2.0.0 hoàn chỉnh 2 chiều chuẩn tuyệt đối cho mọi dòng máy Hikvision & FK: đẩy mọi mã nhân viên từ server tổng xuống Hikvision giữ nguyên mã gốc (kể cả số 0 ở đầu 001, mã chữ NV01, thẻ Mifare 10 số) + họ tên tiếng Việt UTF-8 + tự đẩy ảnh khuôn mặt AI, đồng thời khi quét mặt/thẻ trên máy Hikvision tự đánh thức đẩy thẳng lên server tổng trong < 0.5 giây (chịu lệch đồng hồ ±60s, lưu đệm ngoại tuyến không mất lượt)."
+  "versionCode": 14,
+  "versionName": "2.1.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.1.0/ChamCong_DiemDanh_v2.1.0.apk",
+  "sha256": "2018b38d413e80f19c6d12cd1150cfe91a7d891a5336383aa7a8218e642347dc",
+  "notes": "Nâng cấp toàn diện Webhook (HTTP Listening) cho mọi máy chấm công Hikvision: tự hỗ trợ Expect 100-continue + Transfer-Encoding chunked + XML SubscribeEvent chuẩn firmware V3.9.50+, giao diện 1 chạm Gắn Webhook về TV Box / Tuỳ chỉnh máy chủ HTTP-HTTPS / Tắt Webhook, và bộ đếm thời gian thực số lượt quét & heartbeat nhận được (<0.5s)."
 }
