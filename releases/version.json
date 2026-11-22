@@ -1,7 +1,7 @@
 {
-  "versionCode": 23,
-  "versionName": "2.9.1",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.9.1/ChamCong_DiemDanh_v2.9.1.apk",
-  "sha256": "ad3bbef4f7814e73dac284c1a80795abee1189f993b3392988b949cd64b92a70",
-  "notes": "Chuyển toàn bộ giao diện sang phong cách Clear Liquid Glass Sáng tối giản, ít màu sắc: luôn giữ nền sáng trắng sứ pha lê dịu mắt (không bị tự tối theo máy), bỏ mảng màu sặc sỡ ở Hero/Menu/Chế độ, dùng thấu kính pha lê trắng & mực than chì WCAG 2.2 AAA, đồng bộ Web quản trị LAN sáng tối giản."
+  "versionCode": 24,
+  "versionName": "2.9.2",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.9.2/ChamCong_DiemDanh_v2.9.2.apk",
+  "sha256": "e282ad6461ddd7fc26bf6eb7b28542b22dec78df37145b7c122322d548785ea0",
+  "notes": "Nâng cấp giao diện Light Liquid Glass siêu sắc nét chuẩn AAA+ (12/12 cặp màu đạt 7.09:1 đến 18.89:1): nền sáng sương dịu tách bạch thẻ kính trắng tinh, 1 màu nhấn chủ đạo Xanh Apple sắc nét cho tab/chế độ/nút chính giúp nhìn rõ trong 0.1 giây mà không rực màu cầu vồng, dải chỉ báo trạng thái trên thẻ Hero & viền rõ nét cho máy Online/Offline, đồng bộ Web LAN."
 }

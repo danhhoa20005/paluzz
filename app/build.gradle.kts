@@ -11,8 +11,8 @@ android {
         applicationId = "com.edusing.chamcongtvbox"
         minSdk = 24
         targetSdk = 35
-        versionCode = 23
-        versionName = "2.9.1"
+        versionCode = 24
+        versionName = "2.9.2"
 
         resValue("string", "app_name", "Chấm công & Điểm danh")
         buildConfigField("String", "DEFAULT_MODE", "\"PALUZZ\"")
