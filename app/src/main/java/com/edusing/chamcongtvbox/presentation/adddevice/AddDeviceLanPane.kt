@@ -84,18 +84,18 @@ internal fun AddDeviceLanPane(
 
             if (state.isScanning) {
                 val pct = if (state.scanTotal > 0) state.scanCompleted.toFloat() / state.scanTotal else 0f
-                LinearProgressIndicator(progress = { pct.coerceIn(0f, 1f) }, color = AppColors.Primary, modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)))
+                LinearProgressIndicator(progress = { pct.coerceIn(0f, 1f) }, color = AppColors.PrimaryText, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)))
                 Text(
                     text = if (terminals.isEmpty()) "Đang quét nhanh SADP & LAN (${state.scanCompleted}/${state.scanTotal})..."
                     else "Đã thấy ${terminals.size} máy — đang dò thêm máy FK (${state.scanCompleted}/${state.scanTotal})...",
-                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Primary,
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.PrimaryText,
                 )
             }
 
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 2.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = TammiSpacing.xs),
+                verticalArrangement = Arrangement.spacedBy(TammiSpacing.md),
             ) {
                 if (terminals.isEmpty() && !state.isScanning) {
                     item(key = "empty_terminals") {
@@ -127,7 +127,7 @@ internal fun AddDeviceLanPane(
                         else "Đổi dải IP / Xem ${others.size} thiết bị mạng khác ▾",
                         compact = true,
                         onClick = onToggleOtherHosts,
-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = TammiSpacing.sm),
                     )
                 }
 

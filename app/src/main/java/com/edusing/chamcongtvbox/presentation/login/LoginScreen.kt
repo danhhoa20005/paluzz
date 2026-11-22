@@ -125,7 +125,7 @@ private fun CompactLiquidBrandBanner(mode: AppMode, title: String, orgLabel: Str
             .fillMaxWidth()
             .stainedLiquidGlass(shape = TammiRadii.panelShape, baseColor = accent, shadowElevation = 14.dp),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Column(modifier = Modifier.padding(horizontal = TammiSpacing.lg, vertical = TammiSpacing.md), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(AppColors.GreenBright).border(1.5.dp, Color.White, CircleShape))
                 Text(title, fontSize = 17.5.sp, fontWeight = FontWeight.Black, color = Color.White)

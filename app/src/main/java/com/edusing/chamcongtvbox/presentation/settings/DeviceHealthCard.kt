@@ -92,7 +92,7 @@ internal fun DeviceHealthCard(
                         fontSize = 12.5.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = AppColors.Primary,
+                        color = AppColors.PrimaryText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

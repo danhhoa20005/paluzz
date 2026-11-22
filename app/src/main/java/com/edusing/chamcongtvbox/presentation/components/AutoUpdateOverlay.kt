@@ -31,13 +31,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.edusing.chamcongtvbox.domain.model.UpdateStateSnapshot
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
+import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import kotlinx.coroutines.delay
 
-/**
- * Thanh thông báo bản cập nhật nổi gọn trên đầu màn hình chính (nhìn thấy ở mọi tab, bấm 1 chạm để cài ngay).
- */
+/** Thanh thông báo bản cập nhật nổi **Chrome Liquid Glass** (nhìn thấy ở mọi tab, bấm 1 chạm để cài ngay). */
 @Composable
 fun AutoUpdateReadyBanner(
     updateState: UpdateStateSnapshot,
@@ -49,14 +49,18 @@ fun AutoUpdateReadyBanner(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(TammiRadii.inputShape)
-            .background(AppColors.GreenSoft)
-            .border(1.2.dp, AppColors.Green.copy(alpha = 0.42f), TammiRadii.inputShape)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .liquidGlassLayer(
+                shape = TammiRadii.inputShape,
+                tier = LiquidGlassTier.CHROME,
+                tintOverride = AppColors.GreenSoft,
+                borderOverride = AppColors.GreenText.copy(alpha = 0.42f),
+                shadowElevation = 8.dp,
+            )
+            .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
     ) {
-        Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(AppColors.GreenBright))
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AppColors.GreenBright))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "Bản mới v${rel.versionName} đã tự tải sẵn",
@@ -69,7 +73,7 @@ fun AutoUpdateReadyBanner(
             if (rel.notes.isNotBlank()) {
                 Text(
                     text = rel.notes,
-                    fontSize = 11.5.sp,
+                    fontSize = 12.sp,
                     color = AppColors.TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -145,7 +149,7 @@ fun AutoUpdateCountdownDialog(
                             .clip(TammiRadii.inputShape)
                             .background(AppColors.SurfaceSubtle)
                             .border(1.dp, AppColors.Border, TammiRadii.inputShape)
-                            .padding(10.dp),
+                            .padding(TammiSpacing.md),
                     )
                 }
 

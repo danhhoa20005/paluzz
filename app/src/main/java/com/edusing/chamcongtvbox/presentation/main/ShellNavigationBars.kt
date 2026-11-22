@@ -35,6 +35,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,16 +52,13 @@ import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.DeviceUiSpec
 import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
+import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.rememberReducedMotion
 import com.edusing.chamcongtvbox.presentation.theme.stainedLiquidGlass
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
-/**
- * Thanh điều hướng đáy nổi dạng viên thuốc **Chrome Liquid Glass 3D** chuẩn iOS 26 cho Điện thoại:
- * - Lớp ngoài pha lê trong suốt 65–80% cho nội dung cuộn xuyên sáng bên dưới.
- * - Viên **Stained Liquid Glass** xanh Cobalt lướt lò xo mượt (`spring`) theo tab đang chọn, không giật cục.
- */
+/** Thanh điều hướng đáy nổi viên thuốc **Chrome Liquid Glass 3D** chuẩn iOS 26 (thấu kính Stained lướt lò xo). */
 @Composable
 internal fun PhoneBottomNavigationBar(
     tabs: List<String>,
@@ -69,12 +70,12 @@ internal fun PhoneBottomNavigationBar(
     val reducedMotion = rememberReducedMotion()
     val safeIndex = selectedIndex.coerceIn(0, tabs.lastIndex)
 
-    Box(modifier = modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+    Box(modifier = modifier.fillMaxWidth().padding(horizontal = TammiSpacing.lg, vertical = TammiSpacing.md)) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .liquidGlassLayer(shape = CircleShape, tier = LiquidGlassTier.CHROME, shadowElevation = 18.dp)
-                .padding(5.dp),
+                .liquidGlassLayer(shape = CircleShape, tier = LiquidGlassTier.CHROME, shadowElevation = 16.dp)
+                .padding(TammiSpacing.xs),
         ) {
             val tabWidth = maxWidth / tabs.size
             val lensOffset by animateDpAsState(
@@ -82,32 +83,32 @@ internal fun PhoneBottomNavigationBar(
                 animationSpec = if (reducedMotion) snap() else spring(dampingRatio = 0.76f, stiffness = 420f),
                 label = "phoneNavLensX",
             )
-            // Thấu kính Stained Liquid Glass lướt mượt dưới chữ tab
             Box(
                 modifier = Modifier
                     .offset(x = lensOffset)
                     .width(tabWidth)
                     .height(44.dp)
-                    .stainedLiquidGlass(shape = CircleShape, baseColor = AppColors.Primary, shadowElevation = 9.dp),
+                    .stainedLiquidGlass(shape = CircleShape, baseColor = AppColors.Primary, shadowElevation = 8.dp),
             )
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 tabs.forEachIndexed { idx, label ->
-                    val selected = idx == safeIndex
+                    val isSel = idx == safeIndex
                     val interaction = remember { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp)
                             .clip(CircleShape)
+                            .semantics { role = Role.Tab; selected = isSel }
                             .clickable(interactionSource = interaction, indication = null) { onSelect(idx) }
-                            .padding(horizontal = 6.dp),
+                            .padding(horizontal = TammiSpacing.sm),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = label,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (selected) Color.White else AppColors.Text,
+                            color = if (isSel) Color.White else AppColors.Text,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -118,11 +119,7 @@ internal fun PhoneBottomNavigationBar(
     }
 }
 
-/**
- * Thanh điều hướng nổi bên trái **Chrome Liquid Glass 3D** chuyên biệt cho **Android TV Box & Tablet**:
- * - Chiếm trọn chiều cao 16:9 với lề overscan an toàn, kính pha lê trong suốt khúc xạ nền đa sắc.
- * - Viên **Stained Liquid Glass** trượt dọc theo lò xo khi di chuyển bằng D-Pad, kèm viền focus AAA.
- */
+/** Thanh điều hướng nổi bên trái **Chrome Liquid Glass 3D** cho **Android TV Box & Tablet** (D-Pad AAA). */
 @Composable
 internal fun TvSideNavigationRail(
     state: MainUiState,
@@ -136,8 +133,8 @@ internal fun TvSideNavigationRail(
     val reducedMotion = rememberReducedMotion()
     val safeIndex = selectedIndex.coerceIn(0, (tabs.size - 1).coerceAtLeast(0))
     val itemHeight = if (ui.isTvDevice) 48.dp else 44.dp
-    val itemGap = 8.dp
-    val itemShape = RoundedCornerShape(14.dp)
+    val itemGap = TammiSpacing.sm
+    val itemShape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = Modifier
@@ -147,10 +144,9 @@ internal fun TvSideNavigationRail(
     ) {
         TammiGlassPanel(
             modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-            padding = PaddingValues(14.dp),
+            padding = PaddingValues(TammiSpacing.lg),
             tier = LiquidGlassTier.CHROME,
         ) {
-            // 1. Đầu bảng: Tên đơn vị + nút chuyển 3 chế độ 1 bấm
             Text(
                 text = state.orgName.uppercase().ifBlank { state.activeMode.shortLabel.uppercase() },
                 color = AppColors.Text,
@@ -160,13 +156,12 @@ internal fun TvSideNavigationRail(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(TammiSpacing.sm))
             TammiModeBadgeButton(activeMode = state.activeMode, onClick = onModeClick)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(TammiSpacing.md))
             HorizontalDivider(color = AppColors.Border.copy(alpha = 0.65f))
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(TammiSpacing.md))
 
-            // 2. 4 tab điều hướng lớn với thấu kính Stained Liquid Glass lướt dọc mượt
             val lensOffsetY by animateDpAsState(
                 targetValue = (itemHeight + itemGap) * safeIndex,
                 animationSpec = if (reducedMotion) snap() else spring(dampingRatio = 0.78f, stiffness = 420f),
@@ -178,11 +173,11 @@ internal fun TvSideNavigationRail(
                         .offset(y = lensOffsetY)
                         .fillMaxWidth()
                         .height(itemHeight)
-                        .stainedLiquidGlass(shape = itemShape, baseColor = AppColors.Primary, shadowElevation = 9.dp),
+                        .stainedLiquidGlass(shape = itemShape, baseColor = AppColors.Primary, shadowElevation = 8.dp),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(itemGap), modifier = Modifier.fillMaxWidth()) {
                     tabs.forEachIndexed { idx, label ->
-                        val selected = idx == safeIndex
+                        val isSel = idx == safeIndex
                         var focused by remember { mutableStateOf(false) }
                         val scale by animateFloatAsState(
                             targetValue = if (focused && !reducedMotion) 1.03f else 1f,
@@ -195,18 +190,19 @@ internal fun TvSideNavigationRail(
                                 .height(itemHeight)
                                 .scale(scale)
                                 .clip(itemShape)
-                                .then(if (!selected) Modifier.background(AppColors.SurfaceSubtle.copy(alpha = 0.45f)) else Modifier)
+                                .then(if (!isSel) Modifier.background(AppColors.SurfaceSubtle.copy(alpha = 0.45f)) else Modifier)
                                 .onFocusChanged { focused = it.isFocused }
-                                .tvFocusRing(focused, cornerRadiusDp = 14, onDark = selected)
+                                .tvFocusRing(focused, cornerRadiusDp = 16, onDark = isSel)
+                                .semantics { role = Role.Tab; selected = isSel }
                                 .clickable { onSelect(idx) }
-                                .padding(horizontal = 12.dp),
+                                .padding(horizontal = TammiSpacing.md),
                             contentAlignment = Alignment.CenterStart,
                         ) {
                             Text(
                                 text = label,
                                 fontSize = if (ui.isTvDevice) 14.5.sp else 13.5.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = if (selected) Color.White else AppColors.Text,
+                                color = if (isSel) Color.White else AppColors.Text,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -217,8 +213,7 @@ internal fun TvSideNavigationRail(
 
             Spacer(Modifier.weight(1f))
 
-            // 3. Đuôi bảng: Tình trạng Internet + Máy Online + Đổi tài khoản + gợi ý TV
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm), modifier = Modifier.fillMaxWidth()) {
                 val (netLabel, netTone) = when (state.internetStatus) {
                     InternetStatus.ONLINE -> "Internet OK" to TammiBadgeTone.SUCCESS
                     InternetStatus.OFFLINE -> "Mất Internet" to TammiBadgeTone.DANGER
@@ -235,7 +230,7 @@ internal fun TvSideNavigationRail(
                     TammiOutlinedButton("Đổi tài khoản", onLogoutClick, Modifier.fillMaxWidth(), compact = true, contentColor = AppColors.TextSecondary)
                 }
                 if (ui.isTvDevice) {
-                    Text("D-Pad: Di chuyển • OK: Chọn", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("D-Pad: Di chuyển • OK: Chọn", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }

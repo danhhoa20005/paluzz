@@ -36,6 +36,7 @@ import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TvActionButton
 import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 
@@ -63,8 +64,9 @@ internal fun QuickAcceptDeviceDialog(
         TammiGlassPanel(
             modifier = Modifier.fillMaxWidth(),
             borderColor = AppColors.Primary.copy(alpha = 0.35f),
+            tier = LiquidGlassTier.CHROME,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                 Text("Nhận máy chấm công Hikvision", fontSize = 17.sp, fontWeight = FontWeight.Black, color = AppColors.Text)
 
                 Column(
@@ -73,9 +75,9 @@ internal fun QuickAcceptDeviceDialog(
                         .clip(TammiRadii.inputShape)
                         .background(AppColors.PrimarySoft)
                         .border(1.dp, AppColors.Primary.copy(alpha = 0.25f), TammiRadii.inputShape)
-                        .padding(horizontal = 12.dp, vertical = 9.dp),
+                        .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm),
                 ) {
-                    Text(host.modelHint.ifBlank { "Hikvision ISAPI" }, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, color = AppColors.Primary)
+                    Text(host.modelHint.ifBlank { "Hikvision ISAPI" }, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, color = AppColors.PrimaryText)
                     Text("${host.ip}:${host.port} • Tài khoản: $username", fontFamily = FontFamily.Monospace, fontSize = 12.5.sp, color = AppColors.TextSecondary)
                 }
 
@@ -130,9 +132,9 @@ internal fun QuickAcceptDeviceDialog(
                 Spacer(Modifier.height(TammiSpacing.xs))
 
                 if (isSaving) {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = TammiSpacing.sm), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.6.dp, color = AppColors.Green)
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(TammiSpacing.md))
                         Text("Đang kết nối & nhận máy...", fontWeight = FontWeight.Bold, color = AppColors.GreenText)
                     }
                 } else {

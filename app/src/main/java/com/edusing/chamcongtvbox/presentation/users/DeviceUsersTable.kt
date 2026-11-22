@@ -40,6 +40,7 @@ import com.edusing.chamcongtvbox.presentation.components.TammiEmptyStateView
 import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
 import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
 /** Bảng danh sách người dùng trên máy **Liquid Glass 3D** thuần chữ & màu chuẩn AAA. */
@@ -55,25 +56,25 @@ internal fun DeviceUsersTableCard(
         Column(modifier = Modifier.fillMaxSize()) {
             if (!isCompact) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().background(AppColors.SurfaceSubtle).padding(horizontal = 14.dp, vertical = 10.dp),
+                    modifier = Modifier.fillMaxWidth().background(AppColors.SurfaceSubtle).padding(horizontal = TammiSpacing.lg, vertical = TammiSpacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Spacer(Modifier.width(46.dp))
+                    Spacer(Modifier.width(48.dp))
                     Text("Mã thẻ", fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, color = AppColors.TextSecondary, modifier = Modifier.width(126.dp))
                     Text("Tên máy", fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, color = AppColors.TextSecondary, modifier = Modifier.width(116.dp))
                     Text("Họ tên (Web)", fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, color = AppColors.TextSecondary, modifier = Modifier.weight(1f))
                     Text(state.groupLabel, fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, color = AppColors.TextSecondary, modifier = Modifier.width(130.dp))
-                    Text("Thao tác", fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, color = AppColors.TextSecondary, modifier = Modifier.width(66.dp))
+                    Text("Thao tác", fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp, color = AppColors.TextSecondary, modifier = Modifier.width(68.dp))
                 }
                 HorizontalDivider(color = AppColors.Border)
             }
 
             when {
                 state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.8.dp, color = AppColors.Primary)
-                        Spacer(Modifier.width(12.dp))
-                        Text("Đang đọc bộ nhớ máy...", fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(TammiSpacing.lg)) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.8.dp, color = AppColors.PrimaryText)
+                        Spacer(Modifier.width(TammiSpacing.md))
+                        Text("Đang đọc bộ nhớ máy...", fontWeight = FontWeight.Bold, color = AppColors.PrimaryText)
                     }
                 }
                 state.filteredUsers.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -85,7 +86,7 @@ internal fun DeviceUsersTableCard(
                 }
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = TammiSpacing.sm, vertical = TammiSpacing.xs),
                 ) {
                     items(state.filteredUsers, key = { it.uniqueKey }) { user ->
                         DeviceUserRow(
@@ -118,21 +119,21 @@ private fun DeviceUserRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(if (isSelected) AppColors.RedSoft.copy(alpha = 0.72f) else Color.Transparent)
             .onFocusChanged { rowFocused = it.isFocused }
-            .tvFocusRing(rowFocused, 10)
+            .tvFocusRing(rowFocused, 12)
             .clickable(enabled = enabled, onClick = onToggleSelect)
-            .padding(horizontal = 6.dp, vertical = 7.dp),
+            .padding(horizontal = TammiSpacing.sm, vertical = TammiSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = isSelected, enabled = enabled, onCheckedChange = { if (enabled) onToggleSelect() })
 
         if (isCompact) {
             val primaryTitle = user.serverFullName?.takeIf { it.isNotBlank() } ?: user.deviceName.ifBlank { "Mã #${user.displayCardId}" }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
                 Text(primaryTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
                     val sub = buildString {
                         append("#${user.displayCardId}")
                         if (!user.className.isNullOrBlank()) append(" • ${user.className}")
@@ -150,14 +151,14 @@ private fun DeviceUserRow(
                 }
             }
         } else {
-            Text(user.displayCardId, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AppColors.Primary, modifier = Modifier.width(126.dp))
+            Text(user.displayCardId, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AppColors.PrimaryText, modifier = Modifier.width(126.dp))
             Text(user.deviceName.ifBlank { "(Trống)" }, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(116.dp))
             val bioSuffix = if (user.faceCount >= 0) (if (user.faceCount > 0) " • Có mặt (${user.faceCount})" else " • Chưa mặt") else ""
             Text((user.serverFullName ?: "—") + bioSuffix, fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp, color = if (user.faceCount == 0) AppColors.AmberText else if (user.serverFullName != null) AppColors.Text else AppColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Text(user.className ?: "-", fontSize = 13.sp, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(130.dp))
         }
 
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(TammiSpacing.sm))
         TammiOutlinedButton(
             text = "Xoá",
             onClick = onDeleteSingle,

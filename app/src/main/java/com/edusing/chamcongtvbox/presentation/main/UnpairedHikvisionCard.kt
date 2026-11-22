@@ -39,6 +39,7 @@ import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TvActionButton
 import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 
@@ -124,8 +125,8 @@ private fun PairHikvisionModal(
     val colors = tammiFieldColors()
 
     Dialog(onDismissRequest = onDismiss) {
-        TammiGlassPanel(modifier = Modifier.fillMaxWidth(), borderColor = AppColors.Green.copy(alpha = 0.42f)) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        TammiGlassPanel(modifier = Modifier.fillMaxWidth(), borderColor = AppColors.Green.copy(alpha = 0.42f), tier = LiquidGlassTier.CHROME) {
+            Column(verticalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                 Text("Nhận ${devices.size} máy Hikvision tự động", fontSize = 17.sp, fontWeight = FontWeight.Black, color = AppColors.Text)
                 Column(
                     modifier = Modifier
@@ -133,8 +134,8 @@ private fun PairHikvisionModal(
                         .clip(TammiRadii.inputShape)
                         .background(AppColors.GreenSoft)
                         .border(1.dp, AppColors.Green.copy(alpha = 0.30f), TammiRadii.inputShape)
-                        .padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                        .padding(TammiSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs),
                 ) {
                     devices.forEach { d ->
                         Text("${d.model} (${d.ip}:${d.httpPort})", fontFamily = FontFamily.Monospace, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = AppColors.GreenText)
@@ -167,7 +168,7 @@ private fun PairHikvisionModal(
                 }
 
                 if (isPairing) {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = TammiSpacing.sm), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.4.dp, color = AppColors.Green)
                         Spacer(Modifier.width(8.dp))
                         Text("Đang kết nối & lưu máy...", fontWeight = FontWeight.Bold, color = AppColors.GreenText)

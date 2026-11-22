@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TammiSwitchRow
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import java.util.Locale
 
 /**
@@ -35,7 +36,7 @@ internal fun AutoPushCustomSlotSection(
 ) {
     val customText = String.format(Locale.US, "%02d:%02d", state.autoPushCustomHour, state.autoPushCustomMinute)
 
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
         TammiSwitchRow(
             title = if (state.autoPushCustomEnabled) "Khung giờ đẩy thứ 4: $customText" else "Thêm khung giờ đẩy thứ 4",
             subtitle = "Ngoài 3 khung giờ mặc định 06:00 • 12:00 • 20:00",
@@ -45,8 +46,8 @@ internal fun AutoPushCustomSlotSection(
         )
 
         AnimatedVisibility(visible = state.autoPushEnabled && state.autoPushCustomEnabled) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                     TimeStepperPod(
                         title = "Giờ (00–23)",
                         valueText = String.format(Locale.US, "%02d", state.autoPushCustomHour),
@@ -62,7 +63,7 @@ internal fun AutoPushCustomSlotSection(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                     listOf(0, 15, 30, 45).forEach { m ->
                         val selected = state.autoPushCustomMinute == m
                         TammiOutlinedButton(
@@ -70,7 +71,7 @@ internal fun AutoPushCustomSlotSection(
                             onClick = { viewModel.setCustomMinute(m) },
                             compact = true,
                             contentColor = if (selected) AppColors.Primary else AppColors.TextSecondary,
-                            borderColor = if (selected) AppColors.Primary else AppColors.Border,
+                            borderColor = if (selected) AppColors.PrimaryText else AppColors.Border,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -97,15 +98,15 @@ private fun TimeStepperPod(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(AppColors.SurfaceSubtle)
-            .border(1.dp, AppColors.Border, RoundedCornerShape(14.dp))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .border(1.dp, AppColors.Border, RoundedCornerShape(16.dp))
+            .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
     ) {
-        Text(title, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = AppColors.TextSecondary)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppColors.TextSecondary)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
             TammiOutlinedButton("−", onMinus, compact = true, contentColor = AppColors.Primary)
             Text(valueText, fontSize = 18.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, color = AppColors.Text)
             TammiOutlinedButton("+", onPlus, compact = true, contentColor = AppColors.Primary)

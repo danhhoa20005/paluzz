@@ -68,7 +68,7 @@ internal fun LiveActivityPane(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
                 Text(
                     text = "Nhật ký trực tiếp",
                     fontWeight = FontWeight.Bold,
@@ -79,7 +79,7 @@ internal fun LiveActivityPane(
                 )
                 val pollShort = lastPollTime.substringBefore(" ")
                 val meta = if (pollShort.isNotBlank()) "Hôm nay: $totalToday lượt • Quét $pollShort" else "Hôm nay: $totalToday lượt"
-                Text(meta, fontSize = if (isTv) 13.sp else 12.sp, fontWeight = FontWeight.Medium, color = AppColors.Primary)
+                Text(meta, fontSize = if (isTv) 13.sp else 12.sp, fontWeight = FontWeight.Medium, color = AppColors.PrimaryText)
             }
             if (events.isNotEmpty()) {
                 TammiOutlinedButton(
@@ -150,8 +150,8 @@ private fun LiveEventItemRow(ev: LiveEventEntry, isTv: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = if (isTv) 12.dp else 10.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(vertical = TammiSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
             TammiStatusPill(label = timeOnly, tone = tone)
@@ -161,10 +161,10 @@ private fun LiveEventItemRow(ev: LiveEventEntry, isTv: Boolean) {
             text = ev.message,
             fontSize = if (isTv) 14.sp else 13.sp,
             fontWeight = FontWeight.Normal,
-            color = if (ev.severity == EventSeverity.ERROR) AppColors.Red else AppColors.TextSecondary,
+            color = if (ev.severity == EventSeverity.ERROR) AppColors.RedText else AppColors.TextSecondary,
         )
         if (ev.cardId != "-") {
-            Text("${ev.deviceName} • ${ev.timeText}", fontSize = if (isTv) 12.sp else 11.5.sp, fontWeight = FontWeight.Medium, color = AppColors.Muted)
+            Text("${ev.deviceName} • ${ev.timeText}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AppColors.Muted)
         }
     }
 }

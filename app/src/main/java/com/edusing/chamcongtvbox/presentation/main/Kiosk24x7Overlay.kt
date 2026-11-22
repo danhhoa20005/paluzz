@@ -3,7 +3,6 @@ package com.edusing.chamcongtvbox.presentation.main
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,8 +49,10 @@ import com.edusing.chamcongtvbox.domain.repository.InternetStatus
 import com.edusing.chamcongtvbox.presentation.components.TammiBadgeTone
 import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
+import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.rememberDeviceUiSpec
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 import kotlinx.coroutines.delay
@@ -132,14 +133,18 @@ fun Kiosk24x7Overlay(
                 modifier = Modifier
                     .heightIn(min = 44.dp)
                     .scale(exitScale)
-                    .clip(TammiRadii.buttonShape)
-                    .background(AppColors.KioskCard)
-                    .border(1.2.dp, AppColors.KioskBorder, TammiRadii.buttonShape)
+                    .liquidGlassLayer(
+                        shape = TammiRadii.buttonShape,
+                        tier = LiquidGlassTier.CHROME,
+                        tintOverride = AppColors.KioskCard,
+                        borderOverride = AppColors.KioskBorder,
+                        shadowElevation = 8.dp,
+                    )
                     .focusRequester(exitFocusRequester)
                     .onFocusChanged { exitFocused = it.isFocused }
                     .tvFocusRing(exitFocused, cornerRadiusDp = 16, onDark = true)
                     .clickable(onClick = onExitKiosk)
-                    .padding(horizontal = 18.dp, vertical = 10.dp),
+                    .padding(horizontal = TammiSpacing.lg, vertical = TammiSpacing.sm),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("Thoát Kiosk", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = if (ui.isTvDevice) 14.5.sp else 13.sp)
@@ -167,11 +172,15 @@ fun Kiosk24x7Overlay(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(TammiRadii.cardShape)
-                        .background(AppColors.KioskCard)
-                        .border(1.2.dp, AppColors.KioskBorder, TammiRadii.cardShape)
+                        .liquidGlassLayer(
+                            shape = TammiRadii.cardShape,
+                            tier = LiquidGlassTier.CONTENT,
+                            tintOverride = AppColors.KioskCard,
+                            borderOverride = AppColors.KioskBorder,
+                            shadowElevation = 16.dp,
+                        )
                         .padding(if (ui.isTvDevice) TammiSpacing.xl else TammiSpacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
                 ) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Chấm công gần nhất", color = AppColors.KioskTextSecondary, fontSize = if (ui.isTvDevice) 15.sp else 13.sp, fontWeight = FontWeight.Bold)
@@ -190,7 +199,7 @@ fun Kiosk24x7Overlay(
                             if (idx > 0) HorizontalDivider(color = AppColors.KioskBorder.copy(alpha = 0.55f))
                             val who = ev.userName.ifBlank { "Mã #${ev.cardId}" }
                             val isLatest = idx == 0
-                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().padding(vertical = TammiSpacing.xs), verticalAlignment = Alignment.CenterVertically) {
                                 Box(modifier = Modifier.size(if (isLatest) 10.dp else 7.dp).clip(CircleShape).background(if (isLatest) AppColors.KioskSuccess else AppColors.KioskTextMuted))
                                 Spacer(Modifier.width(10.dp))
                                 Text(

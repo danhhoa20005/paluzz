@@ -67,7 +67,7 @@ internal fun AppUpdateCard(
                 Text(updateState.statusMessage, fontSize = 12.sp, color = AppColors.TextSecondary, fontWeight = FontWeight.Medium)
             }
             if (!updateState.errorMessage.isNullOrBlank()) {
-                Text(updateState.errorMessage, fontSize = 12.sp, color = AppColors.Red, fontWeight = FontWeight.SemiBold)
+                Text(updateState.errorMessage, fontSize = 12.sp, color = AppColors.RedText, fontWeight = FontWeight.SemiBold)
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

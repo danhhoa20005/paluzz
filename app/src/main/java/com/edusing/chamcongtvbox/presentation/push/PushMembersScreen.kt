@@ -73,7 +73,7 @@ fun PushMembersScreen(
         PushTargetAndFilterBars(state = state, isCompact = ui.isCompact, floating = isFloatingTv, horizontalPadding = ui.horizontalPadding, viewModel = viewModel)
 
         if (!state.errorMessage.isNullOrBlank() || !state.exportSuccessPath.isNullOrBlank() || state.progress != null) {
-            Column(modifier = Modifier.padding(horizontal = ui.horizontalPadding, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.padding(horizontal = ui.horizontalPadding, vertical = TammiSpacing.sm), verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                 if (!state.errorMessage.isNullOrBlank()) TammiErrorStateCard(message = state.errorMessage.orEmpty())
                 if (!state.exportSuccessPath.isNullOrBlank()) {
                     val path = state.exportSuccessPath.orEmpty()
@@ -103,13 +103,13 @@ fun PushMembersScreen(
                 }
                 state.progress?.let { prog ->
                     val pct = if (prog.total > 0) prog.completed.toFloat() / prog.total else 0f
-                    TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(12.dp), borderColor = AppColors.Primary.copy(alpha = 0.45f)) {
+                    TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.md), borderColor = AppColors.Primary.copy(alpha = 0.45f)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(prog.currentLabel, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.PrimaryDark, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            Text("${prog.completed}/${prog.total}", fontWeight = FontWeight.Black, fontSize = 13.sp, color = AppColors.Primary)
+                            Text(prog.currentLabel, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.PrimaryText, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text("${prog.completed}/${prog.total}", fontWeight = FontWeight.Black, fontSize = 13.sp, color = AppColors.PrimaryText)
                         }
-                        Spacer(Modifier.height(6.dp))
-                        LinearProgressIndicator(progress = { pct.coerceIn(0f, 1f) }, color = AppColors.Primary, modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)))
+                        Spacer(Modifier.height(TammiSpacing.sm))
+                        LinearProgressIndicator(progress = { pct.coerceIn(0f, 1f) }, color = AppColors.PrimaryText, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)))
                     }
                 }
             }
@@ -117,15 +117,15 @@ fun PushMembersScreen(
 
         // Danh sách thành viên trên tấm kính Liquid Glass 3D
         TammiGlassPanel(
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = ui.horizontalPadding, vertical = 8.dp),
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = ui.horizontalPadding, vertical = TammiSpacing.sm),
             padding = PaddingValues(0.dp),
         ) {
             when {
                 state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.8.dp, color = AppColors.Primary)
-                        Spacer(Modifier.width(12.dp))
-                        Text("Đang tải danh sách...", fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(TammiSpacing.lg)) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.8.dp, color = AppColors.PrimaryText)
+                        Spacer(Modifier.width(TammiSpacing.md))
+                        Text("Đang tải danh sách...", fontWeight = FontWeight.Bold, color = AppColors.PrimaryText)
                     }
                 }
                 state.visibleSections.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -135,7 +135,7 @@ fun PushMembersScreen(
                         accentColor = AppColors.OrbTeal,
                     )
                 }
-                else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                else -> LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(TammiSpacing.md), verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                     state.visibleSections.forEach { section ->
                         item(key = "grp_${section.classId}") {
                             PushGroupHeaderRow(section, { viewModel.toggleGroupSelection(section) }, { viewModel.toggleGroupExpanded(section.classId) })

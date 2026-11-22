@@ -121,14 +121,14 @@ fun AppShellScaffold(
             )
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 if (mainState.isBusy) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(3.dp), color = AppColors.Primary)
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), color = AppColors.PrimaryText)
                 }
                 if (updateState.shouldShowUpdateBanner) {
                     AutoUpdateReadyBanner(
                         updateState = updateState,
                         onInstallNow = { shellScope.launch { container.appUpdateCoordinator.downloadAndInstallNow(true) } },
                         onDismiss = { container.appUpdateCoordinator.dismissUpdateBanner(updateState.availableRelease?.versionCode ?: 0) },
-                        modifier = Modifier.padding(horizontal = ui.horizontalPadding, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = ui.horizontalPadding, vertical = TammiSpacing.sm),
                     )
                 }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) { tabBody() }

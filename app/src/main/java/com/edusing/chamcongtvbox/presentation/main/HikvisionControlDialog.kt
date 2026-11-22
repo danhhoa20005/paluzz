@@ -46,6 +46,8 @@ import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
 import com.edusing.chamcongtvbox.presentation.components.TvActionButton
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
+import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -111,10 +113,11 @@ internal fun HikvisionControlDialog(
         TammiGlassPanel(
             modifier = Modifier.fillMaxWidth(0.94f).heightIn(max = 680.dp),
             borderColor = AppColors.Primary.copy(alpha = 0.35f),
+            tier = LiquidGlassTier.CHROME,
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(TammiSpacing.md),
             ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -125,18 +128,18 @@ internal fun HikvisionControlDialog(
                 TammiOutlinedButton("Đọc lại", enabled = !busy, compact = true, contentColor = AppColors.Primary, onClick = { reloadAll() })
             }
 
-            if (busy && faceProgress == null) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(3.dp), color = AppColors.Primary)
+            if (busy && faceProgress == null) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), color = AppColors.PrimaryText)
 
             health?.let { h ->
                 Column(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AppColors.SurfaceSubtle)
-                        .border(1.dp, AppColors.Border.copy(alpha = 0.5f), RoundedCornerShape(12.dp)).padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                        .border(1.dp, AppColors.Border.copy(alpha = 0.5f), RoundedCornerShape(12.dp)).padding(TammiSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
                 ) {
                     InfoLine("Bộ nhớ", "${h.userCount} người • ${h.faceCount}/${h.maxFaceCapacity} mặt • ${h.cardCount} thẻ")
                     InfoLine("Mạng IP", if (h.isDhcp) "${h.ipAddress} (DHCP — nên khoá tĩnh)" else "${h.ipAddress} (IP tĩnh OK)", if (h.isDhcp) AppColors.AmberText else AppColors.GreenText)
                     InfoLine("Giờ máy", h.deviceTimeText.ifBlank { "—" })
-                    InfoLine("Chống cạy vỏ", if (h.antiDismantleAlert) "CẢNH BÁO ĐANG BỊ MỞ VỎ!" else "An toàn • Cửa ${if (h.doorLocked) "đang khoá" else "đang mở"}", if (h.antiDismantleAlert) AppColors.Red else AppColors.Text)
+                    InfoLine("Chống cạy vỏ", if (h.antiDismantleAlert) "CẢNH BÁO ĐANG BỊ MỞ VỎ!" else "An toàn • Cửa ${if (h.doorLocked) "đang khoá" else "đang mở"}", if (h.antiDismantleAlert) AppColors.RedText else AppColors.Text)
                 }
             }
 
@@ -198,8 +201,8 @@ internal fun HikvisionControlDialog(
                 Text("Sao chép ảnh khuôn mặt AI + thẻ từ ${device.displayName} sang ${otherOnlineHikDevices.size} máy Hikvision đang online (chỉ chép người còn thiếu).", fontSize = 12.sp, color = AppColors.TextSecondary)
                 faceProgress?.let { p ->
                     val frac = if (p.total > 0) p.completed.toFloat() / p.total else 0f
-                    Text("${p.currentLabel} (${p.completed}/${p.total})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary)
-                    LinearProgressIndicator(progress = { frac.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(4.dp)), color = AppColors.Primary)
+                    Text("${p.currentLabel} (${p.completed}/${p.total})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppColors.PrimaryText)
+                    LinearProgressIndicator(progress = { frac.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = AppColors.PrimaryText)
                 }
                 TvActionButton(
                     text = "Đồng bộ mặt sang ${otherOnlineHikDevices.size} máy Hikvision khác",
@@ -225,12 +228,12 @@ internal fun HikvisionControlDialog(
             }
 
             notice?.let { (msg, ok) ->
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (ok) AppColors.GreenSoft else AppColors.RedSoft).padding(10.dp)) {
-                    Text(msg, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (ok) AppColors.GreenText else AppColors.Red)
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (ok) AppColors.GreenSoft else AppColors.RedSoft).padding(TammiSpacing.md)) {
+                    Text(msg, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (ok) AppColors.GreenText else AppColors.RedText)
                 }
             }
 
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(TammiSpacing.xs))
             TammiOutlinedButton("Đóng", enabled = !busy, compact = true, contentColor = AppColors.Text, onClick = onDismiss, modifier = Modifier.fillMaxWidth())
             }
         }

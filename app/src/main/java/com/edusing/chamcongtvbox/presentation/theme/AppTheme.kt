@@ -1,16 +1,27 @@
 package com.edusing.chamcongtvbox.presentation.theme
 
 import android.provider.Settings
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
@@ -20,11 +31,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** Khoảng trống đáy tự động để nội dung cuộn trôi mượt phía sau thanh viên thuốc Liquid Glass nổi. */
 val LocalFloatingNavBottomInset = staticCompositionLocalOf { 0.dp }
 
-/** Thang khoảng cách bội số 4dp đồng nhất cho Điện thoại, Tablet và TV Box. */
+/** Thang khoảng cách bội số 4/8dp đồng nhất tuyệt đối cho Điện thoại, Tablet và TV Box. */
 object TammiSpacing {
     val xs = 4.dp
     val sm = 8.dp
@@ -36,13 +50,13 @@ object TammiSpacing {
     val touchMin = 48.dp
 }
 
-/** Thang bo góc cong liên tục chuẩn Liquid Glass 3D. */
+/** Thang bo góc cong liên tục chuẩn Apple iOS 26 Liquid Glass. */
 object TammiRadii {
     val sm = 8.dp
     val md = 12.dp
     val lg = 16.dp
     val xl = 22.dp
-    val xxl = 26.dp
+    val xxl = 28.dp
     val pill = 999.dp
 
     val cardShape = RoundedCornerShape(xl)
@@ -53,197 +67,182 @@ object TammiRadii {
 }
 
 /**
- * Hệ màu **Liquid Glass 3D** đạt chuẩn tương phản **WCAG 2.2 AAA (>= 7.26:1 trên cả bề mặt kính trong nhất)**:
- * - Phân tách 2 lớp vật liệu chuẩn Apple HIG Liquid Glass:
- *   1. **Chrome Liquid Glass** (thanh điều hướng nổi, sidebar, nút điều khiển): trong suốt pha lê 65–80%,
- *      khúc xạ màu nền & nội dung trôi bên dưới kèm vệt phản chiếu đỉnh cong và ánh đáy caustic.
- *   2. **Content Frosted Material** (thẻ dữ liệu, danh sách, ô nhập): kính mờ sạch 83–92% giữ độ đọc tuyệt đối.
+ * Cổng đọc màu ngữ nghĩa **Liquid Glass 3D** động (tự chuyển mượt giữa Daylight Crystal & Midnight Obsidian):
+ * đảm bảo **WCAG 2.2 AAA** cả ngày lẫn đêm mà không cần viết lại từng màn hình.
  */
 object AppColors {
-    // Nền không gian đa sắc quang học dịu mắt (4 quầng sáng pastel mềm tạo chiều sâu kính 3D tinh tế)
-    val Canvas = Color(0xFFEAF1FB)
-    val CanvasTop = Color(0xFFE2ECFC)
-    val CanvasBrush: Brush = Brush.verticalGradient(listOf(CanvasTop, Color(0xFFF0F5FC), Color(0xFFE6EFFB)))
-    val AuraCobalt = Color(0x5282B3FF)
-    val AuraTeal = Color(0x4C79DEC9)
-    val AuraViolet = Color(0x44B5A6FF)
-    val AuraSky = Color(0x3D96D8FF)
-    val Bg = Canvas
+    private val p: LiquidPalette
+        @Composable @ReadOnlyComposable get() = LocalLiquidPalette.current
 
-    // Lớp 1: Chrome Liquid Glass (trong suốt pha lê cho điều hướng nổi, sidebar, phím nổi)
-    val ChromeGlassTop = Color(0xD9FFFFFF)
-    val ChromeGlassBottom = Color(0xB8EDF5FF)
-    val ChromeGlassBrush: Brush = Brush.verticalGradient(listOf(ChromeGlassTop, ChromeGlassBottom))
-    val ChromeRimBrush: Brush = Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0x99A4C4EB), Color(0xF2FFFFFF)))
+    val isDark: Boolean @Composable @ReadOnlyComposable get() = p.isDark
+    val Canvas: Color @Composable @ReadOnlyComposable get() = p.canvas
+    val CanvasBrush: Brush @Composable @ReadOnlyComposable get() = p.canvasBrush
+    val AuraCobalt: Color @Composable @ReadOnlyComposable get() = p.auraCobalt
+    val AuraTeal: Color @Composable @ReadOnlyComposable get() = p.auraTeal
+    val AuraViolet: Color @Composable @ReadOnlyComposable get() = p.auraViolet
+    val AuraSky: Color @Composable @ReadOnlyComposable get() = p.auraSky
+    val Bg: Color @Composable @ReadOnlyComposable get() = p.canvas
 
-    // Lớp 2: Content Frosted Material (thẻ nội dung sáng sạch, dịu mắt suốt 24/7)
-    val Card = Color(0xFFFFFFFF)
-    val GlassFillTop = Color(0xF4FFFFFF)
-    val GlassFillBottom = Color(0xE2F6FAFF)
-    val GlassSurfaceBrush: Brush = Brush.verticalGradient(listOf(GlassFillTop, GlassFillBottom))
-    val GlassRimBrush: Brush = Brush.linearGradient(listOf(Color(0xFFFFFFFF), Color(0x88B4C8E4), Color(0xECFFFFFF)))
-    val GlassSpecularTop = Color(0x88FFFFFF)
-    val GlassCausticBottom = Color(0xB8FFFFFF)
-    val GlassTopBarBg = Color(0xCCFFFFFF)
-    val ScrollEdgeFade = Color(0xDCE5EEFB)
+    val ChromeGlassBrush: Brush @Composable @ReadOnlyComposable get() = p.chromeGlassBrush
+    val ChromeRimBrush: Brush @Composable @ReadOnlyComposable get() = p.chromeRimBrush
+    val Card: Color @Composable @ReadOnlyComposable get() = p.card
+    val GlassSurfaceBrush: Brush @Composable @ReadOnlyComposable get() = p.glassSurfaceBrush
+    val GlassRimBrush: Brush @Composable @ReadOnlyComposable get() = p.glassRimBrush
+    val ScrollEdgeFade: Color @Composable @ReadOnlyComposable get() = p.scrollEdgeFade
+    val SegThumbTint: Color @Composable @ReadOnlyComposable get() = p.segThumbTint
+    val InputFocusedBg: Color @Composable @ReadOnlyComposable get() = p.inputFocusedBg
 
-    val SurfaceSubtle = Color(0xC8F4F9FF)
-    val SurfaceMuted = Color(0xCCE0EAF8)
-    val Border = Color(0xFFB4C6E0)
-    val Line = Border
-    val GlassBorder = Color(0xF5FFFFFF)
-    val ShadowTint = Color(0x2B0A1F47)
+    val SurfaceSubtle: Color @Composable @ReadOnlyComposable get() = p.surfaceSubtle
+    val SurfaceMuted: Color @Composable @ReadOnlyComposable get() = p.surfaceMuted
+    val Border: Color @Composable @ReadOnlyComposable get() = p.border
+    val Line: Color @Composable @ReadOnlyComposable get() = p.border
+    val ShadowTint: Color @Composable @ReadOnlyComposable get() = p.shadowTint
 
-    // Văn bản đạt chuẩn WCAG 2.2 AAA (>= 7.92:1 ngay cả trên kính pha lê 65% ở vùng màu đậm nhất)
-    val Text = Color(0xFF0A1324)
-    val TextSecondary = Color(0xFF1E304B)
-    val Muted = Color(0xFF334663)
-    val Gray = Color(0xFF334663)
+    val Text: Color @Composable @ReadOnlyComposable get() = p.text
+    val TextSecondary: Color @Composable @ReadOnlyComposable get() = p.textSecondary
+    val Muted: Color @Composable @ReadOnlyComposable get() = p.muted
+    val Gray: Color @Composable @ReadOnlyComposable get() = p.muted
 
-    // Màu trạng thái & Stained Liquid Glass chuẩn WCAG AAA (>= 7.26:1 trên kính & >= 8.31:1 với chữ trắng)
-    val Primary = Color(0xFF103D94)
-    val PrimaryDark = Color(0xFF0A2A6A)
-    val PrimarySoft = Color(0xDDE4EEFF)
+    val Primary: Color @Composable @ReadOnlyComposable get() = p.primary
+    val PrimaryDark: Color @Composable @ReadOnlyComposable get() = p.primaryDark
+    val PrimaryText: Color @Composable @ReadOnlyComposable get() = p.primaryText
+    val PrimarySoft: Color @Composable @ReadOnlyComposable get() = p.primarySoft
 
-    val HeroIdleColor = Color(0xFF113F9C)
-    val HeroRunningColor = Color(0xFF055434)
-    val HeroIdleBrush: Brush = Brush.linearGradient(listOf(Color(0xFF0A2766), Color(0xFF1345A6), Color(0xFF0C3482)))
-    val HeroRunningBrush: Brush = Brush.linearGradient(listOf(Color(0xFF033B25), Color(0xFF055434), Color(0xFF04462B)))
-    val HeroSubtitle = Color(0xFFEAF2FF)
+    val HeroIdleColor: Color @Composable @ReadOnlyComposable get() = p.heroIdleColor
+    val HeroRunningColor: Color @Composable @ReadOnlyComposable get() = p.heroRunningColor
+    val HeroSubtitle: Color @Composable @ReadOnlyComposable get() = p.heroSubtitle
 
-    val Green = Color(0xFF065A38)
-    val GreenBright = Color(0xFF22C55E)
-    val GreenSoft = Color(0xDDE1F7EC)
-    val GreenText = Color(0xFF054A2E)
+    val Green: Color @Composable @ReadOnlyComposable get() = p.green
+    val GreenBright: Color @Composable @ReadOnlyComposable get() = p.greenBright
+    val GreenSoft: Color @Composable @ReadOnlyComposable get() = p.greenSoft
+    val GreenText: Color @Composable @ReadOnlyComposable get() = p.greenText
 
-    val Red = Color(0xFF931425)
-    val RedDark = Color(0xFF740E1C)
-    val RedSoft = Color(0xDDFCE8ED)
+    val Red: Color @Composable @ReadOnlyComposable get() = p.red
+    val RedText: Color @Composable @ReadOnlyComposable get() = p.redText
+    val RedSoft: Color @Composable @ReadOnlyComposable get() = p.redSoft
 
-    val Amber = Color(0xFF763B00)
-    val AmberBright = Color(0xFFFBBF24)
-    val AmberSoft = Color(0xDDFFF1DC)
-    val AmberText = Color(0xFF663200)
+    val Amber: Color @Composable @ReadOnlyComposable get() = p.amber
+    val AmberBright: Color @Composable @ReadOnlyComposable get() = p.amberBright
+    val AmberSoft: Color @Composable @ReadOnlyComposable get() = p.amberSoft
+    val AmberText: Color @Composable @ReadOnlyComposable get() = p.amberText
 
-    val Info = Color(0xFF084F6D)
-    val InfoSoft = Color(0xDDE0F4FC)
+    val Info: Color @Composable @ReadOnlyComposable get() = p.info
+    val InfoText: Color @Composable @ReadOnlyComposable get() = p.infoText
+    val InfoSoft: Color @Composable @ReadOnlyComposable get() = p.infoSoft
 
-    // Tông nhấn 3D AAA cho 3 chế độ và khay thao tác nhanh
-    val OrbCobalt = Color(0xFF103D94)
-    val OrbTeal = Color(0xFF04534E)
-    val OrbAmber = Color(0xFF763B00)
-    val OrbViolet = Color(0xFF4C1D95)
-    val OrbRose = Color(0xFF961334)
+    val OrbCobalt: Color @Composable @ReadOnlyComposable get() = p.orbCobalt
+    val OrbTeal: Color @Composable @ReadOnlyComposable get() = p.orbTeal
+    val OrbAmber: Color @Composable @ReadOnlyComposable get() = p.orbAmber
+    val OrbViolet: Color @Composable @ReadOnlyComposable get() = p.orbViolet
+    val OrbRose: Color @Composable @ReadOnlyComposable get() = p.orbRose
 
-    val H1 = OrbCobalt
-    val H2 = OrbAmber
-    val H3 = OrbViolet
-    val H4 = OrbTeal
-    val H5 = TextSecondary
-
-    // Màn hình Kiosk 24/7 tối màu chống lưu ảnh OLED/TV (AAA >= 9.69:1)
+    // Kiosk 24/7 luôn giữ nền đêm sâu chống lưu ảnh OLED/TV (AAA >= 9.69:1)
     val KioskBg = Color(0xFF040812)
     val KioskCard = Color(0xD60C162B)
     val KioskBorder = Color(0xFF314970)
     val KioskSuccess = Color(0xFF56EA9E)
     val KioskTextSecondary = Color(0xFFD0DDF0)
     val KioskTextMuted = Color(0xFFAABDD8)
-
-    // Viền focus vàng tương phản cao cho điều khiển D-Pad trên nền tối
     val FocusRing = Color(0xFFFACC15)
+
+    /** Chuyển màu nhấn sang tông chữ AAA trên bề mặt kính (đặc biệt khi ở Dark Mode). */
+    @Composable @ReadOnlyComposable
+    fun readableAccent(color: Color): Color = if (!p.isDark) color else when (color) {
+        p.primary, p.primaryDark, p.orbCobalt -> p.primaryText
+        p.green, p.orbTeal -> p.greenText
+        p.red, p.orbRose -> p.redText
+        p.amber, p.orbAmber -> p.amberText
+        p.info -> p.infoText
+        else -> color
+    }
 }
 
-/** Đọc tuỳ chọn Giảm chuyển động (Reduced Motion) của hệ điều hành Android để tôn trọng trợ năng. */
+/** Đọc tuỳ chọn Giảm chuyển động (Reduced Motion) của Android để tôn trọng trợ năng. */
 @Composable
 fun rememberReducedMotion(): Boolean {
     val context = LocalContext.current
     return remember(context) {
-        runCatching {
-            Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-        }.getOrDefault(false)
+        runCatching { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }.getOrDefault(false)
     }
 }
 
 /**
- * Nền không gian **Liquid Glass Optical Mesh** (4 quầng sáng Cobalt / Teal / Violet / Sky khuếch tán mượt)
- * tạo hiệu ứng khúc xạ ánh sáng tự nhiên xuyên qua các lớp kính 3D ở 60fps trên mọi đời Android.
+ * Nền không gian **Living Liquid Glass Optical Mesh**:
+ * 4 quầng sáng Cobalt / Teal / Violet / Sky dịch chuyển siêu êm (chu kỳ 22 giây, 60fps)
+ * tạo cảm giác khúc xạ chất lỏng sống động phía sau các tấm kính (tự đứng yên khi bật Reduced Motion).
  */
 @Composable
 fun LiquidGlassBackdrop(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val palette = LocalLiquidPalette.current
+    val reducedMotion = rememberReducedMotion()
+    val phase = if (reducedMotion) 0f else {
+        val transition = rememberInfiniteTransition(label = "liquidAuraMesh")
+        val anim by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = (2.0 * PI).toFloat(),
+            animationSpec = infiniteRepeatable(tween(22_000, easing = LinearEasing), RepeatMode.Restart),
+            label = "auraPhase",
+        )
+        anim
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AppColors.CanvasBrush)
+            .background(palette.canvasBrush)
             .drawBehind {
-                val r = size.maxDimension * 0.56f
-                drawCircle(
-                    brush = Brush.radialGradient(listOf(AppColors.AuraCobalt, Color.Transparent), center = Offset(size.width * 0.86f, size.height * 0.08f), radius = r),
-                    radius = r,
-                    center = Offset(size.width * 0.86f, size.height * 0.08f),
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(listOf(AppColors.AuraTeal, Color.Transparent), center = Offset(size.width * 0.12f, size.height * 0.44f), radius = r * 0.92f),
-                    radius = r * 0.92f,
-                    center = Offset(size.width * 0.12f, size.height * 0.44f),
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(listOf(AppColors.AuraViolet, Color.Transparent), center = Offset(size.width * 0.84f, size.height * 0.86f), radius = r * 0.88f),
-                    radius = r * 0.88f,
-                    center = Offset(size.width * 0.84f, size.height * 0.86f),
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(listOf(AppColors.AuraSky, Color.Transparent), center = Offset(size.width * 0.30f, size.height * 0.92f), radius = r * 0.72f),
-                    radius = r * 0.72f,
-                    center = Offset(size.width * 0.30f, size.height * 0.92f),
-                )
+                val r = size.maxDimension * 0.58f
+                val driftX = size.width * 0.045f * cos(phase)
+                val driftY = size.height * 0.035f * sin(phase)
+                val c1 = Offset(size.width * 0.86f + driftX, size.height * 0.09f + driftY)
+                val c2 = Offset(size.width * 0.12f - driftX, size.height * 0.42f + driftY * 0.8f)
+                val c3 = Offset(size.width * 0.82f - driftX * 0.7f, size.height * 0.84f - driftY)
+                val c4 = Offset(size.width * 0.28f + driftX * 0.6f, size.height * 0.90f - driftY * 0.6f)
+                drawCircle(Brush.radialGradient(listOf(palette.auraCobalt, Color.Transparent), c1, r), r, c1)
+                drawCircle(Brush.radialGradient(listOf(palette.auraTeal, Color.Transparent), c2, r * 0.92f), r * 0.92f, c2)
+                drawCircle(Brush.radialGradient(listOf(palette.auraViolet, Color.Transparent), c3, r * 0.88f), r * 0.88f, c3)
+                drawCircle(Brush.radialGradient(listOf(palette.auraSky, Color.Transparent), c4, r * 0.74f), r * 0.74f, c4)
             },
         content = content,
     )
 }
 
-private val TammiLightColorScheme = lightColorScheme(
-    primary = AppColors.Primary,
-    onPrimary = Color.White,
-    primaryContainer = AppColors.PrimarySoft,
-    onPrimaryContainer = AppColors.Text,
-    secondary = AppColors.Info,
-    onSecondary = Color.White,
-    secondaryContainer = AppColors.InfoSoft,
-    onSecondaryContainer = AppColors.Text,
-    tertiary = AppColors.Green,
-    onTertiary = Color.White,
-    error = AppColors.Red,
-    onError = Color.White,
-    errorContainer = AppColors.RedSoft,
-    onErrorContainer = AppColors.Text,
-    background = AppColors.Canvas,
-    onBackground = AppColors.Text,
-    surface = AppColors.Card,
-    onSurface = AppColors.Text,
-    surfaceVariant = AppColors.SurfaceMuted,
-    onSurfaceVariant = AppColors.TextSecondary,
-    outline = AppColors.Border,
-)
-
 @Composable
-fun AppTvTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = TammiLightColorScheme, content = content)
+fun AppTvTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
+    val palette = if (darkTheme) MidnightLiquidPalette else DaylightLiquidPalette
+    val colorScheme = if (darkTheme) {
+        darkColorScheme(
+            primary = palette.primaryText, onPrimary = palette.canvas, primaryContainer = palette.primarySoft, onPrimaryContainer = palette.text,
+            secondary = palette.infoText, onSecondary = palette.canvas, tertiary = palette.greenText,
+            error = palette.redText, background = palette.canvas, onBackground = palette.text,
+            surface = palette.card, onSurface = palette.text, surfaceVariant = palette.surfaceMuted, onSurfaceVariant = palette.textSecondary, outline = palette.border,
+        )
+    } else {
+        lightColorScheme(
+            primary = palette.primary, onPrimary = Color.White, primaryContainer = palette.primarySoft, onPrimaryContainer = palette.text,
+            secondary = palette.info, onSecondary = Color.White, tertiary = palette.green,
+            error = palette.red, background = palette.canvas, onBackground = palette.text,
+            surface = palette.card, onSurface = palette.text, surfaceVariant = palette.surfaceMuted, onSurfaceVariant = palette.textSecondary, outline = palette.border,
+        )
+    }
+    CompositionLocalProvider(LocalLiquidPalette provides palette) {
+        MaterialTheme(colorScheme = colorScheme, content = content)
+    }
 }
 
-/**
- * Vẽ viền focus tương phản chuẩn AAA cho điều khiển D-Pad trên Android TV Box:
- * - Trên bề mặt kính sáng (`onDark = false`): viền xanh Navy đậm (`#0A2A6A`, 14.1:1 trên kính trắng).
- * - Trên nền tối Hero / Kiosk (`onDark = true`): viền vàng sáng (`#FACC15`, 13.4:1 trên nền tối).
- */
+/** Viền focus tương phản chuẩn AAA cho D-Pad TV Box (tự thích ứng Sáng/Tối & nền Hero/Kiosk). */
+@Composable
 fun Modifier.tvFocusRing(
     focused: Boolean,
     cornerRadiusDp: Int = 16,
     onDark: Boolean = false,
 ): Modifier = if (focused) {
-    border(BorderStroke(3.dp, if (onDark) AppColors.FocusRing else AppColors.PrimaryDark), RoundedCornerShape(cornerRadiusDp.dp))
-} else {
-    this
-}
+    val useGold = onDark || LocalLiquidPalette.current.isDark
+    border(BorderStroke(3.dp, if (useGold) AppColors.FocusRing else AppColors.PrimaryDark), RoundedCornerShape(cornerRadiusDp.dp))
+} else this

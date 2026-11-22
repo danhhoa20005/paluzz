@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,17 +21,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edusing.chamcongtvbox.domain.model.DeviceProtocol
+import com.edusing.chamcongtvbox.presentation.components.LiquidGlassChip
 import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
+import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
 /** Hai thẻ lớn chọn nhanh dòng máy chấm công (Hikvision / FK) — rõ ràng, chạm 1 lần. */
@@ -42,7 +45,7 @@ internal fun ProtocolPickerCards(
     selected: DeviceProtocol,
     onSelect: (DeviceProtocol) -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
         ProtocolOptionCard(
             title = "Hikvision",
             subtitle = "Mặt / Thẻ • Cổng 80",
@@ -74,20 +77,21 @@ private fun ProtocolOptionCard(
             .defaultMinSize(minHeight = 56.dp)
             .clip(TammiRadii.inputShape)
             .background(if (selected) AppColors.PrimarySoft else AppColors.SurfaceSubtle)
-            .border(if (selected) 1.6.dp else 1.dp, if (selected) AppColors.Primary else AppColors.Border, TammiRadii.inputShape)
+            .border(if (selected) 1.6.dp else 1.dp, if (selected) AppColors.PrimaryText else AppColors.Border, TammiRadii.inputShape)
             .onFocusChanged { focused = it.isFocused }
-            .tvFocusRing(focused, 14)
+            .tvFocusRing(focused, 16)
+            .semantics { role = Role.Tab; this.selected = selected }
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+            .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs),
     ) {
         Text(
             text = if (selected) "$title ✓" else title,
             fontWeight = FontWeight.Black,
             fontSize = 14.5.sp,
-            color = if (selected) AppColors.Primary else AppColors.Text,
+            color = if (selected) AppColors.PrimaryText else AppColors.Text,
         )
-        Text(subtitle, fontSize = 11.5.sp, color = AppColors.TextSecondary)
+        Text(subtitle, fontSize = 12.sp, color = AppColors.TextSecondary)
     }
 }
 
@@ -98,10 +102,6 @@ internal fun AddDeviceAdvancedSection(
     viewModel: AddDeviceViewModel,
 ) {
     val fieldColors = tammiFieldColors()
-    val chipColors = FilterChipDefaults.filterChipColors(
-        selectedContainerColor = AppColors.Primary,
-        selectedLabelColor = Color.White,
-    )
 
     Column(
         modifier = Modifier
@@ -109,11 +109,11 @@ internal fun AddDeviceAdvancedSection(
             .clip(TammiRadii.inputShape)
             .background(AppColors.SurfaceSubtle)
             .border(1.dp, AppColors.Border, TammiRadii.inputShape)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(TammiSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(TammiSpacing.md),
     ) {
         if (state.protocol == DeviceProtocol.HIKVISION_ISAPI) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                 OutlinedTextField(
                     value = state.hikUsername,
                     onValueChange = viewModel::onHikUsernameChange,
@@ -134,22 +134,13 @@ internal fun AddDeviceAdvancedSection(
                     modifier = Modifier.weight(0.8f),
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                var httpF by remember { mutableStateOf(false) }; var httpsF by remember { mutableStateOf(false) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                 Text("Kênh:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Text)
-                FilterChip(
-                    selected = !state.useHttps, onClick = { viewModel.onUseHttpsChange(false) },
-                    label = { Text("HTTP (80)") }, colors = chipColors,
-                    modifier = Modifier.onFocusChanged { httpF = it.isFocused }.tvFocusRing(httpF, 8),
-                )
-                FilterChip(
-                    selected = state.useHttps, onClick = { viewModel.onUseHttpsChange(true) },
-                    label = { Text("HTTPS (443)") }, colors = chipColors,
-                    modifier = Modifier.onFocusChanged { httpsF = it.isFocused }.tvFocusRing(httpsF, 8),
-                )
+                LiquidGlassChip("HTTP (80)", selected = !state.useHttps, onClick = { viewModel.onUseHttpsChange(false) })
+                LiquidGlassChip("HTTPS (443)", selected = state.useHttps, onClick = { viewModel.onUseHttpsChange(true) })
             }
         } else {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                 OutlinedTextField(
                     value = state.port, onValueChange = viewModel::onPortChange, label = { Text("Cổng") },
                     singleLine = true, shape = TammiRadii.inputShape, colors = fieldColors,
@@ -166,19 +157,10 @@ internal fun AddDeviceAdvancedSection(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(0.9f),
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                var tcpF by remember { mutableStateOf(false) }; var udpF by remember { mutableStateOf(false) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                 Text("Truyền:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Text)
-                FilterChip(
-                    selected = !state.useUdp, onClick = { viewModel.onUseUdpChange(false) },
-                    label = { Text("TCP (Chuẩn)") }, colors = chipColors,
-                    modifier = Modifier.onFocusChanged { tcpF = it.isFocused }.tvFocusRing(tcpF, 8),
-                )
-                FilterChip(
-                    selected = state.useUdp, onClick = { viewModel.onUseUdpChange(true) },
-                    label = { Text("UDP") }, colors = chipColors,
-                    modifier = Modifier.onFocusChanged { udpF = it.isFocused }.tvFocusRing(udpF, 8),
-                )
+                LiquidGlassChip("TCP (Chuẩn)", selected = !state.useUdp, onClick = { viewModel.onUseUdpChange(false) })
+                LiquidGlassChip("UDP", selected = state.useUdp, onClick = { viewModel.onUseUdpChange(true) })
             }
         }
 
@@ -189,13 +171,13 @@ internal fun AddDeviceAdvancedSection(
                     .clip(TammiRadii.inputShape)
                     .background(AppColors.GreenSoft)
                     .border(1.dp, AppColors.Green.copy(alpha = 0.28f), TammiRadii.inputShape)
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("IP tĩnh trống gợi ý: ${sug.suggestedIp}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = AppColors.GreenText)
-                    Text("Mask ${sug.subnetMask} • GW ${sug.gateway}", fontFamily = FontFamily.Monospace, fontSize = 11.5.sp, color = AppColors.GreenText)
+                    Text("Mask ${sug.subnetMask} • GW ${sug.gateway}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = AppColors.GreenText)
                 }
                 TammiOutlinedButton(
                     text = "Đổi", compact = true, enabled = !state.isLoadingSuggestion,

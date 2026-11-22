@@ -30,19 +30,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
+import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.rememberDeviceUiSpec
 import com.edusing.chamcongtvbox.presentation.theme.rememberReducedMotion
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
-/** Thanh phân đoạn **Liquid Glass trượt lò xo mượt** (viên kính sáng lướt tự nhiên giữa các tab). */
+/** Thanh phân đoạn **Liquid Glass trượt lò xo mượt** (viên kính sáng/tối lướt tự nhiên giữa các tab). */
 @Composable
 fun TvSegmentedTabs(
     tabs: List<String>,
@@ -60,7 +64,7 @@ fun TvSegmentedTabs(
         modifier = modifier
             .fillMaxWidth()
             .liquidGlassLayer(shape = trackShape, tier = LiquidGlassTier.CHROME, tintOverride = AppColors.SurfaceMuted, shadowElevation = 4.dp)
-            .padding(4.dp),
+            .padding(TammiSpacing.xs),
     ) {
         val segWidth = maxWidth / tabs.size
         val thumbOffset by animateDpAsState(
@@ -68,18 +72,18 @@ fun TvSegmentedTabs(
             animationSpec = if (reducedMotion) snap() else spring(dampingRatio = 0.78f, stiffness = 440f),
             label = "segThumbX",
         )
-        // Viên kính lồi trượt mượt phía sau chữ
+        // Viên kính lồi trượt mượt phía sau chữ (thích ứng Daylight & Midnight)
         Box(
             modifier = Modifier
                 .offset(x = thumbOffset)
                 .width(segWidth)
-                .height(42.dp)
+                .height(44.dp)
                 .liquidGlassLayer(
                     shape = thumbShape,
                     tier = LiquidGlassTier.CHROME,
-                    tintOverride = Color.White.copy(alpha = 0.94f),
-                    borderOverride = AppColors.Primary.copy(alpha = 0.30f),
-                    shadowElevation = 7.dp,
+                    tintOverride = AppColors.SegThumbTint,
+                    borderOverride = AppColors.PrimaryText.copy(alpha = 0.34f),
+                    shadowElevation = 8.dp,
                     shadowTint = AppColors.Primary.copy(alpha = 0.24f),
                 ),
         )
@@ -91,19 +95,20 @@ fun TvSegmentedTabs(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(42.dp)
+                        .height(44.dp)
                         .clip(thumbShape)
                         .onFocusChanged { focused = it.isFocused }
                         .tvFocusRing(focused, 12)
+                        .semantics { role = Role.Tab; this.selected = selected }
                         .clickable(interactionSource = interaction, indication = null) { onSelect(index) }
-                        .padding(horizontal = 8.dp),
+                        .padding(horizontal = TammiSpacing.sm),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = label,
                         fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
                         fontSize = 13.sp,
-                        color = if (selected) AppColors.Primary else AppColors.TextSecondary,
+                        color = if (selected) AppColors.PrimaryText else AppColors.TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -126,13 +131,13 @@ fun TvSubScreenHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ui.horizontalPadding, vertical = if (ui.isCompact) 8.dp else 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = ui.horizontalPadding, vertical = if (ui.isCompact) TammiSpacing.sm else TammiSpacing.md),
+        verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) {
                 TammiOutlinedButton(text = "Quay lại", onClick = onBack, enabled = backEnabled, compact = true, contentColor = AppColors.Text)
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(TammiSpacing.md))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, color = AppColors.Text, fontWeight = FontWeight.Black, fontSize = if (ui.isCompact) 16.5.sp else 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -141,12 +146,12 @@ fun TvSubScreenHeader(
                 }
             }
             if (!ui.isCompact && actions != null) {
-                Spacer(Modifier.width(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
+                Spacer(Modifier.width(TammiSpacing.md))
+                Row(horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm), verticalAlignment = Alignment.CenterVertically, content = actions)
             }
         }
         if (ui.isCompact && actions != null) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm), verticalAlignment = Alignment.CenterVertically, content = actions)
         }
     }
 }

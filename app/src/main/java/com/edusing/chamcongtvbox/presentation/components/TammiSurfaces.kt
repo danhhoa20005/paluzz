@@ -49,16 +49,16 @@ import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
-/** Bảng màu ô nhập liệu kính sáng thanh thoát chuẩn WCAG AAA dùng chung toàn ứng dụng. */
+/** Bảng màu ô nhập liệu kính sáng/tối thanh thoát chuẩn WCAG AAA dùng chung toàn ứng dụng. */
 @Composable
 fun tammiFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
-    focusedContainerColor = Color.White,
+    focusedContainerColor = AppColors.InputFocusedBg,
     unfocusedContainerColor = AppColors.SurfaceSubtle,
-    focusedBorderColor = AppColors.Primary,
-    unfocusedBorderColor = AppColors.Border.copy(alpha = 0.72f),
+    focusedBorderColor = AppColors.PrimaryText,
+    unfocusedBorderColor = AppColors.Border.copy(alpha = 0.76f),
     focusedTextColor = AppColors.Text,
     unfocusedTextColor = AppColors.Text,
-    focusedLabelColor = AppColors.Primary,
+    focusedLabelColor = AppColors.PrimaryText,
     unfocusedLabelColor = AppColors.TextSecondary,
     focusedPlaceholderColor = AppColors.Muted,
     unfocusedPlaceholderColor = AppColors.Muted,
@@ -99,23 +99,23 @@ fun TammiStatusPill(
     tone: TammiBadgeTone = TammiBadgeTone.PRIMARY,
 ) {
     val (fg, bg, dot) = when (tone) {
-        TammiBadgeTone.PRIMARY -> Triple(AppColors.Primary, AppColors.PrimarySoft, AppColors.Primary)
-        TammiBadgeTone.SUCCESS -> Triple(AppColors.Green, AppColors.GreenSoft, AppColors.GreenBright)
-        TammiBadgeTone.WARNING -> Triple(AppColors.Amber, AppColors.AmberSoft, AppColors.Amber)
-        TammiBadgeTone.DANGER -> Triple(AppColors.Red, AppColors.RedSoft, AppColors.Red)
-        TammiBadgeTone.INFO -> Triple(AppColors.Info, AppColors.InfoSoft, AppColors.Info)
+        TammiBadgeTone.PRIMARY -> Triple(AppColors.PrimaryText, AppColors.PrimarySoft, AppColors.PrimaryText)
+        TammiBadgeTone.SUCCESS -> Triple(AppColors.GreenText, AppColors.GreenSoft, AppColors.GreenBright)
+        TammiBadgeTone.WARNING -> Triple(AppColors.AmberText, AppColors.AmberSoft, AppColors.AmberBright)
+        TammiBadgeTone.DANGER -> Triple(AppColors.RedText, AppColors.RedSoft, AppColors.RedText)
+        TammiBadgeTone.INFO -> Triple(AppColors.InfoText, AppColors.InfoSoft, AppColors.InfoText)
         TammiBadgeTone.NEUTRAL -> Triple(AppColors.TextSecondary, AppColors.SurfaceMuted, AppColors.Muted)
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .clip(TammiRadii.badgeShape).background(bg).border(1.dp, fg.copy(alpha = 0.26f), TammiRadii.badgeShape)
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .clip(TammiRadii.badgeShape).background(bg).border(1.dp, fg.copy(alpha = 0.30f), TammiRadii.badgeShape)
+            .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.xs),
     ) {
-        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(dot.copy(alpha = 0.24f)), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(dot.copy(alpha = 0.26f)), contentAlignment = Alignment.Center) {
             Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(dot))
         }
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(TammiSpacing.sm))
         Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -156,22 +156,22 @@ fun TammiEmptyStateView(
 fun TammiOfflineBanner(message: String, modifier: Modifier = Modifier, onRetry: (() -> Unit)? = null) {
     Row(
         modifier = modifier.fillMaxWidth().clip(TammiRadii.inputShape).background(AppColors.AmberSoft)
-            .border(1.1.dp, AppColors.Amber.copy(alpha = 0.30f), TammiRadii.inputShape).padding(horizontal = TammiSpacing.md, vertical = 10.dp),
+            .border(1.1.dp, AppColors.Amber.copy(alpha = 0.30f), TammiRadii.inputShape).padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
     ) {
-        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AppColors.Amber))
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AppColors.AmberBright))
         Text(message, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.AmberText, modifier = Modifier.weight(1f))
         if (onRetry != null) TammiOutlinedButton("Thử lại", onRetry, compact = true, contentColor = AppColors.AmberText, borderColor = AppColors.Amber.copy(alpha = 0.34f))
     }
 }
 
-/** Khung báo lỗi Liquid Glass chuẩn AAA. */
+/** Khung báo lỗi Liquid Glass chuẩn AAA (tự nâng sáng chữ trên Dark Mode). */
 @Composable
 fun TammiErrorStateCard(message: String, modifier: Modifier = Modifier, onRetry: (() -> Unit)? = null) {
-    TammiGlassPanel(modifier.fillMaxWidth(), PaddingValues(horizontal = TammiSpacing.md, vertical = 10.dp), AppColors.RedSoft, AppColors.Red.copy(alpha = 0.34f)) {
+    TammiGlassPanel(modifier.fillMaxWidth(), PaddingValues(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm), AppColors.RedSoft, AppColors.Red.copy(alpha = 0.34f)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
-            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AppColors.Red))
-            Text(message, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Red, modifier = Modifier.weight(1f))
+            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AppColors.RedText))
+            Text(message, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.RedText, modifier = Modifier.weight(1f))
             if (onRetry != null) TammiOutlinedButton("Thử lại", onRetry, compact = true, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.34f))
         }
     }
@@ -188,8 +188,8 @@ fun TammiAdaptiveBar(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     TammiGlassPanel(
-        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = if (floating) 0.dp else 4.dp),
-        padding = PaddingValues(horizontal = 12.dp, vertical = 9.dp), tier = LiquidGlassTier.CHROME, content = content,
+        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = if (floating) 0.dp else TammiSpacing.xs),
+        padding = PaddingValues(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm), tier = LiquidGlassTier.CHROME, content = content,
     )
 }
 

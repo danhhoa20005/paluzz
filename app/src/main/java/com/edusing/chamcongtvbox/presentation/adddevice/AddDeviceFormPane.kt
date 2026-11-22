@@ -130,10 +130,10 @@ internal fun AddDeviceFormPane(
             }
 
             if (state.isSaving) {
-                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.8.dp, color = AppColors.Primary)
-                    Spacer(Modifier.width(10.dp))
-                    Text("Đang kết nối & nhận máy...", fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                Row(Modifier.fillMaxWidth().padding(vertical = TammiSpacing.sm), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.8.dp, color = AppColors.PrimaryText)
+                    Spacer(Modifier.width(TammiSpacing.md))
+                    Text("Đang kết nối & nhận máy...", fontWeight = FontWeight.Bold, color = AppColors.PrimaryText)
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

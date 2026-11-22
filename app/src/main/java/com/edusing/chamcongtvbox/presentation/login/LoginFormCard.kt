@@ -122,13 +122,13 @@ internal fun LoginFormCard(
                     var pwToggleFocused by remember { mutableStateOf(false) }
                     TextButton(
                         onClick = { showPassword = !showPassword },
-                        modifier = Modifier.onFocusChanged { pwToggleFocused = it.isFocused }.tvFocusRing(pwToggleFocused, 10),
+                        modifier = Modifier.onFocusChanged { pwToggleFocused = it.isFocused }.tvFocusRing(pwToggleFocused, 12),
                     ) {
                         Text(
                             text = if (showPassword) "Ẩn" else "Hiện",
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = AppColors.Primary,
+                            color = AppColors.PrimaryText,
                         )
                     }
                 },
@@ -183,10 +183,11 @@ internal fun LoginFormCard(
             }
 
             if (state.isLoading) {
-                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.8.dp, color = accent)
+                val loadAccent = AppColors.readableAccent(accent)
+                Row(Modifier.fillMaxWidth().padding(vertical = TammiSpacing.sm), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.8.dp, color = loadAccent)
                     Spacer(Modifier.width(TammiSpacing.md))
-                    Text("Đang đăng nhập...", fontWeight = FontWeight.Bold, color = accent)
+                    Text("Đang đăng nhập...", fontWeight = FontWeight.Bold, color = loadAccent)
                 }
             } else {
                 TvActionButton(

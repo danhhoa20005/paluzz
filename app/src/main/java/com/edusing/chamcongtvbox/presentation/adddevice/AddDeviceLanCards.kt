@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.edusing.chamcongtvbox.domain.model.LanHostInfo
+import com.edusing.chamcongtvbox.presentation.components.LiquidGlassChip
 import com.edusing.chamcongtvbox.presentation.components.TammiBadgeTone
 import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
@@ -42,6 +42,7 @@ import com.edusing.chamcongtvbox.presentation.components.TvActionButton
 import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
+import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
 /** Thẻ lớn cho từng máy chấm công tìm thấy (Hikvision / FK) với nút **Nhận máy ngay** 1 chạm. */
@@ -135,24 +136,14 @@ internal fun SubnetQuickControls(
             modifier = Modifier.fillMaxWidth(),
         )
         if (state.quickPrefixes.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                 state.quickPrefixes.forEach { prefix ->
-                    var focused by remember { mutableStateOf(false) }
-                    val active = state.scanPrefix == prefix
-                    Box(
-                        modifier = Modifier
-                            .defaultMinSize(minHeight = 40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (active) AppColors.PrimarySoft else AppColors.SurfaceSubtle)
-                            .border(1.dp, if (active) AppColors.Primary else AppColors.Border, RoundedCornerShape(10.dp))
-                            .onFocusChanged { focused = it.isFocused }
-                            .tvFocusRing(focused, 10)
-                            .clickable(enabled = !state.isScanning) { onQuickScanPrefix(prefix) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("$prefix.x", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (active) AppColors.Primary else AppColors.Text)
-                    }
+                    LiquidGlassChip(
+                        label = "$prefix.x",
+                        selected = state.scanPrefix == prefix,
+                        enabled = !state.isScanning,
+                        onClick = { onQuickScanPrefix(prefix) },
+                    )
                 }
             }
         }
@@ -166,17 +157,17 @@ internal fun OtherLanHostRow(host: LanHostInfo, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = 46.dp)
+            .defaultMinSize(minHeight = TammiSpacing.touchMin)
             .clip(TammiRadii.inputShape)
             .background(AppColors.SurfaceSubtle)
             .border(1.dp, AppColors.Border, TammiRadii.inputShape)
             .onFocusChanged { focused = it.isFocused }
-            .tvFocusRing(focused, 14)
+            .tvFocusRing(focused, 16)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(host.ip, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = AppColors.Text, modifier = Modifier.weight(1f))
-        Text("Chọn →", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Primary)
+        Text("Chọn →", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.PrimaryText)
     }
 }

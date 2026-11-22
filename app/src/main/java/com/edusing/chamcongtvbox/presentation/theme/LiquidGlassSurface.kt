@@ -19,62 +19,76 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Hai cấp vật liệu chuẩn Apple HIG Liquid Glass: điều hướng/nút nổi (`CHROME`) và bề mặt nội dung (`CONTENT`). */
+/** Hai cấp vật liệu chuẩn Apple HIG Liquid Glass: điều hướng/nút/hộp thoại nổi (`CHROME`) và bề mặt nội dung (`CONTENT`). */
 enum class LiquidGlassTier { CHROME, CONTENT }
 
 /**
- * Bề mặt **Liquid Glass quang học hiện đại** (chuẩn Apple HIG / iOS 26 — KHÔNG dùng vệt bóng cứng kiểu cũ):
- * 1. Bóng nổi không khí mềm tách bề mặt khỏi nền đa sắc.
- * 2. Thân kính trong mờ tự nhiên (`CHROME` 65–80% cho thanh nổi; `CONTENT` 84–92% cho thẻ dữ liệu).
- * 3. Ánh sáng truyền xiên mịn từ góc trên-trái (continuous diagonal optical sheen, không đường cắt ngang).
- * 4. Viền vát khúc xạ 45° sắc nét (`1.2dp`) + ánh phản quang mảnh cạnh đáy (`caustic bounce`).
+ * Bề mặt **Apple iOS 26 Liquid Glass quang học hoàn chỉnh** (thích ứng tự động cả Daylight Crystal & Midnight Obsidian):
+ * 1. Bóng nổi mềm nhuộm tông nền tách bề mặt khỏi không gian đa sắc.
+ * 2. Thân kính trong mờ thực thụ (`CHROME` 62–76% cho thanh nổi/nút/hộp thoại; `CONTENT` 78–87% cho thẻ dữ liệu).
+ * 3. Ánh sáng truyền xiên liên tục (optical lensing sheen) + vệt phản chiếu đỉnh cong mềm (top curved catchlight).
+ * 4. Ánh phản quang đáy (caustic floor bounce) + viền vát lăng kính 45° sắc nét (`1.25dp`).
  */
+@Composable
 fun Modifier.liquidGlassLayer(
     shape: Shape,
     tier: LiquidGlassTier = LiquidGlassTier.CONTENT,
     tintOverride: Color? = null,
     borderOverride: Color? = null,
-    shadowElevation: Dp = if (tier == LiquidGlassTier.CHROME) 14.dp else 9.dp,
+    shadowElevation: Dp = if (tier == LiquidGlassTier.CHROME) 16.dp else 10.dp,
     shadowTint: Color = AppColors.ShadowTint,
 ): Modifier {
+    val palette = LocalLiquidPalette.current
     val fillModifier = when {
         tintOverride != null -> Modifier.background(tintOverride)
-        tier == LiquidGlassTier.CHROME -> Modifier.background(AppColors.ChromeGlassBrush)
-        else -> Modifier.background(AppColors.GlassSurfaceBrush)
+        tier == LiquidGlassTier.CHROME -> Modifier.background(palette.chromeGlassBrush)
+        else -> Modifier.background(palette.glassSurfaceBrush)
     }
     val rimModifier = when {
-        borderOverride != null -> Modifier.border(1.2.dp, borderOverride, shape)
-        tier == LiquidGlassTier.CHROME -> Modifier.border(1.3.dp, AppColors.ChromeRimBrush, shape)
-        else -> Modifier.border(1.1.dp, AppColors.GlassRimBrush, shape)
+        borderOverride != null -> Modifier.border(1.25.dp, borderOverride, shape)
+        tier == LiquidGlassTier.CHROME -> Modifier.border(1.3.dp, palette.chromeRimBrush, shape)
+        else -> Modifier.border(1.1.dp, palette.glassRimBrush, shape)
     }
-    val sheenAlpha = if (tier == LiquidGlassTier.CHROME) 0.28f else 0.16f
-    val causticAlpha = if (tier == LiquidGlassTier.CHROME) 0.48f else 0.28f
+    val sheenAlpha = if (tier == LiquidGlassTier.CHROME) palette.sheenChromeAlpha else palette.sheenContentAlpha
+    val causticAlpha = if (tier == LiquidGlassTier.CHROME) palette.causticChromeAlpha else palette.causticContentAlpha
+    val topSpecAlpha = if (tier == LiquidGlassTier.CHROME) palette.specularTopAlpha else palette.specularTopAlpha * 0.72f
 
     return this
         .shadow(shadowElevation, shape, ambientColor = shadowTint, spotColor = shadowTint)
         .clip(shape)
         .then(fillModifier)
         .drawWithContent {
-            // Ánh sáng truyền xiên liên tục mượt mà (không tạo vạch cắt ngang thô)
+            // 1. Khúc xạ xiên mềm xuyên qua độ dày thấu kính
             drawRect(
                 brush = Brush.linearGradient(
                     colors = listOf(
                         Color.White.copy(alpha = sheenAlpha),
-                        Color.White.copy(alpha = sheenAlpha * 0.25f),
+                        Color.White.copy(alpha = sheenAlpha * 0.22f),
                         Color.Transparent,
                     ),
                     start = Offset.Zero,
-                    end = Offset(size.width * 0.85f, size.height),
+                    end = Offset(size.width * 0.82f, size.height),
                 ),
             )
-            // Vệt sáng cạnh trên cực mảnh
+            // 2. Dải phản chiếu đỉnh cong mềm (curved optical catchlight)
+            val arcH = (size.height * 0.28f).coerceAtMost(24.dp.toPx())
             drawRect(
-                brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.86f), Color.Transparent)),
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.White.copy(alpha = sheenAlpha * 0.65f), Color.Transparent),
+                    startY = 0f,
+                    endY = arcH,
+                ),
                 topLeft = Offset.Zero,
-                size = Size(size.width, 1.2.dp.toPx()),
+                size = Size(size.width, arcH),
             )
-            // Ánh hắt phản quang cạnh dưới
-            val causticH = 1.4.dp.toPx()
+            // 3. Viền sáng đỉnh siêu mảnh sắc nét
+            drawRect(
+                brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = topSpecAlpha), Color.Transparent)),
+                topLeft = Offset.Zero,
+                size = Size(size.width, 1.25.dp.toPx()),
+            )
+            // 4. Ánh hắt phản quang cạnh đáy (caustic bounce)
+            val causticH = 1.6.dp.toPx()
             drawRect(
                 brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = causticAlpha), Color.Transparent)),
                 topLeft = Offset(0f, (size.height - causticH).coerceAtLeast(0f)),
@@ -86,41 +100,51 @@ fun Modifier.liquidGlassLayer(
 }
 
 /**
- * Bề mặt **Stained Liquid Glass** tinh tế (kính màu có chiều sâu dùng chọn lọc cho CTA chính,
- * thẻ Hero và viên trượt tab đang chọn) đạt chuẩn tương phản WCAG 2.2 AAA với chữ trắng.
+ * Bề mặt **Stained Liquid Glass** (kính màu đá quý có chiều sâu quang học dùng chọn lọc cho Hero,
+ * nút CTA chính, viên trượt tab và chip đang chọn) đạt chuẩn tương phản WCAG 2.2 AAA với chữ trắng.
  */
+@Composable
 fun Modifier.stainedLiquidGlass(
     shape: Shape,
     baseColor: Color,
-    shadowElevation: Dp = 10.dp,
+    shadowElevation: Dp = 12.dp,
 ): Modifier {
-    val topColor = lerp(baseColor, Color.White, 0.10f)
-    val bottomColor = lerp(baseColor, Color.Black, 0.14f)
+    val topColor = lerp(baseColor, Color.White, 0.14f)
+    val bottomColor = lerp(baseColor, Color.Black, 0.16f)
     val bodyBrush = Brush.linearGradient(listOf(topColor, baseColor, bottomColor))
     val rimBrush = Brush.linearGradient(
-        listOf(Color.White.copy(alpha = 0.48f), Color.White.copy(alpha = 0.12f), Color.White.copy(alpha = 0.32f)),
+        listOf(Color.White.copy(alpha = 0.56f), Color.White.copy(alpha = 0.14f), Color.White.copy(alpha = 0.36f)),
     )
     return this
-        .shadow(shadowElevation, shape, ambientColor = baseColor.copy(alpha = 0.30f), spotColor = baseColor.copy(alpha = 0.38f))
+        .shadow(shadowElevation, shape, ambientColor = baseColor.copy(alpha = 0.36f), spotColor = baseColor.copy(alpha = 0.44f))
         .clip(shape)
         .background(bodyBrush)
         .drawWithContent {
-            // Độ sáng quang học liên tục xiên góc (mịn tự nhiên, không vạch chia đôi)
-            drawRect(
-                brush = Brush.linearGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.16f), Color.Transparent),
-                    start = Offset.Zero,
-                    end = Offset(size.width * 0.7f, size.height * 0.9f),
+            // Điểm tụ ánh sáng pha lê góc trên-trái (lensing prism highlight)
+            val prismR = size.maxDimension * 0.72f
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.24f), Color.Transparent),
+                    center = Offset(size.width * 0.18f, size.height * 0.08f),
+                    radius = prismR,
                 ),
+                radius = prismR,
+                center = Offset(size.width * 0.18f, size.height * 0.08f),
             )
             drawRect(
-                brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.56f), Color.Transparent)),
+                brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.68f), Color.Transparent)),
                 topLeft = Offset.Zero,
-                size = Size(size.width, 1.2.dp.toPx()),
+                size = Size(size.width, 1.3.dp.toPx()),
+            )
+            val causticH = 1.4.dp.toPx()
+            drawRect(
+                brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.28f), Color.Transparent)),
+                topLeft = Offset(0f, (size.height - causticH).coerceAtLeast(0f)),
+                size = Size(size.width, causticH),
             )
             drawContent()
         }
-        .border(1.1.dp, rimBrush, shape)
+        .border(1.15.dp, rimBrush, shape)
 }
 
 /** Hiệu ứng mép cuộn mờ dịu (**Scroll Edge Effect** chuẩn Apple HIG) sau thanh điều hướng kính nổi. */
@@ -130,10 +154,11 @@ fun LiquidGlassScrollEdgeFade(
     height: Dp = 88.dp,
     modifier: Modifier = Modifier,
 ) {
+    val fade = AppColors.ScrollEdgeFade
     val colors = if (isTop) {
-        listOf(AppColors.ScrollEdgeFade, AppColors.ScrollEdgeFade.copy(alpha = 0.38f), Color.Transparent)
+        listOf(fade, fade.copy(alpha = 0.42f), Color.Transparent)
     } else {
-        listOf(Color.Transparent, AppColors.ScrollEdgeFade.copy(alpha = 0.45f), AppColors.ScrollEdgeFade)
+        listOf(Color.Transparent, fade.copy(alpha = 0.46f), fade)
     }
     Box(modifier = modifier.fillMaxWidth().height(height).background(Brush.verticalGradient(colors)))
 }

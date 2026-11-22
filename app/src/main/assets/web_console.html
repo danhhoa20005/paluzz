@@ -5,34 +5,68 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
 <title>Quản trị TV Box — Chấm công & Điểm danh</title>
 <style>
-  :root{--bg:#eef4ff;--card:rgba(255,255,255,.88);--b:#c5d6ee;--tx:#0c172a;--sub:#40516a;--pri:#0b56d6;--ok:#047857;--warn:#b45309;--err:#b91c1c;--r:18px}
-  *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  body{margin:0;min-height:100vh;color:var(--tx);background:radial-gradient(circle at 12% 8%,#cfe4ff,transparent 48%),radial-gradient(circle at 88% 12%,#c7f5ea,transparent 42%),var(--bg);padding:14px}
-  .wrap{max-width:940px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
-  .card{background:var(--card);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.92);box-shadow:0 10px 28px rgba(15,40,90,.09);border-radius:var(--r);padding:16px}
-  .hero{color:#fff;border:none;background:linear-gradient(135deg,#0847b5,#0e67df)}
-  .hero.run{background:linear-gradient(135deg,#046041,#06845a)}
-  .hero.off{background:linear-gradient(135deg,#9a4405,#c25e0a)}
-  h1,h2,h3{margin:0;font-weight:800}
+  :root{
+    color-scheme:light dark;
+    --bg:#e3eefc;--a1:rgba(120,174,255,.45);--a2:rgba(92,224,203,.38);--a3:rgba(173,155,255,.32);
+    --card:linear-gradient(180deg,rgba(255,255,255,.84),rgba(241,247,255,.76));
+    --sub-card:rgba(243,248,255,.72);--rim:rgba(255,255,255,.92);--line:rgba(174,191,217,.55);
+    --b:#aebfd9;--tx:#0a1324;--sub:#1d304d;--pri:#103d94;--pri-tx:#103d94;
+    --ok:#065a38;--ok-bg:rgba(223,247,235,.85);--ok-tx:#054a2e;
+    --warn:#763b00;--warn-bg:rgba(255,240,217,.88);--warn-tx:#663200;
+    --err:#931425;--err-bg:rgba(252,230,235,.88);--err-tx:#931425;
+    --pill-bg:rgba(226,236,249,.86);--pill-tx:#1d304d;--input-bg:rgba(255,255,255,.92);
+    --ghost-bg:rgba(255,255,255,.76);--shadow:0 14px 34px rgba(10,31,71,.12),inset 0 1.5px 0 rgba(255,255,255,.95);
+    --r:24px
+  }
+  @media(prefers-color-scheme:dark){
+    :root{
+      --bg:#050a16;--a1:rgba(37,99,235,.36);--a2:rgba(13,148,136,.30);--a3:rgba(124,58,237,.30);
+      --card:linear-gradient(180deg,rgba(19,32,59,.82),rgba(12,21,40,.76));
+      --sub-card:rgba(21,35,64,.68);--rim:rgba(255,255,255,.22);--line:rgba(96,165,250,.22);
+      --b:#2e446b;--tx:#f2f7ff;--sub:#c1d2ec;--pri:#1d4ed8;--pri-tx:#82b8ff;
+      --ok:#086b43;--ok-bg:rgba(16,185,129,.22);--ok-tx:#6ee7b7;
+      --warn:#924a00;--warn-bg:rgba(245,158,11,.22);--warn-tx:#fcd34d;
+      --err:#b41c31;--err-bg:rgba(244,63,94,.22);--err-tx:#ff8090;
+      --pill-bg:rgba(34,54,94,.78);--pill-tx:#e2ecff;--input-bg:rgba(15,26,48,.88);
+      --ghost-bg:rgba(24,39,71,.74);--shadow:0 18px 42px rgba(0,0,0,.44),inset 0 1.25px 0 rgba(255,255,255,.28)
+    }
+  }
+  *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif}
+  body{margin:0;min-height:100vh;color:var(--tx);background:radial-gradient(circle at 86% 10%,var(--a1),transparent 50%),radial-gradient(circle at 12% 42%,var(--a2),transparent 48%),radial-gradient(circle at 80% 85%,var(--a3),transparent 46%),var(--bg);background-attachment:fixed;padding:16px}
+  .wrap{max-width:940px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .card{background:var(--card);-webkit-backdrop-filter:blur(26px) saturate(165%);backdrop-filter:blur(26px) saturate(165%);border:1px solid var(--rim);box-shadow:var(--shadow);border-radius:var(--r);padding:20px}
+  .hero{color:#fff;border:1px solid rgba(255,255,255,.42);background:linear-gradient(145deg,#0f3f9e,#1d5bd6);box-shadow:0 16px 38px rgba(16,61,148,.34),inset 0 1.5px 0 rgba(255,255,255,.55)}
+  .hero.run{background:linear-gradient(145deg,#055434,#0b7a4d);box-shadow:0 16px 38px rgba(6,90,56,.34),inset 0 1.5px 0 rgba(255,255,255,.52)}
+  .hero.off{background:linear-gradient(145deg,#763b00,#b45309);box-shadow:0 16px 38px rgba(118,59,0,.34),inset 0 1.5px 0 rgba(255,255,255,.50)}
+  h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.02em}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .sp{justify-content:space-between}
   .sub{font-size:13px;color:var(--sub)}
-  .hero .sub{color:rgba(255,255,255,.9)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin-top:10px}
-  .stat{background:rgba(255,255,255,.72);border:1px solid var(--b);border-radius:12px;padding:10px}
-  .stat b{font-size:17px;display:block;color:var(--tx)}
-  .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:#e2ecf9;color:#1e3a5f}
-  .pill.ok{background:#d1fae5;color:#065f46}.pill.err{background:#fee2e2;color:#991b1b}.pill.warn{background:#fef3c7;color:#92400e}
-  button{border:none;border-radius:12px;padding:9px 13px;font-weight:700;font-size:13px;cursor:pointer;background:var(--pri);color:#fff}
-  button.ok{background:var(--ok)}button.err{background:var(--err)}button.warn{background:var(--warn)}button.ghost{background:#fff;color:var(--pri);border:1.5px solid var(--b)}
-  button:disabled{opacity:.55;cursor:not-allowed}
-  input,select{padding:9px 11px;border-radius:12px;border:1.5px solid var(--b);font-size:14px;background:#fff;color:var(--tx);width:100%}
-  .dev{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid #e2eaf6}
+  .hero .sub{color:rgba(234,242,255,.92)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin-top:12px}
+  .stat{background:var(--sub-card);border:1px solid var(--line);border-radius:16px;padding:12px}
+  .stat b{font-size:18px;display:block;color:var(--tx);margin-top:2px}
+  .pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:700;background:var(--pill-bg);color:var(--pill-tx);border:1px solid var(--line)}
+  .pill.ok{background:var(--ok-bg);color:var(--ok-tx)}.pill.err{background:var(--err-bg);color:var(--err-tx)}.pill.warn{background:var(--warn-bg);color:var(--warn-tx)}
+  .hero .pill{background:rgba(255,255,255,.22);color:#fff;border-color:rgba(255,255,255,.40)}
+  button{border:1px solid rgba(255,255,255,.32);border-radius:14px;padding:10px 14px;min-height:40px;font-weight:700;font-size:13px;cursor:pointer;background:linear-gradient(180deg,var(--pri),color-mix(in srgb,var(--pri) 82%,#000));color:#fff;box-shadow:0 6px 16px rgba(10,31,71,.18),inset 0 1px 0 rgba(255,255,255,.42);transition:transform .14s ease,opacity .14s ease}
+  button:active:not(:disabled){transform:scale(.97)}
+  button.ok{background:linear-gradient(180deg,var(--ok),color-mix(in srgb,var(--ok) 82%,#000))}
+  button.err{background:linear-gradient(180deg,var(--err),color-mix(in srgb,var(--err) 82%,#000))}
+  button.warn{background:linear-gradient(180deg,var(--warn),color-mix(in srgb,var(--warn) 82%,#000))}
+  button.ghost{background:var(--ghost-bg);color:var(--pri-tx);border:1px solid var(--b);box-shadow:inset 0 1px 0 var(--rim)}
+  .hero button.ghost{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.44)}
+  .hero #btnStartStop{background:#fff;color:#054a2e;border-color:#fff}
+  .hero.run #btnStartStop{color:#931425}
+  .hero.off #btnStartStop{color:#763b00}
+  button:disabled{opacity:.52;cursor:not-allowed}
+  input,select{padding:10px 12px;min-height:42px;border-radius:14px;border:1.5px solid var(--b);font-size:14px;background:var(--input-bg);color:var(--tx);width:100%}
+  .dev{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
   .dev:first-child{border-top:none}
-  .log{max-height:240px;overflow:auto;font-family:ui-monospace,Menlo,monospace;font-size:12px;display:flex;flex-direction:column;gap:4px}
-  .log-i{padding:6px 8px;border-radius:8px;background:#f4f8ff}.log-i.SUCCESS{background:#ecfdf5;color:#065f46}.log-i.WARNING{background:#fffbeb;color:#92400e}.log-i.ERROR{background:#fef2f2;color:#991b1b}
-  .cam{width:100%;max-height:320px;object-fit:contain;border-radius:12px;border:1px solid var(--b);background:#0c172a;margin-top:8px}
-  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:700;display:none;z-index:99;max-width:92vw;text-align:center}
+  .log{max-height:240px;overflow:auto;font-family:ui-monospace,Menlo,monospace;font-size:12px;display:flex;flex-direction:column;gap:6px}
+  .log-i{padding:8px 10px;border-radius:10px;background:var(--sub-card);color:var(--tx)}.log-i.SUCCESS{background:var(--ok-bg);color:var(--ok-tx)}.log-i.WARNING{background:var(--warn-bg);color:var(--warn-tx)}.log-i.ERROR{background:var(--err-bg);color:var(--err-tx)}
+  .cam{width:100%;max-height:320px;object-fit:contain;border-radius:16px;border:1px solid var(--line);background:#040812;margin-top:8px}
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(10,19,36,.92);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.24);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:700;display:none;z-index:99;max-width:92vw;text-align:center;box-shadow:0 12px 28px rgba(0,0,0,.35)}
   .hide{display:none!important}
 </style>
 </head>
@@ -65,9 +99,9 @@
       </div>
     </div>
 
-    <div id="updBanner" class="card hide" style="background:#ecfdf5;border:1.5px solid #34d399">
+    <div id="updBanner" class="card hide" style="background:var(--ok-bg);border:1.5px solid var(--ok)">
       <div class="row sp">
-        <div><b id="updBannerTitle" style="color:#065f46">Có bản cập nhật mới</b><div class="sub" id="updBannerSub"></div></div>
+        <div><b id="updBannerTitle" style="color:var(--ok-tx)">Có bản cập nhật mới</b><div class="sub" id="updBannerSub"></div></div>
         <button class="ok" onclick="postAction('/api/update/install')">Cập nhật ngay</button>
       </div>
     </div>
@@ -90,9 +124,9 @@
           <button class="ghost" onclick="toggleManualAdd()">Nhập IP thủ công</button>
         </div>
       </div>
-      <div id="sadpBox" class="hide" style="margin-top:8px;padding:10px;border-radius:12px;background:#f4f8ff;border:1px solid var(--b)"></div>
+      <div id="sadpBox" class="hide" style="margin-top:8px;padding:10px;border-radius:12px;background:var(--sub-card);border:1px solid var(--b)"></div>
       <div id="devList" style="margin-top:8px"></div>
-      <div id="manualAddBox" class="hide" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2eaf6">
+      <div id="manualAddBox" class="hide" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
         <div class="row">
           <select id="addProto" onchange="onProtoChange()" style="width:190px">
             <option value="HIKVISION">Hikvision ISAPI (Mọi dòng)</option>
@@ -135,7 +169,7 @@
         <button class="ghost" onclick="exportHikCsv()">Tải Excel/CSV</button>
         <button class="err" onclick="hikReboot()">Khởi động lại</button>
       </div>
-      <div id="camBox" class="hide" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2eaf6">
+      <div id="camBox" class="hide" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
         <div class="row sp">
           <span class="sub" id="camStatus">Camera trực tiếp DS-K1T320MX</span>
           <div class="row">
@@ -146,7 +180,7 @@
         </div>
         <img id="camImg" class="cam" alt="Camera máy chấm công" />
       </div>
-      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2eaf6">
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
         <div class="row sp">
           <div class="sub" style="font-weight:700">Webhook đẩy sự kiện tức thì (&lt;0.5s • HTTP Listening)</div>
           <span class="pill" id="whStatusPill">Đang kiểm tra...</span>
@@ -159,7 +193,7 @@
           <button class="ghost" onclick="toggleCustomWebhook()">Tuỳ chỉnh máy chủ khác</button>
           <button class="err" onclick="clearHikWebhook()">Tắt Webhook</button>
         </div>
-        <div id="whCustomBox" class="hide" style="margin-top:8px;padding:10px;border-radius:12px;background:#f4f8ff;border:1px solid var(--b)">
+        <div id="whCustomBox" class="hide" style="margin-top:8px;padding:10px;border-radius:12px;background:var(--sub-card);border:1px solid var(--b)">
           <div class="sub" style="margin-bottom:6px">Trỏ sự kiện quét trực tiếp từ máy chấm công sang máy chủ riêng (IP nội bộ HTTP hoặc tên miền HTTPS):</div>
           <div class="row">
             <select id="whProto" style="width:96px"><option value="HTTP">HTTP</option><option value="HTTPS">HTTPS</option></select>
@@ -170,7 +204,7 @@
           </div>
         </div>
       </div>
-      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2eaf6">
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
         <div class="sub" style="font-weight:700;margin-bottom:6px">Tạo nhanh nhân sự + nạp ảnh khuôn mặt AI (tự nén JPEG chuẩn Hikvision)</div>
         <div class="row">
           <input id="qeNo" placeholder="Mã nhân sự / thẻ *" style="width:140px" />
@@ -232,7 +266,7 @@
         <label class="row"><input id="tAutoUpd" type="checkbox" style="width:auto" /> Tự cập nhật GitHub</label>
         <button onclick="saveTech()">Lưu cấu hình Box</button>
       </div>
-      <div class="row sp" style="margin-top:10px;padding-top:10px;border-top:1px solid #e2eaf6">
+      <div class="row sp" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
         <div class="sub" id="updStatusLine">Cập nhật OTA từ GitHub...</div>
         <div class="row">
           <button class="ghost" onclick="postAction('/api/update/check')">Kiểm tra bản mới</button>
@@ -259,7 +293,7 @@
         <button onclick="saveAlerts()">Lưu cảnh báo</button>
         <button class="ghost" onclick="postAction('/api/alerts/test')">Gửi tin thử</button>
       </div>
-      <div class="row sp" style="margin-top:12px;padding-top:10px;border-top:1px solid #e2eaf6">
+      <div class="row sp" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">
         <div class="sub">Sao lưu mã hoá AES-256 (toàn bộ tài khoản, danh sách máy, lịch đẩy) để nhân bản sang TV Box mới trong 5 giây:</div>
         <div class="row">
           <input id="bkPass" type="password" placeholder="Mật khẩu sao lưu (để trống = MK quản trị)" style="width:230px" />

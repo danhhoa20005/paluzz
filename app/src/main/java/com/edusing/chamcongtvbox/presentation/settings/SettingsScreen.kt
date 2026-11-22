@@ -20,8 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,12 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.edusing.chamcongtvbox.presentation.components.LiquidGlassChip
 import com.edusing.chamcongtvbox.presentation.components.TammiErrorStateCard
 import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
 import com.edusing.chamcongtvbox.presentation.components.TammiModeSwitcherCard
@@ -82,10 +80,10 @@ fun SettingsScreen(
         if (onBack != null) TvSubScreenHeader("Cấu hình", "", onBack = onBack)
 
         if (!state.errorMessage.isNullOrBlank() || !state.savedBanner.isNullOrBlank()) {
-            Column(modifier = Modifier.padding(horizontal = ui.horizontalPadding, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.padding(horizontal = ui.horizontalPadding, vertical = TammiSpacing.sm), verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                 if (!state.errorMessage.isNullOrBlank()) TammiErrorStateCard(message = state.errorMessage.orEmpty())
                 if (!state.savedBanner.isNullOrBlank()) {
-                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AppColors.GreenSoft).border(1.dp, AppColors.Green.copy(alpha = 0.28f), RoundedCornerShape(12.dp)).padding(10.dp)) {
+                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AppColors.GreenSoft).border(1.dp, AppColors.Green.copy(alpha = 0.28f), RoundedCornerShape(12.dp)).padding(TammiSpacing.md)) {
                         Text(state.savedBanner.orEmpty(), color = AppColors.GreenText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
@@ -150,7 +148,7 @@ private fun DailyEssentialsCard(state: SettingsUiState, viewModel: SettingsViewM
                 onCheckedChange = viewModel::onAutoPushEnabledChange,
             )
             if (state.connectedDeviceCount > 0) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(TammiSpacing.sm))
                 TammiOutlinedButton(
                     text = if (state.isAutoPushing) "Đang đồng bộ..." else "Đẩy ${state.personLower} ngay (${state.connectedDeviceCount} máy)",
                     enabled = !state.isAutoPushing,
@@ -169,9 +167,9 @@ private fun AdvancedSettingsAccordion(state: SettingsUiState, viewModel: Setting
     var toggleFocused by remember { mutableStateOf(false) }
     TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.lg)) {
         Row(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                .onFocusChanged { toggleFocused = it.isFocused }.tvFocusRing(toggleFocused, 10)
-                .clickable(onClick = onToggle).padding(vertical = 2.dp),
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .onFocusChanged { toggleFocused = it.isFocused }.tvFocusRing(toggleFocused, 12)
+                .clickable(onClick = onToggle).padding(vertical = TammiSpacing.xs),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -179,33 +177,31 @@ private fun AdvancedSettingsAccordion(state: SettingsUiState, viewModel: Setting
                 Text("Cài đặt nâng cao", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AppColors.Text)
                 Text("Giờ đẩy thứ 4 • Chu kỳ quét • TV Launcher • Kỹ thuật FK", fontSize = 12.sp, color = AppColors.TextSecondary)
             }
-            Text(text = if (expanded) "Thu gọn" else "Mở", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, color = AppColors.Primary)
+            Text(text = if (expanded) "Thu gọn" else "Mở", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, color = AppColors.PrimaryText)
         }
 
         AnimatedVisibility(visible = expanded) {
-            Column(modifier = Modifier.fillMaxWidth().padding(top = TammiSpacing.md), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(top = TammiSpacing.md), verticalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                 AutoPushCustomSlotSection(state, viewModel)
                 HorizontalDivider(color = AppColors.Border.copy(alpha = 0.5f))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                     NumField("Quét máy (giây)", state.pollIntervalSec, viewModel::onPollSecChange, Modifier.weight(1f))
                     NumField("Chống trùng (giây)", state.dedupSeconds, viewModel::onDedupSecChange, Modifier.weight(1f))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    var tcpFocused by remember { mutableStateOf(false) }; var udpFocused by remember { mutableStateOf(false) }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                     Text("Máy FK:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Text)
-                    val chipColors = FilterChipDefaults.filterChipColors(selectedContainerColor = AppColors.Primary, selectedLabelColor = Color.White)
-                    FilterChip(!state.udpMode, { viewModel.onUdpModeChange(false) }, { Text("TCP") }, colors = chipColors, modifier = Modifier.onFocusChanged { tcpFocused = it.isFocused }.tvFocusRing(tcpFocused, 8))
-                    FilterChip(state.udpMode, { viewModel.onUdpModeChange(true) }, { Text("UDP") }, colors = chipColors, modifier = Modifier.onFocusChanged { udpFocused = it.isFocused }.tvFocusRing(udpFocused, 8))
+                    LiquidGlassChip("TCP", selected = !state.udpMode, onClick = { viewModel.onUdpModeChange(false) })
+                    LiquidGlassChip("UDP", selected = state.udpMode, onClick = { viewModel.onUdpModeChange(true) })
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                     NumField("Cổng FK (5005)", state.defaultPort, viewModel::onPortChange, Modifier.weight(1f))
                     NumField("Số máy (1)", state.defaultMachineNo, viewModel::onMachineNoChange, Modifier.weight(1f))
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                     NumField("Mật khẩu (0)", state.defaultPassword, viewModel::onPasswordChange, Modifier.weight(1f))
                     NumField("License (5912)", state.defaultLicense, viewModel::onLicenseChange, Modifier.weight(1f))
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                     NumField("Báo sống (giây)", state.heartbeatIntervalSec, viewModel::onHeartbeatSecChange, Modifier.weight(1f))
                     NumField("Tên máy (byte)", state.maxNameBytes, viewModel::onMaxNameBytesChange, Modifier.weight(1f))
                 }

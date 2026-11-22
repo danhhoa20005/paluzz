@@ -58,7 +58,7 @@ internal fun DevicesPane(
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = TammiSpacing.xs),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -70,7 +70,7 @@ internal fun DevicesPane(
                 modifier = Modifier.weight(1f),
             )
             if (showQuickToolbar && !isRunning) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
                     TammiOutlinedButton(
                         text = if (isDiscovering) "Đang dò..." else "Dò LAN",
                         enabled = !isBusy,
@@ -153,8 +153,8 @@ private fun TerminalCard(
             ) {
                 Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(accentColor))
             }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Spacer(Modifier.width(TammiSpacing.md))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
                 Text(item.config.displayName, fontSize = if (isTv) 16.sp else 15.sp, fontWeight = FontWeight.Bold, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val protoHint = item.firmwareProfile.ifBlank { if (item.config.isHikvision) "Hikvision ISAPI" else "" }
                 val fw = if (protoHint.isNotBlank()) " • $protoHint" else ""
@@ -165,11 +165,11 @@ private fun TerminalCard(
         }
 
         if (!item.lastError.isNullOrBlank()) {
-            Spacer(Modifier.height(6.dp))
-            Text(item.lastError, fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = AppColors.Red, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(TammiSpacing.sm))
+            Text(item.lastError, fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = AppColors.RedText, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(TammiSpacing.md))
 
         // Đúng 1 hàng nút gọn gàng, 1 hành động chính rõ ràng (mọi công cụ sâu của Hikvision gói gọn trong Quản trị)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -194,25 +194,25 @@ internal fun TvLiveStatusPane(state: MainUiState, modifier: Modifier = Modifier)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
         TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.lg), borderColor = AppColors.Green.copy(alpha = 0.34f)) {
             Text("Lượt chấm hôm nay", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = AppColors.TextSecondary)
-            Spacer(Modifier.height(4.dp))
-            Text("${state.totalCheckInsToday}", fontSize = 44.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, letterSpacing = (-1).sp, color = AppColors.Green)
+            Spacer(Modifier.height(TammiSpacing.xs))
+            Text("${state.totalCheckInsToday}", fontSize = 44.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, letterSpacing = (-1).sp, color = AppColors.GreenText)
             val pollShort = state.lastPollTimeText.substringBefore(" ")
             Text(if (pollShort.isNotBlank()) "Quét gần nhất: $pollShort" else "Đang lắng nghe máy chấm công...", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = AppColors.TextSecondary)
         }
         TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.lg)) {
             Text("Thiết bị đang trực (${state.connectedCount}/${state.totalDeviceCount})", fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = AppColors.Text)
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(TammiSpacing.md))
             state.devices.forEachIndexed { idx, dev ->
                 if (idx > 0) HorizontalDivider(color = AppColors.Border.copy(alpha = 0.42f))
                 val dot = if (dev.isConnected) AppColors.GreenBright else AppColors.Red
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(dot))
-                    Spacer(Modifier.width(10.dp))
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = TammiSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(dot))
+                    Spacer(Modifier.width(TammiSpacing.md))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(dev.config.displayName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(dev.config.ip, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = AppColors.TextSecondary)
                     }
-                    Text(if (dev.isConnected) "Online" else "Offline", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (dev.isConnected) AppColors.Green else AppColors.Red)
+                    Text(if (dev.isConnected) "Online" else "Offline", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (dev.isConnected) AppColors.GreenText else AppColors.RedText)
                 }
             }
         }

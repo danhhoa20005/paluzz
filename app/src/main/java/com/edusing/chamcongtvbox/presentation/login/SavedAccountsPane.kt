@@ -87,7 +87,7 @@ private fun SavedAccountRow(
             .onFocusChanged { focused = it.isFocused }
             .tvFocusRing(focused, 16)
             .clickable(onClick = onSelect)
-            .padding(horizontal = TammiSpacing.md, vertical = 10.dp),
+            .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(AppColors.Primary))
