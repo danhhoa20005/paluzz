@@ -144,15 +144,9 @@ private fun TerminalCard(
     TammiGlassPanel(
         modifier = Modifier.fillMaxWidth(),
         padding = PaddingValues(if (isTv) TammiSpacing.lg else TammiSpacing.md),
-        borderColor = if (item.isConnected) AppColors.Green.copy(alpha = 0.30f) else null,
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier.size(16.dp).clip(CircleShape).background(accentColor.copy(alpha = 0.22f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(accentColor))
-            }
+            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(accentColor))
             Spacer(Modifier.width(TammiSpacing.md))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
                 Text(item.config.displayName, fontSize = if (isTv) 16.sp else 15.sp, fontWeight = FontWeight.Bold, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)

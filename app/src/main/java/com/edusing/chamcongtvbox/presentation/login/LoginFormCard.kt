@@ -43,14 +43,13 @@ import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
 import com.edusing.chamcongtvbox.presentation.components.TammiSwitchRow
 import com.edusing.chamcongtvbox.presentation.components.TvActionButton
-import com.edusing.chamcongtvbox.presentation.components.orbColor
 import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
-/** Thẻ đăng nhập **Liquid Glass 3D** gọn gàng, thuần màu sắc & chữ đạt chuẩn WCAG AAA. */
+/** Thẻ đăng nhập **Clear Liquid Glass Sáng** tối giản, thuần chữ đạt chuẩn WCAG AAA. */
 @Composable
 internal fun LoginFormCard(
     state: LoginUiState,
@@ -60,7 +59,7 @@ internal fun LoginFormCard(
 ) {
     var showPassword by remember { mutableStateOf(false) }
     val fieldColors = tammiFieldColors()
-    val accent = state.activeMode.orbColor()
+    val accent = AppColors.Primary
 
     TammiGlassPanel(
         modifier = modifier,

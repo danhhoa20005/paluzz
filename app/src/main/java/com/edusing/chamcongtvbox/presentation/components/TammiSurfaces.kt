@@ -91,7 +91,7 @@ fun TammiGlassPanel(
 
 enum class TammiBadgeTone { PRIMARY, SUCCESS, WARNING, DANGER, INFO, NEUTRAL }
 
-/** Nhãn trạng thái Liquid Glass tối giản (chấm phát sáng 2 lớp + chữ chuẩn AAA, không icon). */
+/** Nhãn trạng thái **Clear Liquid Glass** tối giản (chấm nhỏ tinh tế + chữ chuẩn AAA, ít màu sắc). */
 @Composable
 fun TammiStatusPill(
     label: String,
@@ -99,7 +99,7 @@ fun TammiStatusPill(
     tone: TammiBadgeTone = TammiBadgeTone.PRIMARY,
 ) {
     val (fg, bg, dot) = when (tone) {
-        TammiBadgeTone.PRIMARY -> Triple(AppColors.PrimaryText, AppColors.PrimarySoft, AppColors.PrimaryText)
+        TammiBadgeTone.PRIMARY -> Triple(AppColors.Text, AppColors.PrimarySoft, AppColors.Primary)
         TammiBadgeTone.SUCCESS -> Triple(AppColors.GreenText, AppColors.GreenSoft, AppColors.GreenBright)
         TammiBadgeTone.WARNING -> Triple(AppColors.AmberText, AppColors.AmberSoft, AppColors.AmberBright)
         TammiBadgeTone.DANGER -> Triple(AppColors.RedText, AppColors.RedSoft, AppColors.RedText)
@@ -109,12 +109,10 @@ fun TammiStatusPill(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .clip(TammiRadii.badgeShape).background(bg).border(1.dp, fg.copy(alpha = 0.30f), TammiRadii.badgeShape)
+            .clip(TammiRadii.badgeShape).background(bg).border(1.dp, AppColors.Border.copy(alpha = 0.65f), TammiRadii.badgeShape)
             .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.xs),
     ) {
-        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(dot.copy(alpha = 0.26f)), contentAlignment = Alignment.Center) {
-            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(dot))
-        }
+        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(dot))
         Spacer(Modifier.width(TammiSpacing.sm))
         Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

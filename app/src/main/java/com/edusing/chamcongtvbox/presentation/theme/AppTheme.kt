@@ -10,13 +10,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -212,37 +210,26 @@ fun LiquidGlassBackdrop(
 
 @Composable
 fun AppTvTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val palette = if (darkTheme) MidnightLiquidPalette else DaylightLiquidPalette
-    val colorScheme = if (darkTheme) {
-        darkColorScheme(
-            primary = palette.primaryText, onPrimary = palette.canvas, primaryContainer = palette.primarySoft, onPrimaryContainer = palette.text,
-            secondary = palette.infoText, onSecondary = palette.canvas, tertiary = palette.greenText,
-            error = palette.redText, background = palette.canvas, onBackground = palette.text,
-            surface = palette.card, onSurface = palette.text, surfaceVariant = palette.surfaceMuted, onSurfaceVariant = palette.textSecondary, outline = palette.border,
-        )
-    } else {
-        lightColorScheme(
-            primary = palette.primary, onPrimary = Color.White, primaryContainer = palette.primarySoft, onPrimaryContainer = palette.text,
-            secondary = palette.info, onSecondary = Color.White, tertiary = palette.green,
-            error = palette.red, background = palette.canvas, onBackground = palette.text,
-            surface = palette.card, onSurface = palette.text, surfaceVariant = palette.surfaceMuted, onSurfaceVariant = palette.textSecondary, outline = palette.border,
-        )
-    }
+    val palette = DaylightLiquidPalette
+    val colorScheme = lightColorScheme(
+        primary = palette.primary, onPrimary = Color.White, primaryContainer = palette.primarySoft, onPrimaryContainer = palette.text,
+        secondary = palette.info, onSecondary = Color.White, tertiary = palette.green,
+        error = palette.red, background = palette.canvas, onBackground = palette.text,
+        surface = palette.card, onSurface = palette.text, surfaceVariant = palette.surfaceMuted, onSurfaceVariant = palette.textSecondary, outline = palette.border,
+    )
     CompositionLocalProvider(LocalLiquidPalette provides palette) {
         MaterialTheme(colorScheme = colorScheme, content = content)
     }
 }
 
-/** Viền focus tương phản chuẩn AAA cho D-Pad TV Box (tự thích ứng Sáng/Tối & nền Hero/Kiosk). */
+/** Viền focus tương phản chuẩn AAA cho D-Pad TV Box (tự thích ứng nền sáng/tối). */
 @Composable
 fun Modifier.tvFocusRing(
     focused: Boolean,
     cornerRadiusDp: Int = 16,
     onDark: Boolean = false,
 ): Modifier = if (focused) {
-    val useGold = onDark || LocalLiquidPalette.current.isDark
-    border(BorderStroke(3.dp, if (useGold) AppColors.FocusRing else AppColors.PrimaryDark), RoundedCornerShape(cornerRadiusDp.dp))
+    border(BorderStroke(3.dp, if (onDark) AppColors.FocusRing else AppColors.PrimaryDark), RoundedCornerShape(cornerRadiusDp.dp))
 } else this

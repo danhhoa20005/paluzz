@@ -1,10 +1,6 @@
 package com.edusing.chamcongtvbox.presentation.login
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,20 +20,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edusing.chamcongtvbox.domain.model.AppMode
 import com.edusing.chamcongtvbox.presentation.components.TammiModeSwitcherCard
-import com.edusing.chamcongtvbox.presentation.components.orbColor
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
+import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.rememberDeviceUiSpec
-import com.edusing.chamcongtvbox.presentation.theme.rememberReducedMotion
-import com.edusing.chamcongtvbox.presentation.theme.stainedLiquidGlass
 
 /**
  * Màn hình Đăng nhập **Liquid Glass 3D** thuần màu sắc & chữ (không icon, không ảnh thừa):
@@ -111,26 +105,20 @@ fun LoginScreen(viewModel: LoginViewModel) {
     }
 }
 
-/** Thẻ thương hiệu Stained Liquid Glass 3D chuyển sắc mượt theo 3 chế độ. */
+/** Thẻ tiêu đề **Clear Liquid Glass Sáng** tinh giản (không khối màu đậm). */
 @Composable
 private fun CompactLiquidBrandBanner(mode: AppMode, title: String, orgLabel: String) {
-    val reducedMotion = rememberReducedMotion()
-    val accent by animateColorAsState(
-        targetValue = mode.orbColor(),
-        animationSpec = if (reducedMotion) snap() else spring(stiffness = 320f),
-        label = "loginBannerTint",
-    )
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .stainedLiquidGlass(shape = TammiRadii.panelShape, baseColor = accent, shadowElevation = 14.dp),
+            .liquidGlassLayer(shape = TammiRadii.panelShape, tier = LiquidGlassTier.CHROME, shadowElevation = 10.dp),
     ) {
         Column(modifier = Modifier.padding(horizontal = TammiSpacing.lg, vertical = TammiSpacing.md), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(AppColors.GreenBright).border(1.5.dp, Color.White, CircleShape))
-                Text(title, fontSize = 17.5.sp, fontWeight = FontWeight.Black, color = Color.White)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
+                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AppColors.GreenBright))
+                Text(title, fontSize = 17.5.sp, fontWeight = FontWeight.Black, color = AppColors.Text)
             }
-            Text("Đăng nhập 1 lần — tự động kết nối máy chấm công 24/7", fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = AppColors.HeroSubtitle)
+            Text("Đăng nhập 1 lần — tự động kết nối máy chấm công 24/7", fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = AppColors.TextSecondary)
         }
     }
 }

@@ -4,13 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,14 +43,14 @@ import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
 import com.edusing.chamcongtvbox.presentation.components.TvActionButton
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
-import com.edusing.chamcongtvbox.presentation.theme.DaylightLiquidPalette
 import com.edusing.chamcongtvbox.presentation.theme.DeviceUiSpec
+import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
+import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.rememberReducedMotion
-import com.edusing.chamcongtvbox.presentation.theme.stainedLiquidGlass
 
-/** Thanh tiêu đề thoáng trong suốt (không viền chia cắt cứng — nền Liquid Glass chảy liền mạch từ mép trên). */
+/** Thanh tiêu đề thoáng trong suốt (không viền chia cắt cứng — nền sáng chảy liền mạch từ mép trên). */
 @Composable
 fun MainTopAppBar(
     state: MainUiState,
@@ -85,11 +82,14 @@ fun MainTopAppBar(
                 TammiOutlinedButton("Đổi TK", onLogoutClick, compact = true, contentColor = AppColors.TextSecondary)
             }
         }
-        if (state.isBusy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), color = AppColors.PrimaryText)
+        if (state.isBusy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp), color = AppColors.Primary)
     }
 }
 
-/** Thẻ Hero **Stained Liquid Glass 3D** biến sắc quang học mượt (Cobalt ↔ Lục Bảo) + chấm nhịp sống & nút pha lê trắng AAA. */
+/**
+ * Thẻ Hero **Clear Liquid Glass Sáng Tối Giản**:
+ * kính pha lê trắng trong suốt thanh lịch (không mảng màu đậm sặc sỡ), chấm nhịp sống tinh tế & nút than chì AAA.
+ */
 @Composable
 internal fun GatewayHeroPanel(
     state: MainUiState,
@@ -124,34 +124,38 @@ internal fun GatewayHeroPanel(
             if (pollShort.isNotBlank()) append(" • $pollShort")
         }
     }
-    val heroBaseColor by animateColorAsState(
-        targetValue = when {
-            isWifiOff || isLanLost || isNetOffline -> AppColors.Amber
-            state.isRunning -> AppColors.HeroRunningColor
-            else -> AppColors.HeroIdleColor
-        },
-        animationSpec = if (reducedMotion) snap() else spring(stiffness = 260f),
-        label = "heroStainedColor",
-    )
     val ctaText = when {
         isWifiOff -> "Bật Wi-Fi ngay"
         state.isRunning -> "Dừng chấm công"
         else -> "Bắt đầu chấm công"
     }
-    // Trên nút pha lê trắng luôn dùng mực đậm Daylight (>= 8.1:1 AAA cả Sáng lẫn Tối)
-    val ctaTextColor = when {
-        isWifiOff -> DaylightLiquidPalette.amber
-        state.isRunning -> DaylightLiquidPalette.red
-        else -> DaylightLiquidPalette.green
+    val ctaBgColor = when {
+        isWifiOff -> AppColors.Amber
+        state.isRunning -> AppColors.Red
+        else -> AppColors.Primary
     }
     val ctaAction: () -> Unit = if (isWifiOff) ({ openWifiQuickPanel(context) }) else onStartStop
-    val dotColor = if (isWifiOff || isLanLost || isNetOffline || (!state.isRunning && state.connectedCount == 0)) AppColors.AmberBright else AppColors.GreenBright
+    val dotColor = when {
+        isWifiOff || isLanLost || isNetOffline -> AppColors.AmberBright
+        state.isRunning || state.connectedCount > 0 -> AppColors.GreenBright
+        else -> AppColors.Muted
+    }
+    val borderAccent = when {
+        isWifiOff || isLanLost || isNetOffline -> AppColors.Amber.copy(alpha = 0.28f)
+        state.isRunning -> AppColors.Green.copy(alpha = 0.26f)
+        else -> null
+    }
     val pulseLive = state.isRunning && !isWifiOff && !isLanLost && !isNetOffline && !reducedMotion
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .stainedLiquidGlass(shape = TammiRadii.panelShape, baseColor = heroBaseColor, shadowElevation = 16.dp),
+            .liquidGlassLayer(
+                shape = TammiRadii.panelShape,
+                tier = LiquidGlassTier.CHROME,
+                borderOverride = borderAccent,
+                shadowElevation = 12.dp,
+            ),
     ) {
         Box(modifier = Modifier.padding(horizontal = if (ui.isCompact) TammiSpacing.lg else TammiSpacing.xxl, vertical = TammiSpacing.lg)) {
             if (ui.isTwoPane) {
@@ -159,25 +163,25 @@ internal fun GatewayHeroPanel(
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                             HeroStatusDot(dotColor, sizeDp = 10, pulse = pulseLive)
-                            Text(headline, fontSize = if (ui.isTvDevice) 21.sp else 19.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(headline, fontSize = if (ui.isTvDevice) 21.sp else 19.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text(state.statusHint.ifBlank { statsLine }, fontSize = if (ui.isTvDevice) 14.sp else 13.sp, fontWeight = FontWeight.Medium, color = AppColors.HeroSubtitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(state.statusHint.ifBlank { statsLine }, fontSize = if (ui.isTvDevice) 14.sp else 13.sp, fontWeight = FontWeight.Medium, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    TvActionButton(ctaText, Color.White, ctaAction, enabled = !state.isBusy || isWifiOff, contentColor = ctaTextColor, onDarkSurface = true)
-                    TammiOutlinedButton("Kiosk 24/7", onOpenKiosk, contentColor = AppColors.Primary, onDarkSurface = true)
+                    TvActionButton(ctaText, ctaBgColor, ctaAction, enabled = !state.isBusy || isWifiOff)
+                    TammiOutlinedButton("Kiosk 24/7", onOpenKiosk, contentColor = AppColors.Text)
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(TammiSpacing.lg)) {
                     Column(verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
                             HeroStatusDot(dotColor, sizeDp = 10, pulse = pulseLive)
-                            Text(headline, fontSize = 19.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(headline, fontSize = 19.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text(state.statusHint.ifBlank { statsLine }, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = AppColors.HeroSubtitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(state.statusHint.ifBlank { statsLine }, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                        TvActionButton(ctaText, Color.White, ctaAction, Modifier.weight(1f), enabled = !state.isBusy || isWifiOff, contentColor = ctaTextColor, onDarkSurface = true)
-                        TammiOutlinedButton("Kiosk", onOpenKiosk, contentColor = AppColors.Primary, onDarkSurface = true)
+                        TvActionButton(ctaText, ctaBgColor, ctaAction, Modifier.weight(1f), enabled = !state.isBusy || isWifiOff)
+                        TammiOutlinedButton("Kiosk", onOpenKiosk, contentColor = AppColors.Text)
                     }
                 }
             }
@@ -200,7 +204,7 @@ private fun HeroStatusDot(color: Color, sizeDp: Int, pulse: Boolean) {
         anim
     }
     Box(modifier = Modifier.size((sizeDp + 8).dp), contentAlignment = Alignment.Center) {
-        Box(modifier = Modifier.size((sizeDp + 6).dp).scale(haloScale).clip(CircleShape).background(color.copy(alpha = 0.30f)))
+        Box(modifier = Modifier.size((sizeDp + 6).dp).scale(haloScale).clip(CircleShape).background(color.copy(alpha = 0.24f)))
         Box(modifier = Modifier.size(sizeDp.dp).clip(CircleShape).background(color).border(1.5.dp, Color.White, CircleShape))
     }
 }

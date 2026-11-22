@@ -55,10 +55,9 @@ import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.rememberReducedMotion
-import com.edusing.chamcongtvbox.presentation.theme.stainedLiquidGlass
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
-/** Thanh điều hướng đáy nổi viên thuốc **Chrome Liquid Glass 3D** chuẩn iOS 26 (thấu kính Stained lướt lò xo). */
+/** Thanh điều hướng đáy nổi viên thuốc **Clear Liquid Glass Sáng** chuẩn iOS 26 (thấu kính pha lê trắng lướt lò xo). */
 @Composable
 internal fun PhoneBottomNavigationBar(
     tabs: List<String>,
@@ -74,7 +73,7 @@ internal fun PhoneBottomNavigationBar(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .liquidGlassLayer(shape = CircleShape, tier = LiquidGlassTier.CHROME, shadowElevation = 16.dp)
+                .liquidGlassLayer(shape = CircleShape, tier = LiquidGlassTier.CHROME, tintOverride = AppColors.SurfaceMuted, shadowElevation = 14.dp)
                 .padding(TammiSpacing.xs),
         ) {
             val tabWidth = maxWidth / tabs.size
@@ -88,7 +87,13 @@ internal fun PhoneBottomNavigationBar(
                     .offset(x = lensOffset)
                     .width(tabWidth)
                     .height(44.dp)
-                    .stainedLiquidGlass(shape = CircleShape, baseColor = AppColors.Primary, shadowElevation = 8.dp),
+                    .liquidGlassLayer(
+                        shape = CircleShape,
+                        tier = LiquidGlassTier.CHROME,
+                        tintOverride = AppColors.SegThumbTint,
+                        borderOverride = Color.White,
+                        shadowElevation = 6.dp,
+                    ),
             )
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 tabs.forEachIndexed { idx, label ->
@@ -107,8 +112,8 @@ internal fun PhoneBottomNavigationBar(
                         Text(
                             text = label,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (isSel) Color.White else AppColors.Text,
+                            fontWeight = if (isSel) FontWeight.ExtraBold else FontWeight.SemiBold,
+                            color = if (isSel) AppColors.Text else AppColors.Muted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -119,7 +124,7 @@ internal fun PhoneBottomNavigationBar(
     }
 }
 
-/** Thanh điều hướng nổi bên trái **Chrome Liquid Glass 3D** cho **Android TV Box & Tablet** (D-Pad AAA). */
+/** Thanh điều hướng nổi bên trái **Clear Liquid Glass Sáng** cho **Android TV Box & Tablet** (D-Pad AAA). */
 @Composable
 internal fun TvSideNavigationRail(
     state: MainUiState,
@@ -173,7 +178,13 @@ internal fun TvSideNavigationRail(
                         .offset(y = lensOffsetY)
                         .fillMaxWidth()
                         .height(itemHeight)
-                        .stainedLiquidGlass(shape = itemShape, baseColor = AppColors.Primary, shadowElevation = 8.dp),
+                        .liquidGlassLayer(
+                            shape = itemShape,
+                            tier = LiquidGlassTier.CHROME,
+                            tintOverride = AppColors.SegThumbTint,
+                            borderOverride = AppColors.Border,
+                            shadowElevation = 6.dp,
+                        ),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(itemGap), modifier = Modifier.fillMaxWidth()) {
                     tabs.forEachIndexed { idx, label ->
@@ -190,9 +201,9 @@ internal fun TvSideNavigationRail(
                                 .height(itemHeight)
                                 .scale(scale)
                                 .clip(itemShape)
-                                .then(if (!isSel) Modifier.background(AppColors.SurfaceSubtle.copy(alpha = 0.45f)) else Modifier)
+                                .then(if (!isSel) Modifier.background(AppColors.SurfaceSubtle.copy(alpha = 0.35f)) else Modifier)
                                 .onFocusChanged { focused = it.isFocused }
-                                .tvFocusRing(focused, cornerRadiusDp = 16, onDark = isSel)
+                                .tvFocusRing(focused, cornerRadiusDp = 16)
                                 .semantics { role = Role.Tab; selected = isSel }
                                 .clickable { onSelect(idx) }
                                 .padding(horizontal = TammiSpacing.md),
@@ -201,8 +212,8 @@ internal fun TvSideNavigationRail(
                             Text(
                                 text = label,
                                 fontSize = if (ui.isTvDevice) 14.5.sp else 13.5.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (isSel) Color.White else AppColors.Text,
+                                fontWeight = if (isSel) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                color = if (isSel) AppColors.Text else AppColors.Muted,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )

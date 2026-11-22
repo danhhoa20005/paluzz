@@ -72,7 +72,7 @@ fun TvSegmentedTabs(
             animationSpec = if (reducedMotion) snap() else spring(dampingRatio = 0.78f, stiffness = 440f),
             label = "segThumbX",
         )
-        // Viên kính lồi trượt mượt phía sau chữ (thích ứng Daylight & Midnight)
+        // Viên kính trắng lồi trượt mượt phía sau chữ (đơn sắc sang trọng)
         Box(
             modifier = Modifier
                 .offset(x = thumbOffset)
@@ -82,9 +82,8 @@ fun TvSegmentedTabs(
                     shape = thumbShape,
                     tier = LiquidGlassTier.CHROME,
                     tintOverride = AppColors.SegThumbTint,
-                    borderOverride = AppColors.PrimaryText.copy(alpha = 0.34f),
-                    shadowElevation = 8.dp,
-                    shadowTint = AppColors.Primary.copy(alpha = 0.24f),
+                    borderOverride = AppColors.Border,
+                    shadowElevation = 6.dp,
                 ),
         )
         Row(modifier = Modifier.fillMaxWidth()) {

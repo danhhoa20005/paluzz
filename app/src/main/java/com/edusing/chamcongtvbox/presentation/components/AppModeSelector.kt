@@ -1,6 +1,5 @@
 package com.edusing.chamcongtvbox.presentation.components
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -48,10 +47,9 @@ import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.rememberReducedMotion
-import com.edusing.chamcongtvbox.presentation.theme.stainedLiquidGlass
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
-/** Tông màu Stained Liquid Glass chuẩn WCAG AAA (>= 7.26:1) phân biệt 3 chế độ. */
+/** Tông nhấn tiết chế phân biệt 3 chế độ (đơn sắc sang trọng, không chói màu). */
 @Composable
 @ReadOnlyComposable
 fun AppMode.orbColor(): Color = when (this) {
@@ -66,10 +64,7 @@ private fun AppMode.compactTabLabel(): String = when (this) {
     AppMode.DON_TRA -> "Đón trả"
 }
 
-/**
- * Thanh chuyển 3 chế độ **Liquid Glass biến hình mượt** (viên kính màu trượt lò xo & chuyển sắc theo chế độ):
- * trực quan tuyệt đối, không cần icon, hỗ trợ chạm & D-Pad TV Box.
- */
+/** Thanh chuyển 3 chế độ **Clear Liquid Glass Sáng** (viên pha lê trắng lướt mượt, không khối màu rực). */
 @Composable
 fun TammiModeSwitcherCard(
     activeMode: AppMode,
@@ -81,16 +76,11 @@ fun TammiModeSwitcherCard(
     val domainShort = BrandingConfig.forMode(activeMode).defaultApiDomain.removePrefix("https://")
     val modes = AppMode.entries
     val activeIdx = modes.indexOf(activeMode).coerceAtLeast(0)
-    val animatedAccent by animateColorAsState(
-        targetValue = activeMode.orbColor(),
-        animationSpec = if (reducedMotion) snap() else spring(stiffness = 380f),
-        label = "modeAccentColor",
-    )
 
     TammiGlassPanel(modifier = modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.md)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Chế độ hệ thống", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = AppColors.Text)
-            Text(domainShort, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppColors.readableAccent(animatedAccent))
+            Text(domainShort, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.TextSecondary)
         }
         Spacer(Modifier.height(TammiSpacing.sm))
 
@@ -108,13 +98,18 @@ fun TammiModeSwitcherCard(
                 animationSpec = if (reducedMotion) snap() else spring(dampingRatio = 0.76f, stiffness = 420f),
                 label = "modeThumbX",
             )
-            // Viên Stained Liquid Glass lướt & đổi màu theo chế độ
             Box(
                 modifier = Modifier
                     .offset(x = thumbOffset)
                     .width(segWidth)
                     .height(42.dp)
-                    .stainedLiquidGlass(shape = thumbShape, baseColor = animatedAccent, shadowElevation = 8.dp),
+                    .liquidGlassLayer(
+                        shape = thumbShape,
+                        tier = LiquidGlassTier.CHROME,
+                        tintOverride = AppColors.SegThumbTint,
+                        borderOverride = Color.White,
+                        shadowElevation = 6.dp,
+                    ),
             )
             Row(modifier = Modifier.fillMaxWidth()) {
                 modes.forEach { mode ->
@@ -126,7 +121,7 @@ fun TammiModeSwitcherCard(
                             .height(42.dp)
                             .clip(thumbShape)
                             .onFocusChanged { focused = it.isFocused }
-                            .tvFocusRing(focused, cornerRadiusDp = 12, onDark = selected)
+                            .tvFocusRing(focused, cornerRadiusDp = 12)
                             .clickable(enabled = enabled) { if (!selected) onSelectMode(mode) }
                             .padding(horizontal = TammiSpacing.sm),
                         contentAlignment = Alignment.Center,
@@ -134,8 +129,8 @@ fun TammiModeSwitcherCard(
                         Text(
                             text = mode.compactTabLabel(),
                             fontSize = 12.5.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (selected) Color.White else AppColors.TextSecondary,
+                            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                            color = if (selected) AppColors.Text else AppColors.Muted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -146,22 +141,21 @@ fun TammiModeSwitcherCard(
     }
 }
 
-/** Viên thuốc chế độ Chrome Liquid Glass (chấm màu phát sáng 2 lớp + tên chế độ, 1 chạm đổi ngay). */
+/** Viên thuốc chế độ **Clear Liquid Glass** trắng mờ thanh lịch (chấm nhỏ + chữ than chì, 1 chạm đổi ngay). */
 @Composable
 fun TammiModeBadgeButton(
     activeMode: AppMode,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    val accent = AppColors.readableAccent(activeMode.orbColor())
+    val dotAccent = activeMode.orbColor()
     var focused by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .liquidGlassLayer(
                 shape = CircleShape,
                 tier = LiquidGlassTier.CHROME,
-                tintOverride = accent.copy(alpha = 0.14f),
-                borderOverride = accent.copy(alpha = 0.38f),
+                borderOverride = AppColors.Border,
                 shadowElevation = 4.dp,
             )
             .onFocusChanged { focused = it.isFocused }
@@ -171,14 +165,12 @@ fun TammiModeBadgeButton(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
     ) {
-        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(accent.copy(alpha = 0.24f)), contentAlignment = Alignment.Center) {
-            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(accent))
-        }
-        Text(activeMode.compactTabLabel(), color = accent, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(dotAccent))
+        Text(activeMode.compactTabLabel(), color = AppColors.Text, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-/** Hộp thoại chọn chuyển 3 chế độ **Chrome Liquid Glass 3D** (không dùng AlertDialog mặc định). */
+/** Hộp thoại chọn chuyển 3 chế độ **Chrome Liquid Glass Sáng** tối giản. */
 @Composable
 fun AppModePickerDialog(
     activeMode: AppMode,
@@ -200,28 +192,28 @@ fun AppModePickerDialog(
                 Spacer(Modifier.height(TammiSpacing.xs))
                 AppMode.entries.forEach { mode ->
                     val selected = mode == activeMode
-                    val accent = AppColors.readableAccent(mode.orbColor())
+                    val dotAccent = mode.orbColor()
                     var focused by remember { mutableStateOf(false) }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(TammiRadii.inputShape)
-                            .background(if (selected) accent.copy(alpha = 0.14f) else AppColors.SurfaceSubtle)
-                            .border(if (selected) 1.5.dp else 1.dp, if (selected) accent else AppColors.Border, TammiRadii.inputShape)
+                            .background(if (selected) AppColors.PrimarySoft else AppColors.SurfaceSubtle)
+                            .border(if (selected) 1.5.dp else 1.dp, if (selected) AppColors.Primary else AppColors.Border, TammiRadii.inputShape)
                             .onFocusChanged { focused = it.isFocused }
                             .tvFocusRing(focused, cornerRadiusDp = 16)
                             .clickable { onDismiss(); if (!selected) onSelectMode(mode) }
                             .padding(horizontal = TammiSpacing.lg, vertical = TammiSpacing.md),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(accent))
+                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(dotAccent))
                         Spacer(Modifier.width(TammiSpacing.md))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(mode.shortLabel, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = if (selected) accent else AppColors.Text)
+                            Text(mode.shortLabel, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = AppColors.Text)
                             Text(mode.subtitle, fontSize = 12.sp, color = AppColors.TextSecondary)
                         }
                         if (selected) {
-                            Text("Đang bật", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = accent)
+                            Text("Đang bật", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = AppColors.Text)
                         }
                     }
                 }
