@@ -25,6 +25,7 @@ internal object ServiceEnhancementsObserver {
 
         scope.launch(Dispatchers.IO) {
             var prevOnline = false
+            var prevWebUrl = ""
             val prevConnectedKeys = mutableSetOf<String>()
             var lastSpokenEventId = -1L
 
@@ -32,6 +33,10 @@ internal object ServiceEnhancementsObserver {
                 val nowOnline = snap.internetStatus == InternetStatus.ONLINE
                 if (nowOnline && !prevOnline) container.appUpdateCoordinator.triggerBackgroundCheckIfDue()
                 prevOnline = nowOnline
+                if (snap.webConsoleUrl.isNotBlank() && snap.webConsoleUrl != prevWebUrl) {
+                    prevWebUrl = snap.webConsoleUrl
+                    scope.launch(Dispatchers.IO) { runCatching { container.refreshHikvisionWebhooks() } }
+                }
 
                 val now = System.currentTimeMillis()
                 val curConnected = snap.devices.filter { it.isConnected }.map { it.config.key }.toSet()

@@ -31,13 +31,9 @@ internal class HikvisionGatewayImpl(
 
     private val enrollment = HikvisionEnrollmentApi(client)
     private val tcpSweeper = HikvisionLanTcpSweeper(client)
+    private val webhookTracker = HikvisionWebhookTracker()
     private val handleSeq = AtomicInteger(HANDLE_OFFSET)
     private val sessions = ConcurrentHashMap<Int, HikSession>()
-    private val webhookEventCount = AtomicInteger(0)
-    private val webhookHeartbeatCount = AtomicInteger(0)
-    @Volatile private var lastWebhookAtMs: Long = 0L
-    @Volatile private var lastWebhookIp: String = ""
-    @Volatile private var lastWebhookSummary: String = ""
 
     private class HikSession(
         val device: DeviceConfig,
@@ -90,34 +86,27 @@ internal class HikvisionGatewayImpl(
         tcpSweeper.sweepSubnet(prefix, excludeIps, localIp)
 
     /** Nhận sự kiện quét mặt/thẻ & heartbeat đẩy trực tiếp từ Hikvision HTTP Listening (`POST /hikvision/event`). */
-    fun onWebhookEvent(remoteIp: String, rawBody: String): Boolean {
-        val now = clockMillis()
-        val cleanIp = remoteIp.trim().removePrefix("::ffff:")
-        val parsed = HikvisionIsapiParser.parseWebhookPayload(rawBody, cleanIp, now)
-        if (parsed == null) {
-            if (rawBody.contains("heartBeat", true) || rawBody.contains("EventNotificationAlert", true) || rawBody.contains("AccessControllerEvent", true)) {
-                webhookHeartbeatCount.incrementAndGet()
-                lastWebhookAtMs = now; lastWebhookIp = cleanIp
-                lastWebhookSummary = if (rawBody.contains("heartBeat", true)) "Heartbeat OK" else "Gói sự kiện hệ thống"
+    fun onWebhookEvent(remoteIp: String, rawBody: String): Boolean =
+        webhookTracker.recordAndRoute(remoteIp, rawBody, clockMillis()) { cleanIp, bodyIp, parsed ->
+            var delivered = false
+            for (session in sessions.values) {
+                val ip = session.device.ip
+                if (ip.equals(cleanIp, true) || (bodyIp.isNotBlank() && ip.equals(bodyIp, true)) || sessions.size == 1) {
+                    session.webhookQueue.offer(parsed); delivered = true
+                }
             }
-            return false
+            delivered
         }
-        webhookEventCount.incrementAndGet()
-        lastWebhookAtMs = now; lastWebhookIp = cleanIp
-        lastWebhookSummary = "#${parsed.employeeNo}${if (parsed.employeeName.isNotBlank()) " ${parsed.employeeName}" else ""}"
-        var delivered = false
-        for (session in sessions.values) {
-            if (session.device.ip.equals(cleanIp, ignoreCase = true) || sessions.size == 1) {
-                session.webhookQueue.offer(parsed); delivered = true
-            }
-        }
-        return delivered
+
+    /** Cập nhật lại đích Webhook trên toàn bộ máy Hikvision đang online khi TV Box đổi IP LAN. */
+    suspend fun refreshConnectedWebhooks() = withContext(Dispatchers.IO) {
+        val (lanIp, webPort) = webhookTargetProvider() ?: return@withContext
+        if (lanIp.isBlank() || webPort <= 0) return@withContext
+        sessions.values.forEach { runCatching { client.registerWebhookHost(it.device, lanIp, webPort) } }
     }
 
     /** Trả thống kê gói tin Webhook đã nhận trực tiếp trên TV Box kể từ khi khởi động dịch vụ. */
-    fun webhookStats(): HikvisionWebhookStats = HikvisionWebhookStats(
-        webhookEventCount.get(), webhookHeartbeatCount.get(), lastWebhookAtMs, lastWebhookIp, lastWebhookSummary,
-    )
+    fun webhookStats(): HikvisionWebhookStats = webhookTracker.snapshot()
 
     override suspend fun disconnect(handle: Int) { sessions.remove(handle) }
     override suspend fun disconnectAll() { sessions.clear() }
@@ -138,9 +127,8 @@ internal class HikvisionGatewayImpl(
         val session = sessions[handle] ?: return@withContext FkResult.fail(FkErrorCode.ERR_NOT_OPEN)
         val now = clockMillis()
         if (now - session.lastClearedAtMs < 1_500L && session.webhookQueue.isEmpty()) return@withContext FkResult.fail(FkErrorCode.ERR_LOG_END)
-        // Thích ứng nhịp quét khi Webhook đang đẩy trực tiếp ổn định (<90s): giãn poll nền lên ~28s giảm 3x tải pin/mạng
-        val webhookActive = lastWebhookAtMs > 0L && (now - lastWebhookAtMs) < WEBHOOK_LIVE_WINDOW_MS &&
-            (lastWebhookIp.equals(session.device.ip, true) || sessions.size == 1)
+        // Thích ứng nhịp quét độc lập theo từng máy khi Webhook đang đẩy trực tiếp ổn định (<90s)
+        val webhookActive = webhookTracker.isActiveForDevice(session.device.ip, sessions.size == 1, now, WEBHOOK_LIVE_WINDOW_MS)
         if (webhookActive && session.webhookQueue.isEmpty() && (now - session.lastPollMs) < WEBHOOK_FALLBACK_POLL_MS) {
             return@withContext FkResult.fail(FkErrorCode.ERR_LOG_END)
         }
@@ -149,8 +137,11 @@ internal class HikvisionGatewayImpl(
             while (true) { collected.add(session.webhookQueue.poll() ?: break) }
             val startMs = maxOf(session.lastPollMs - POLL_OVERLAP_MS, session.baselineMs - CLOCK_DRIFT_GRACE_MS)
             val (res, polled) = client.fetchAccessEvents(session.device, startMs, now + CLOCK_DRIFT_GRACE_MS, now)
-            if (res.isUnauthorized) return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Lỗi xác thực Hikvision (401)")
-            if (!res.isSuccess) return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Lỗi đọc AcsEvent HTTP ${res.statusCode}")
+            if (res.isUnauthorized) return@withContext FkResult.fail(FkErrorCode.ERR_BAD_PARAM, "Sai mật khẩu Hikvision (401) — dừng thử tránh khoá máy 30p")
+            if (!res.isSuccess || HikvisionIsapiParser.isIsapiBodyError(res.body)) {
+                val detail = HikvisionIsapiParser.extractErrorDetail(res.body)
+                return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Lỗi đọc AcsEvent HTTP ${res.statusCode}${if (detail.isNotBlank()) " ($detail)" else ""}")
+            }
 
             collected.addAll(polled); session.lastPollMs = now; onDeviceSynced(session.device.key, now)
             val freshLogs = collected.sortedBy { it.epochMs }.mapNotNull { ev ->
@@ -167,6 +158,7 @@ internal class HikvisionGatewayImpl(
         val session = sessions[handle] ?: return@withContext FkResult.fail(FkErrorCode.ERR_NOT_OPEN)
         try {
             val (res, users) = enrollment.fetchAllUsers(session.device, clockMillis())
+            if (res.isUnauthorized) return@withContext FkResult.fail(FkErrorCode.ERR_BAD_PARAM, "Sai mật khẩu Hikvision (401)")
             if (!res.isSuccess) return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Đọc nhân sự Hikvision lỗi HTTP ${res.statusCode}")
             val creds = users.mapNotNull { u ->
                 val id = u.employeeNo.toIntOrNull() ?: return@mapNotNull null

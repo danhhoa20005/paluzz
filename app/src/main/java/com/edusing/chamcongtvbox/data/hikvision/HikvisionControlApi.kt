@@ -11,14 +11,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONArray
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
 /**
- * Cài đặt trọn bộ tính năng phần cứng chuyên sâu cho Hikvision `DS-K1T320MX` (`V3.9.50+`):
- * sức khoẻ phần cứng, mở cửa, khoá IP tĩnh, nạp ảnh khuôn mặt AI (`FDLib`), chụp Camera, lịch sử & tự định vị IP.
+ * Cài đặt trọn bộ tính năng phần cứng chuyên sâu cho Hikvision `DS-K1T320MX` / `DS-K1T320MFWX`:
+ * sức khoẻ phần cứng, mở cửa, khoá IP tĩnh, nạp & sao chép ảnh khuôn mặt AI (`FDLib`), chụp Camera, lịch sử & Webhook.
  */
 internal class HikvisionControlApi(
     private val client: HikvisionIsapiClient = HikvisionIsapiClient(),
@@ -26,9 +24,10 @@ internal class HikvisionControlApi(
 ) : HikvisionControlGateway {
 
     private val enrollment = HikvisionEnrollmentApi(client)
+    private val faceSync = HikvisionFaceSyncApi(client)
     private val webhookApi = HikvisionWebhookApi(client)
     private val avatarClient = OkHttpClient.Builder()
-        .connectTimeout(6, TimeUnit.SECONDS).readTimeout(8, TimeUnit.SECONDS).build()
+        .connectTimeout(6, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
 
     override suspend fun fetchHealth(device: DeviceConfig): Result<HikvisionHealthStatus> = withContext(Dispatchers.IO) {
         runCatching {
@@ -117,28 +116,14 @@ internal class HikvisionControlApi(
         }
     }
 
-    override suspend fun uploadFacePhoto(device: DeviceConfig, employeeNo: String, jpegBytes: ByteArray): Result<String> = withContext(Dispatchers.IO) {
-        runCatching {
-            require(employeeNo.isNotBlank()) { "Thiếu mã nhân sự" }
-            require(jpegBytes.size in 512..MAX_FACE_BYTES) { "Ảnh mặt phải từ 0.5 KB đến 250 KB (hiện ${jpegBytes.size / 1024} KB)" }
-            val delBody = JSONObject().put("FPID", JSONArray().put(JSONObject().put("value", employeeNo))).toString()
-            runCatching {
-                client.request(device, "PUT", "/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD", delBody)
-            }
-            val (contentType, payload) = buildFaceMultipart(employeeNo, jpegBytes)
-            var (code, respBytes) = client.requestBytes(device, "POST", "/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json", payload, contentType, 15_000)
-            if (code !in 200..299 && code != 401) {
-                val fb = client.requestBytes(device, "PUT", "/ISAPI/Intelligent/FDLib/FDSetUp?format=json", payload, contentType, 15_000)
-                code = fb.first; respBytes = fb.second
-            }
-            val respText = String(respBytes, Charsets.UTF_8)
-            require(code in 200..299) {
-                val detail = HikvisionIsapiParser.extractErrorDetail(respText)
-                "Nạp ảnh mặt lỗi HTTP $code${if (detail.isNotBlank()) " ($detail — chụp rõ chính diện, đủ sáng)" else ""}"
-            }
-            "Đã nạp ảnh khuôn mặt AI thành công cho mã #$employeeNo"
-        }
-    }
+    override suspend fun uploadFacePhoto(device: DeviceConfig, employeeNo: String, jpegBytes: ByteArray): Result<String> =
+        withContext(Dispatchers.IO) { faceSync.uploadFacePhoto(device, employeeNo, jpegBytes) }
+
+    override suspend fun downloadFacePhoto(device: DeviceConfig, employeeNo: String): Result<ByteArray> =
+        withContext(Dispatchers.IO) { faceSync.downloadFacePhoto(device, employeeNo) }
+
+    override suspend fun fetchUserCards(device: DeviceConfig, employeeNo: String): List<String> =
+        withContext(Dispatchers.IO) { faceSync.fetchUserCards(device, employeeNo) }
 
     override suspend fun upsertUserWithOptionalFace(
         device: DeviceConfig, employeeNo: String, fullName: String, cardNo: String, jpegBytes: ByteArray?,
@@ -176,8 +161,10 @@ internal class HikvisionControlApi(
 
     override suspend fun fetchHistoryEvents(device: DeviceConfig, sinceMs: Long, untilMs: Long): Result<List<HikvisionHistoryItem>> = withContext(Dispatchers.IO) {
         runCatching {
-            val (res, events) = client.fetchAccessEvents(device, sinceMs, untilMs, clockMillis(), maxPages = 15)
-            require(res.isSuccess) { "Đọc lịch sử chấm công lỗi HTTP ${res.statusCode}" }
+            val (res, events) = client.fetchAccessEvents(device, sinceMs, untilMs, clockMillis(), maxPages = 50)
+            require(res.isSuccess && !HikvisionIsapiParser.isIsapiBodyError(res.body)) {
+                "Đọc lịch sử chấm công lỗi HTTP ${res.statusCode} ${HikvisionIsapiParser.extractErrorDetail(res.body)}"
+            }
             events.distinctBy { it.eventKey }.sortedByDescending { it.epochMs }.map { e ->
                 HikvisionHistoryItem(
                     timeText = "%02d:%02d:%02d %02d/%02d/%04d".format(e.hour, e.minute, e.second, e.day, e.month, e.year),
@@ -207,8 +194,9 @@ internal class HikvisionControlApi(
         runCatching {
             avatarClient.newCall(Request.Builder().url(url).get().build()).execute().use { res ->
                 if (!res.isSuccessful) return@use null
-                val bytes = res.body?.bytes() ?: return@use null
-                if (bytes.size in 512..MAX_FACE_BYTES) bytes else null
+                val raw = res.body?.bytes() ?: return@use null
+                if (raw.size !in 512..MAX_RAW_AVATAR_BYTES) return@use null
+                HikvisionFaceNormalizer.normalizeToHikvisionJpeg(raw)
             }
         }.getOrNull()
     }
@@ -216,18 +204,6 @@ internal class HikvisionControlApi(
     override suspend fun fetchWebhookConfig(device: DeviceConfig): Result<HikvisionWebhookConfig> = webhookApi.fetchWebhookConfig(device)
     override suspend fun configureWebhook(device: DeviceConfig, config: HikvisionWebhookConfig): Result<String> = webhookApi.configureWebhook(device, config)
     override suspend fun clearWebhook(device: DeviceConfig): Result<String> = webhookApi.clearWebhook(device)
-
-    private fun buildFaceMultipart(employeeNo: String, jpegBytes: ByteArray): Pair<String, ByteArray> {
-        val boundary = "----HikvisionMinMoeBoundary7e9a3c1d"
-        val jsonPart = JSONObject().put("faceLibType", "blackFD").put("FDID", "1").put("FPID", employeeNo).toString()
-        val out = ByteArrayOutputStream(jpegBytes.size + 512)
-        fun write(s: String) = out.write(s.toByteArray(Charsets.UTF_8))
-        write("--$boundary\r\nContent-Disposition: form-data; name=\"FaceDataRecord\"\r\nContent-Type: application/json\r\n\r\n$jsonPart\r\n")
-        write("--$boundary\r\nContent-Disposition: form-data; name=\"FaceImage\"; filename=\"face.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n")
-        out.write(jpegBytes)
-        write("\r\n--$boundary--\r\n")
-        return "multipart/form-data; boundary=$boundary" to out.toByteArray()
-    }
 
     private fun describeMinor(minor: Int): String = when (minor) {
         75, 77, 78, 79, 80 -> "Khuôn mặt"
@@ -243,6 +219,6 @@ internal class HikvisionControlApi(
         Regex("<$tag[^>]*>([\\s\\S]*?)</$tag>", RegexOption.IGNORE_CASE).find(xml)?.groupValues?.getOrNull(1)?.trim().orEmpty()
 
     companion object {
-        private const val MAX_FACE_BYTES = 260_000
+        private const val MAX_RAW_AVATAR_BYTES = 4 * 1024 * 1024
     }
 }

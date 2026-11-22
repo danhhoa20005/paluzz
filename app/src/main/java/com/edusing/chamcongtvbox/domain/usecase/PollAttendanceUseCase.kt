@@ -23,6 +23,7 @@ data class PolledEventItem(
 data class PollDeviceOutcome(
     val deviceKey: String,
     val needsReconnect: Boolean = false,
+    val deviceAuthLocked: Boolean = false,
     val authError: Boolean = false,
     val events: List<PolledEventItem> = emptyList(),
     val recordsRead: Int = 0,
@@ -85,6 +86,10 @@ class PollAttendanceUseCase(
         var commFailed = false
         try {
             val loadRes = deviceGateway.loadGeneralLogData(handle, readMark = true)
+            if (loadRes.code == FkErrorCode.ERR_BAD_PARAM && device.isHikvision) {
+                commFailed = true
+                return PollDeviceOutcome(device.key, deviceAuthLocked = true, error = loadRes.message)
+            }
             if (loadRes.isCommError) {
                 commFailed = true
                 return PollDeviceOutcome(device.key, needsReconnect = true, error = loadRes.message)

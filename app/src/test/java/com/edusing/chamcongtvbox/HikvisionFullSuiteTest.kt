@@ -108,7 +108,7 @@ class HikvisionFullSuiteTest {
                             path.startsWith("/ISAPI/System/reboot") -> {
                                 rebootCalled = true; "<ResponseStatus><statusCode>1</statusCode></ResponseStatus>"
                             }
-                            path.startsWith("/ISAPI/Intelligent/FDLib/FaceDataRecord") -> {
+                            path.startsWith("/ISAPI/Intelligent/FDLib/FDSetUp") || path.startsWith("/ISAPI/Intelligent/FDLib/FaceDataRecord") -> {
                                 faceUploaded = bodyStr.contains("FaceDataRecord") && bodyStr.contains("FaceImage") && bodyStr.contains("001")
                                 """{"statusCode":1,"statusString":"OK"}"""
                             }
@@ -148,7 +148,7 @@ class HikvisionFullSuiteTest {
             val snap = api.captureSnapshot(dev).getOrThrow()
             assertEquals(1024, snap.size)
 
-            val fakeFace = ByteArray(1024) { 0x7F }
+            val fakeFace = ByteArray(1024) { 0x7F }.apply { this[0] = 0xFF.toByte(); this[1] = 0xD8.toByte(); this[2] = 0xFF.toByte() }
             assertTrue(api.uploadFacePhoto(dev, "001", fakeFace).isSuccess)
             assertTrue(faceUploaded)
 

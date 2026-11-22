@@ -28,11 +28,11 @@ internal class HikvisionSyncWatermarkStore(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "chamcong_hik_watermark_v1"
-        private const val MIN_OUTAGE_GAP_MS = 90_000L
+        private const val MIN_OUTAGE_GAP_MS = 35_000L
         private const val MAX_BACKFILL_WINDOW_MS = 12L * 3_600_000L
         private const val OVERLAP_MS = 15_000L
 
-        /** Chỉ trả khung giờ cần đồng bộ bù khi đã có mốc trước đó và gián đoạn thật sự từ 90 giây đến 12 giờ. */
+        /** Chỉ trả khung giờ cần đồng bộ bù khi đã có mốc trước đó và gián đoạn thật sự từ 35 giây đến 12 giờ. */
         fun computeWindow(lastSyncedMs: Long, nowMs: Long): Pair<Long, Long>? {
             if (lastSyncedMs <= 0L || nowMs <= lastSyncedMs) return null
             val gap = nowMs - lastSyncedMs

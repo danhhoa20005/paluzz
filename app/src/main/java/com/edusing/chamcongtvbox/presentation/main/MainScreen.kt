@@ -37,6 +37,7 @@ fun MainScreen(
     onOpenDeviceUsers: () -> Unit,
     onOpenKiosk: () -> Unit,
     onLoggedOut: () -> Unit,
+    onOpenHikControl: ((com.edusing.chamcongtvbox.domain.model.DeviceConfig) -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val ui = rememberDeviceUiSpec()
@@ -94,6 +95,7 @@ fun MainScreen(
                                 onReconnectAll = viewModel::onConnectAllClicked, onRename = viewModel::requestRenameDevice,
                                 onReconnect = { viewModel.onReconnectDevice(it.key) }, onDelete = viewModel::requestDeleteDevice,
                                 onOpenDoor = viewModel::onOpenHikvisionDoor, onBackfillToday = viewModel::onBackfillHikvisionToday,
+                                onOpenHikControl = onOpenHikControl,
                             )
                         }
                     }
@@ -152,6 +154,7 @@ fun MainScreen(
                     onDelete = viewModel::requestDeleteDevice,
                     onOpenDoor = viewModel::onOpenHikvisionDoor,
                     onBackfillToday = viewModel::onBackfillHikvisionToday,
+                    onOpenHikControl = onOpenHikControl,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 LiveActivityPane(

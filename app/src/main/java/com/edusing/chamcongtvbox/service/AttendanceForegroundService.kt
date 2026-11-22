@@ -65,7 +65,7 @@ class AttendanceForegroundService : Service() {
                 container.readDeviceUsersUseCase, container.deleteDeviceUsersUseCase, container.appUpdateCoordinator,
                 hikHandler = WebConsoleHikvisionHandler(
                     container.configRepository, engine, container.deviceGateway, container.hikvisionControlGateway,
-                    container.backfillHikvisionEventsUseCase, { container.activeWebConsolePort }, container::hikvisionWebhookStats,
+                    container.backfillHikvisionEventsUseCase, { container.activeWebConsolePort }, container::hikvisionWebhookStats, container.syncHikvisionFacesUseCase,
                 ),
                 backupAlertHelper = WebConsoleBackupAlertHelper(container.configStore, container.configRepository, engine, container.alertNotifier),
                 onLocalHostChanged = { webConsole?.refreshPublishedUrl() },

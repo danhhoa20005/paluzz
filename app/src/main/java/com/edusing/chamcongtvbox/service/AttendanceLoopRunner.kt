@@ -48,6 +48,7 @@ internal class AttendanceLoopRunner(
     private val onPollFreezeDetected: suspend () -> Unit,
     private val onAuthInvalid: suspend (String) -> Unit,
     private val onNewDayTasks: suspend () -> Unit = {},
+    private val onDeviceAuthLocked: suspend (DeviceConfig, String) -> Unit = { _, _ -> },
 ) {
     private var pollJob: Job? = null
     private var autoReconnectJob: Job? = null
@@ -187,6 +188,9 @@ internal class AttendanceLoopRunner(
             synchronized(offlineBackoffByKey) { offlineBackoffByKey.remove(device.key) }
             val outcome = deviceIoMutex.withLock { pollAttendanceUseCase(handle, device, domain, cfg.accountId, cfg.dedupSeconds) }
             stateStore.update { it.copy(pendingCheckInCount = pollAttendanceUseCase.pendingCount) }
+            if (outcome.deviceAuthLocked) {
+                onDeviceAuthLocked(device, outcome.error ?: "Sai mật khẩu Hikvision (401)"); sendHeartbeatNow(); continue
+            }
             if (outcome.needsReconnect) {
                 stateStore.appendSystemEvent(device.displayName, "-", "Mất tín hiệu (-3), đang nối lại...", EventSeverity.WARNING)
                 reconnectAfterCommError(device); sendHeartbeatNow(); continue

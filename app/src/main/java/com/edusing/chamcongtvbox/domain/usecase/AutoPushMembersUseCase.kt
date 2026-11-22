@@ -51,7 +51,8 @@ class AutoPushMembersUseCase(
         val members = studentsRes.getOrElse { err ->
             return AutoPushRunOutcome(success = false, error = err.message ?: "Không tải được danh sách nhân sự từ web.")
         }
-        val pushable = members.filter { it.cardIdInt != null }
+        val hasHikTarget = targets.any { it.device.isHikvision }
+        val pushable = members.filter { it.isPushableFor(hasHikTarget) }
         if (pushable.isEmpty()) {
             return AutoPushRunOutcome(
                 success = true,

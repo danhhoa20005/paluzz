@@ -9,6 +9,7 @@ import com.edusing.chamcongtvbox.domain.protocol.FkDeviceGateway
 import com.edusing.chamcongtvbox.domain.protocol.HikvisionControlGateway
 import com.edusing.chamcongtvbox.domain.repository.ConfigRepository
 import com.edusing.chamcongtvbox.domain.usecase.BackfillHikvisionEventsUseCase
+import com.edusing.chamcongtvbox.domain.usecase.SyncHikvisionFacesUseCase
 import com.edusing.chamcongtvbox.service.AttendanceEngine
 import org.json.JSONArray
 import org.json.JSONObject
@@ -32,6 +33,7 @@ internal class WebConsoleHikvisionHandler(
     private val backfillUseCase: BackfillHikvisionEventsUseCase,
     activePortProvider: () -> Int = { 8080 },
     webhookStatsProvider: () -> HikvisionWebhookStats = { HikvisionWebhookStats() },
+    private val syncFacesUseCase: SyncHikvisionFacesUseCase? = null,
 ) {
     private val webhookHelper = WebConsoleWebhookHelper(
         configRepository, attendanceEngine, hikControl, activePortProvider, webhookStatsProvider,
@@ -48,6 +50,7 @@ internal class WebConsoleHikvisionHandler(
             path == "/api/hikvision/lock-static-ip" && method == "POST" -> handleLockStaticIp(rawBody)
             path == "/api/hikvision/reboot" && method == "POST" -> handleReboot(rawBody)
             path == "/api/hikvision/backfill" && method == "POST" -> handleBackfill(rawBody)
+            path == "/api/hikvision/sync-faces" && method == "POST" -> handleSyncFaces(rawBody)
             path == "/api/hikvision/face-upload" && method == "POST" -> handleFaceUpload(rawBody)
             path == "/api/hikvision/quick-enroll" && method == "POST" -> handleQuickEnroll(rawBody)
             path == "/api/hikvision/snapshot" && method == "GET" -> handleSnapshot(params["key"].orEmpty())
@@ -134,6 +137,17 @@ internal class WebConsoleHikvisionHandler(
         }.getOrElse { return jsonBad(it.message ?: "Đồng bộ bù thất bại") }
         attendanceEngine.appendLog(dev.displayName, "-", "Đồng bộ bù: ${summary.message}", EventSeverity.SUCCESS)
         return jsonOk(JSONObject().put("ok", true).put("message", summary.message).toString())
+    }
+
+    private suspend fun handleSyncFaces(rawBody: String): WebHttpResponse {
+        val uc = syncFacesUseCase ?: return jsonBad("Chưa hỗ trợ đồng bộ khuôn mặt chéo")
+        val source = findHikDevice(JSONObject(rawBody).optString("key", "")) ?: return jsonBad("Không tìm thấy máy Hikvision nguồn")
+        val targets = configRepository.getConfig().devices.filter { it.isHikvision && it.key != source.key }
+        if (targets.isEmpty()) return jsonBad("Cần có ít nhất 2 máy Hikvision trong danh sách để đồng bộ mặt sang nhau")
+        val summary = attendanceEngine.withDeviceIoLock { uc(source, targets, skipExistingFace = true) }
+            .getOrElse { return jsonBad(it.message ?: "Đồng bộ khuôn mặt thất bại") }
+        attendanceEngine.appendLog(source.displayName, "-", "Đồng bộ mặt: ${summary.message}", if (summary.failed == 0) EventSeverity.SUCCESS else EventSeverity.WARNING)
+        return jsonOk(JSONObject().put("ok", summary.failed == 0).put("message", summary.message).toString())
     }
 
     private suspend fun handleFaceUpload(rawBody: String): WebHttpResponse {

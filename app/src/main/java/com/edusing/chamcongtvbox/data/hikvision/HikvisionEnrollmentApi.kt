@@ -36,11 +36,13 @@ internal class HikvisionEnrollmentApi(
     }
 
     fun upsertUserAndCard(device: DeviceConfig, employeeNo: String, fullName: String, cardNo: String): HikHttpResponse {
+        val cleanNo = employeeNo.trim().take(32)
+        val safeName = fullName.trim().take(32).ifBlank { "NV $cleanNo" }
         val userPayload = JSONObject().put(
             "UserInfo",
             JSONObject()
-                .put("employeeNo", employeeNo)
-                .put("name", fullName.ifBlank { "NV $employeeNo" })
+                .put("employeeNo", cleanNo)
+                .put("name", safeName)
                 .put("userType", "normal")
                 .put("doorRight", "1")
                 .put("RightPlan", JSONArray().put(JSONObject().put("doorNo", 1).put("planTemplateNo", "1")))
@@ -55,13 +57,13 @@ internal class HikvisionEnrollmentApi(
         ).toString()
 
         var userRes = client.request(device, "PUT", "/ISAPI/AccessControl/UserInfo/SetUp?format=json", userPayload)
-        if (!userRes.isSuccess && !userRes.isUnauthorized) {
+        if (!isUserOk(userRes) && !userRes.isUnauthorized) {
             userRes = client.request(device, "POST", "/ISAPI/AccessControl/UserInfo/Record?format=json", userPayload)
-            if (!userRes.isSuccess && !userRes.isUnauthorized) {
+            if (!isUserOk(userRes) && !userRes.isUnauthorized) {
                 userRes = client.request(device, "PUT", "/ISAPI/AccessControl/UserInfo/Modify?format=json", userPayload)
             }
         }
-        if (!userRes.isSuccess) return userRes
+        if (!isUserOk(userRes)) return userRes
 
         val cleanCard = cardNo.trim()
         // Chỉ gắn CardInfo khi mã thẻ thuần chữ số (thẻ từ Mifare); không làm thất bại hồ sơ nếu mã là chữ (NV01) hoặc thẻ đã tồn tại
@@ -69,19 +71,22 @@ internal class HikvisionEnrollmentApi(
             val cardPayload = JSONObject().put(
                 "CardInfo",
                 JSONObject()
-                    .put("employeeNo", employeeNo)
+                    .put("employeeNo", cleanNo)
                     .put("cardNo", cleanCard)
                     .put("cardType", "normalCard"),
             ).toString()
             runCatching {
                 val cardRes = client.request(device, "PUT", "/ISAPI/AccessControl/CardInfo/SetUp?format=json", cardPayload)
-                if (!cardRes.isSuccess && !cardRes.isUnauthorized) {
+                if (!isUserOk(cardRes) && !cardRes.isUnauthorized) {
                     client.request(device, "POST", "/ISAPI/AccessControl/CardInfo/Record?format=json", cardPayload)
                 }
             }
         }
         return userRes
     }
+
+    private fun isUserOk(res: HikHttpResponse): Boolean =
+        res.isSuccess && !HikvisionIsapiParser.isIsapiBodyError(res.body)
 
     fun deleteUser(device: DeviceConfig, employeeNo: String): HikHttpResponse {
         val payload = JSONObject().put(

@@ -130,6 +130,7 @@
         <button class="ghost" onclick="hikLockIp()">Khoá IP tĩnh</button>
         <button onclick="hikPost('/api/hikvision/backfill',{hours:0})">Đồng bộ bù hôm nay</button>
         <button class="ghost" onclick="hikPost('/api/hikvision/backfill',{hours:6})">Bù 6 giờ qua</button>
+        <button class="ok" onclick="hikSyncFaces()">Đồng bộ mặt sang máy khác</button>
         <button class="ghost" onclick="toggleCamera()">Xem Camera</button>
         <button class="ghost" onclick="exportHikCsv()">Tải Excel/CSV</button>
         <button class="err" onclick="hikReboot()">Khởi động lại</button>
@@ -495,6 +496,7 @@ async function hikPost(path, extra={}){
 }
 function hikDoor(cmd){hikPost('/api/hikvision/door',{cmd});}
 function hikLockIp(){if(confirm('Khoá cố định IP hiện tại sang IP tĩnh (tắt DHCP) trên máy Hikvision?')) hikPost('/api/hikvision/lock-static-ip').then(loadHikHealth);}
+function hikSyncFaces(){if(confirm('Sao chép toàn bộ ảnh khuôn mặt AI + thẻ từ máy này sang các máy Hikvision khác (chỉ chép người còn thiếu)?')){toast('Đang đồng bộ khuôn mặt giữa các máy Hikvision...');hikPost('/api/hikvision/sync-faces');}}
 function hikReboot(){if(confirm('Khởi động lại máy chấm công Hikvision? (Máy sẽ offline ~30 giây)')) hikPost('/api/hikvision/reboot');}
 function exportHikCsv(){
   const key=curHikKey(); if(!key){toast('Chưa có máy Hikvision');return;}

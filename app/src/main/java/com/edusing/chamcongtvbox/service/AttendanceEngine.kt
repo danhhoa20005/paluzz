@@ -80,6 +80,7 @@ class AttendanceEngine(
         onPollFreezeDetected = { recoverFromPollFreeze() },
         onAuthInvalid = ::handleForceRelogin,
         onNewDayTasks = { onNewDaySync(configRepository.getConfig().devices) },
+        onDeviceAuthLocked = { dev, msg -> connManager.markAuthLocked(dev, msg) },
     )
 
     private val discoveryCoordinator: DeviceDiscoveryCoordinator = DeviceDiscoveryCoordinator(

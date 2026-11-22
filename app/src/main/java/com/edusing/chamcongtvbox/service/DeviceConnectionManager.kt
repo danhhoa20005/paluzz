@@ -113,6 +113,16 @@ internal class DeviceConnectionManager(
         disconnectSingleLocked(deviceKey)
     }
 
+    /** Khoá ngay phiên Hikvision khi gặp 401 giữa chừng (đổi mật khẩu trên máy) — không thử lại tránh khoá máy 30 phút. */
+    suspend fun markAuthLocked(device: DeviceConfig, reason: String) = connectMutex.withLock {
+        authLockedKeys.add(device.key)
+        handlesByKey.remove(device.key)?.let { runCatching { deviceGateway.disconnect(it) } }
+        stateStore.updateDevice(device.key) {
+            it.copy(state = DeviceConnectionState.ERROR, statusText = "Sai mật khẩu — bấm Sửa để cập nhật", lastError = reason)
+        }
+        stateStore.appendSystemEvent(device.displayName, "-", "Dừng tự nối lại (401): $reason", EventSeverity.ERROR)
+    }
+
     suspend fun disconnectAll() = connectMutex.withLock {
         handlesByKey.clear()
         authLockedKeys.clear()

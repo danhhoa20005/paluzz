@@ -1,0 +1,248 @@
+package com.edusing.chamcongtvbox.presentation.main
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.edusing.chamcongtvbox.di.AppContainer
+import com.edusing.chamcongtvbox.domain.model.BatchProgress
+import com.edusing.chamcongtvbox.domain.model.DeviceConfig
+import com.edusing.chamcongtvbox.domain.model.EventSeverity
+import com.edusing.chamcongtvbox.domain.model.HikvisionDoorCommand
+import com.edusing.chamcongtvbox.domain.model.HikvisionHealthStatus
+import com.edusing.chamcongtvbox.domain.model.HikvisionWebhookConfig
+import com.edusing.chamcongtvbox.presentation.components.TammiBadgeTone
+import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
+import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
+import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
+import com.edusing.chamcongtvbox.presentation.components.TvActionButton
+import com.edusing.chamcongtvbox.presentation.theme.AppColors
+import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+/**
+ * Trung tâm quản trị phần cứng chuyên sâu cho máy Hikvision (`DS-K1T320MX` / `MFWX`) ngay trên App TV Box & Điện thoại:
+ * sức khoẻ bộ nhớ/mạng/cửa, gắn Webhook 1 chạm, đồng bộ giờ VN, khoá IP tĩnh, khởi động lại & nhân bản khuôn mặt sang máy khác.
+ */
+@Composable
+internal fun HikvisionControlDialog(
+    device: DeviceConfig,
+    otherOnlineHikDevices: List<DeviceConfig>,
+    container: AppContainer,
+    onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val ctrl = container.hikvisionControlGateway
+    var health by remember(device.key) { mutableStateOf<HikvisionHealthStatus?>(null) }
+    var webhook by remember(device.key) { mutableStateOf<HikvisionWebhookConfig?>(null) }
+    var busy by remember { mutableStateOf(true) }
+    var confirmReboot by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    var faceProgress by remember { mutableStateOf<BatchProgress?>(null) }
+    val stats = container.hikvisionWebhookStats()
+    val localIp = remember { LocalWebConsoleServer.detectLanIpv4() }
+    val localPort = container.activeWebConsolePort.takeIf { it > 0 } ?: 8080
+
+    fun reloadAll() {
+        scope.launch(Dispatchers.IO) {
+            busy = true
+            health = ctrl.fetchHealth(device).getOrElse { err ->
+                notice = (err.message ?: "Không đọc được thông số máy") to false; null
+            }
+            webhook = ctrl.fetchWebhookConfig(device).getOrNull()
+            busy = false
+        }
+    }
+
+    fun runAction(block: suspend () -> Result<String>) {
+        scope.launch(Dispatchers.IO) {
+            busy = true; notice = null; confirmReboot = false
+            block().fold(
+                onSuccess = { msg ->
+                    notice = msg to true
+                    container.attendanceEngine.appendLog(device.displayName, "-", msg, EventSeverity.SUCCESS)
+                    reloadAll()
+                },
+                onFailure = { err ->
+                    val m = err.message ?: "Thao tác thất bại"
+                    notice = m to false
+                    container.attendanceEngine.appendLog(device.displayName, "-", m, EventSeverity.ERROR)
+                    busy = false
+                },
+            )
+        }
+    }
+
+    LaunchedEffect(device.key) { reloadAll() }
+
+    Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        TammiGlassPanel(
+            modifier = Modifier.fillMaxWidth(0.94f).heightIn(max = 680.dp),
+            borderColor = AppColors.Primary.copy(alpha = 0.35f),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Quản trị Hikvision • ${device.displayName}", fontSize = 17.sp, fontWeight = FontWeight.Black, color = AppColors.Text)
+                    val meta = health?.let { "${it.model} • ${it.firmwareVersion.ifBlank { "ISAPI" }}" } ?: "Đang đọc thông số phần cứng..."
+                    Text("${device.ip}:${device.port} • $meta", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = AppColors.TextSecondary)
+                }
+                TammiOutlinedButton("Đọc lại", enabled = !busy, compact = true, contentColor = AppColors.Primary, onClick = { reloadAll() })
+            }
+
+            if (busy && faceProgress == null) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(3.dp), color = AppColors.Primary)
+
+            health?.let { h ->
+                Column(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AppColors.SurfaceSubtle)
+                        .border(1.dp, AppColors.Border.copy(alpha = 0.5f), RoundedCornerShape(12.dp)).padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    InfoLine("Bộ nhớ", "${h.userCount} người • ${h.faceCount}/${h.maxFaceCapacity} mặt • ${h.cardCount} thẻ")
+                    InfoLine("Mạng IP", if (h.isDhcp) "${h.ipAddress} (DHCP — nên khoá tĩnh)" else "${h.ipAddress} (IP tĩnh OK)", if (h.isDhcp) AppColors.AmberText else AppColors.GreenText)
+                    InfoLine("Giờ máy", h.deviceTimeText.ifBlank { "—" })
+                    InfoLine("Chống cạy vỏ", if (h.antiDismantleAlert) "CẢNH BÁO ĐANG BỊ MỞ VỎ!" else "An toàn • Cửa ${if (h.doorLocked) "đang khoá" else "đang mở"}", if (h.antiDismantleAlert) AppColors.Red else AppColors.Text)
+                }
+            }
+
+            HorizontalDivider(color = AppColors.Line.copy(alpha = 0.5f))
+            val wh = webhook
+            val pointsHere = wh != null && wh.enabled && wh.hostOrIp.equals(localIp, true) && wh.port == localPort
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Webhook tức thì (< 0.5s)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppColors.Text)
+                TammiStatusPill(
+                    label = when {
+                        pointsHere -> "Đang trỏ về máy này"
+                        wh?.enabled == true -> "Trỏ máy chủ khác"
+                        else -> "Chưa bật"
+                    },
+                    tone = if (pointsHere) TammiBadgeTone.SUCCESS else if (wh?.enabled == true) TammiBadgeTone.INFO else TammiBadgeTone.WARNING,
+                )
+            }
+            Text("Đích trên máy: ${wh?.summaryUrl ?: "—"} • Nhận: ${stats.eventCount} lượt / ${stats.heartbeatCount} nhịp", fontSize = 12.sp, color = AppColors.TextSecondary)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TvActionButton(
+                    text = "Gắn Webhook về máy này", containerColor = AppColors.Green, enabled = !busy && localIp.isNotBlank(), compact = true, modifier = Modifier.weight(1.3f),
+                    onClick = { runAction { ctrl.configureWebhook(device, HikvisionWebhookConfig(true, "HTTP", "ipaddress", localIp, localPort, "/hikvision/event")) } },
+                )
+                TammiOutlinedButton(
+                    text = "Tắt Webhook", enabled = !busy, compact = true, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.35f), modifier = Modifier.weight(0.9f),
+                    onClick = { runAction { ctrl.clearWebhook(device) } },
+                )
+            }
+
+            HorizontalDivider(color = AppColors.Line.copy(alpha = 0.5f))
+            Text("Điều khiển phần cứng", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppColors.Text)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TvActionButton(
+                    text = "Mở cửa", containerColor = AppColors.Green, enabled = !busy, compact = true, modifier = Modifier.weight(1f),
+                    onClick = { runAction { ctrl.controlDoor(device, HikvisionDoorCommand.OPEN) } },
+                )
+                TammiOutlinedButton(
+                    text = "Đồng bộ giờ VN", enabled = !busy, compact = true, contentColor = AppColors.Primary, modifier = Modifier.weight(1f),
+                    onClick = { runAction { ctrl.syncVietnamTime(device) } },
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TammiOutlinedButton(
+                    text = "Khoá IP tĩnh", enabled = !busy, compact = true, contentColor = AppColors.OrbCobalt, modifier = Modifier.weight(1f),
+                    onClick = { runAction { ctrl.lockStaticIp(device) } },
+                )
+                if (confirmReboot) {
+                    TvActionButton(
+                        text = "Xác nhận khởi động lại", containerColor = AppColors.Red, enabled = !busy, compact = true, modifier = Modifier.weight(1f),
+                        onClick = { runAction { ctrl.rebootDevice(device) } },
+                    )
+                } else {
+                    TammiOutlinedButton(
+                        text = "Khởi động lại", enabled = !busy, compact = true, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.35f), modifier = Modifier.weight(1f),
+                        onClick = { confirmReboot = true },
+                    )
+                }
+            }
+
+            if (otherOnlineHikDevices.isNotEmpty()) {
+                HorizontalDivider(color = AppColors.Line.copy(alpha = 0.5f))
+                Text("Nhân bản khuôn mặt sang máy khác", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppColors.Text)
+                Text("Sao chép ảnh khuôn mặt AI + thẻ từ ${device.displayName} sang ${otherOnlineHikDevices.size} máy Hikvision đang online (chỉ chép người còn thiếu).", fontSize = 12.sp, color = AppColors.TextSecondary)
+                faceProgress?.let { p ->
+                    val frac = if (p.total > 0) p.completed.toFloat() / p.total else 0f
+                    Text("${p.currentLabel} (${p.completed}/${p.total})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                    LinearProgressIndicator(progress = { frac.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(4.dp)), color = AppColors.Primary)
+                }
+                TvActionButton(
+                    text = "Đồng bộ mặt sang ${otherOnlineHikDevices.size} máy Hikvision khác",
+                    containerColor = AppColors.OrbCobalt, enabled = !busy, compact = true, modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        scope.launch(Dispatchers.IO) {
+                            busy = true; notice = null
+                            val res = container.attendanceEngine.withDeviceIoLock {
+                                container.syncHikvisionFacesUseCase(device, otherOnlineHikDevices, skipExistingFace = true) { faceProgress = it }
+                            }
+                            faceProgress = null
+                            res.fold(
+                                onSuccess = { s ->
+                                    notice = s.message to (s.failed == 0)
+                                    container.attendanceEngine.appendLog(device.displayName, "-", "Đồng bộ mặt: ${s.message}", if (s.failed == 0) EventSeverity.SUCCESS else EventSeverity.WARNING)
+                                },
+                                onFailure = { e -> notice = (e.message ?: "Đồng bộ khuôn mặt lỗi") to false },
+                            )
+                            busy = false
+                        }
+                    },
+                )
+            }
+
+            notice?.let { (msg, ok) ->
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (ok) AppColors.GreenSoft else AppColors.RedSoft).padding(10.dp)) {
+                    Text(msg, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (ok) AppColors.GreenText else AppColors.Red)
+                }
+            }
+
+            Spacer(Modifier.height(2.dp))
+            TammiOutlinedButton("Đóng", enabled = !busy, compact = true, contentColor = AppColors.Text, onClick = onDismiss, modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoLine(label: String, value: String, valueColor: androidx.compose.ui.graphics.Color = AppColors.Text) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, fontSize = 12.5.sp, color = AppColors.TextSecondary, fontWeight = FontWeight.SemiBold)
+        Text(value, fontSize = 12.5.sp, color = valueColor, fontWeight = FontWeight.Bold)
+    }
+}

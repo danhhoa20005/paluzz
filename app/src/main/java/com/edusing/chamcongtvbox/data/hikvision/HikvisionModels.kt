@@ -51,4 +51,14 @@ internal data class HikParsedEvent(
 internal data class HikAcsEventPage(
     val totalMatches: Int,
     val events: List<HikParsedEvent>,
-)
+    val numOfMatches: Int = events.size,
+    val rawItemCount: Int = events.size,
+    val responseStatusStrg: String = "",
+) {
+    /** Số bản ghi thực sự cần cộng vào `searchResultPosition` cho trang kế tiếp (chuẩn firmware V3.2–V3.9+). */
+    val pageAdvance: Int get() = maxOf(rawItemCount, numOfMatches)
+    val hasMoreHint: Boolean get() = responseStatusStrg.equals("MORE", ignoreCase = true)
+    val isExplicitEnd: Boolean
+        get() = responseStatusStrg.equals("OK", ignoreCase = true) ||
+            responseStatusStrg.equals("NO MATCH", ignoreCase = true)
+}

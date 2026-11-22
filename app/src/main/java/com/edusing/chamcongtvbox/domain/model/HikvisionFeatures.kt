@@ -93,3 +93,12 @@ data class BackfillSummary(
     val failed: Int,
     val message: String,
 )
+
+/** Kết quả sao chép hồ sơ + thẻ + ảnh khuôn mặt AI từ máy Hikvision nguồn sang các máy Hikvision khác. */
+data class FaceSyncSummary(
+    val sourceFaceCount: Int,
+    val synced: Int,
+    val skippedExisting: Int,
+    val failed: Int,
+    val message: String,
+)

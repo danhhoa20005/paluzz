@@ -52,6 +52,7 @@ import com.edusing.chamcongtvbox.domain.usecase.ReadDeviceUsersUseCase
 import com.edusing.chamcongtvbox.domain.usecase.ScanLanDevicesUseCase
 import com.edusing.chamcongtvbox.domain.usecase.SendHeartbeatUseCase
 import com.edusing.chamcongtvbox.domain.usecase.SuggestFreeIpUseCase
+import com.edusing.chamcongtvbox.domain.usecase.SyncHikvisionFacesUseCase
 import com.edusing.chamcongtvbox.domain.usecase.ValidateCredentialsUseCase
 import com.edusing.chamcongtvbox.service.AlertNotifier
 import com.edusing.chamcongtvbox.service.AppUpdateCoordinator
@@ -122,6 +123,7 @@ class AppContainer(appContext: Context) {
     }
 
     fun hikvisionWebhookStats(): HikvisionWebhookStats = hikvisionGateway.webhookStats()
+    suspend fun refreshHikvisionWebhooks() = hikvisionGateway.refreshConnectedWebhooks()
 
     /** Tự đồng bộ bù lượt chấm công Hikvision bị gián đoạn trong lúc mất điện / rớt mạng (>= 90 giây). */
     suspend fun autoBackfillHikvisionIfOutage(device: com.edusing.chamcongtvbox.domain.model.DeviceConfig) {
@@ -185,6 +187,7 @@ class AppContainer(appContext: Context) {
     )
     val deleteDeviceUsersUseCase = DeleteDeviceUsersUseCase(deviceGateway, hikvisionControlGateway)
     val backfillHikvisionEventsUseCase = BackfillHikvisionEventsUseCase(hikvisionControlGateway, attendanceRepository)
+    val syncHikvisionFacesUseCase = SyncHikvisionFacesUseCase(hikvisionControlGateway)
     val exportMemberListDocUseCase = ExportMemberListDocUseCase(
         exportRepository = exportRepository,
         abbreviateNamesUseCase = abbreviateNamesUseCase,

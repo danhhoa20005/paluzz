@@ -56,12 +56,60 @@ internal object HikvisionIsapiParser {
         val root = JSONObject(jsonText)
         val wrapper = root.optJSONObject("AcsEvent") ?: root
         val total = wrapper.optInt("totalMatches", 0)
-        val list = wrapper.optJSONArray("InfoList") ?: return HikAcsEventPage(total, emptyList())
+        val numMatches = wrapper.optInt("numOfMatches", 0)
+        val statusStrg = wrapper.optString("responseStatusStrg", "").trim()
+        val list = wrapper.optJSONArray("InfoList") ?: return HikAcsEventPage(total, emptyList(), numMatches, 0, statusStrg)
         val events = mutableListOf<HikParsedEvent>()
         for (i in 0 until list.length()) {
             list.optJSONObject(i)?.let { parseSingleEvent(it, deviceKeySeed, fallbackNowMs)?.let(events::add) }
         }
-        return HikAcsEventPage(totalMatches = total, events = events)
+        return HikAcsEventPage(total, events, numMatches, list.length(), statusStrg)
+    }
+
+    /** Trích xuất `faceURL` từ phản hồi `/ISAPI/Intelligent/FDLib/FDSearch?format=json` để sao chép khuôn mặt giữa nhiều máy. */
+    fun parseFaceUrl(jsonText: String): String? = runCatching {
+        val root = JSONObject(jsonText.trim())
+        val list = root.optJSONArray("MatchList") ?: return@runCatching null
+        for (i in 0 until list.length()) {
+            val url = list.optJSONObject(i)?.optString("faceURL", "")?.trim().orEmpty()
+            if (url.isNotEmpty()) return@runCatching url
+        }
+        null
+    }.getOrNull()
+
+    /** Trích xuất danh sách `cardNo` từ phản hồi `/ISAPI/AccessControl/CardInfo/Search?format=json`. */
+    fun parseCardNumbers(jsonText: String): List<String> = runCatching {
+        val root = JSONObject(jsonText.trim())
+        val wrap = root.optJSONObject("CardInfoSearch") ?: root
+        val raw = wrap.opt("CardInfo")
+        val out = mutableListOf<String>()
+        when (raw) {
+            is JSONArray -> for (i in 0 until raw.length()) {
+                raw.optJSONObject(i)?.optString("cardNo", "")?.trim()?.takeIf { it.isNotEmpty() }?.let(out::add)
+            }
+            is JSONObject -> raw.optString("cardNo", "").trim().takeIf { it.isNotEmpty() }?.let(out::add)
+        }
+        out.distinct()
+    }.getOrDefault(emptyList())
+
+    /** Phát hiện trường hợp máy Hikvision trả HTTP 200 nhưng body JSON/XML báo lỗi nghiệp vụ (`statusCode > 1`). */
+    fun isIsapiBodyError(bodyText: String): Boolean {
+        val trimmed = bodyText.trim()
+        if (trimmed.isEmpty()) return false
+        if (trimmed.startsWith("{")) {
+            return runCatching {
+                val obj = JSONObject(trimmed)
+                val code = obj.optInt("statusCode", 1)
+                val sub = obj.optString("subStatusCode", "").trim()
+                code > 1 && !sub.equals("ok", ignoreCase = true)
+            }.getOrDefault(false)
+        }
+        if (trimmed.contains("<ResponseStatus", ignoreCase = true)) {
+            val code = extractXmlTag(trimmed, "statusCode").toIntOrNull() ?: 1
+            val sub = extractXmlTag(trimmed, "subStatusCode")
+            return code > 1 && !sub.equals("ok", ignoreCase = true)
+        }
+        return false
     }
 
     /** Giải mã gói đẩy tức thì từ `HTTP Listening` (`POST /hikvision/event`), miễn nhiễm ảnh JPEG nối sau. */
@@ -88,16 +136,41 @@ internal object HikvisionIsapiParser {
 
     fun extractErrorDetail(bodyText: String): String {
         val trimmed = bodyText.trim()
-        if (trimmed.startsWith("{")) {
+        val rawCode = if (trimmed.startsWith("{")) {
             runCatching {
                 val obj = JSONObject(trimmed)
-                return obj.optString("subStatusCode", "")
+                obj.optString("subStatusCode", "")
                     .ifBlank { obj.optString("errorMsg", "") }
                     .ifBlank { obj.optString("statusString", "") }
-            }
+            }.getOrDefault("")
+        } else {
+            extractXmlTag(trimmed, "subStatusCode").ifBlank { extractXmlTag(trimmed, "statusString") }
         }
-        return extractXmlTag(trimmed, "subStatusCode").ifBlank { extractXmlTag(trimmed, "statusString") }
+        return translateIsapiError(rawCode)
     }
+
+    /** Chuyển mã lỗi kỹ thuật ISAPI sang thông báo tiếng Việt dễ hiểu cho người vận hành. */
+    fun translateIsapiError(rawCode: String): String {
+        val clean = rawCode.trim()
+        if (clean.isEmpty()) return ""
+        return when (clean.lowercase()) {
+            "devicebusy", "busy" -> "Máy đang bận (đang mở menu Admin)"
+            "operationdenied", "nopermission" -> "Không đủ quyền thao tác (kiểm tra tài khoản admin)"
+            "picanalysisfailed", "facemodelingfailed", "facefeatureextractfailed" -> "Không nhận diện được khuôn mặt trong ảnh (cần chụp rõ chính diện, đủ sáng)"
+            "picsizetoolarge", "pictoobig" -> "Ảnh vượt quá dung lượng cho phép (< 200 KB)"
+            "usernotexist", "employeeidnotexist" -> "Nhân sự chưa tồn tại trên máy"
+            "cardnoalreadyexist" -> "Mã thẻ đã tồn tại"
+            "maxusernum", "full" -> "Bộ nhớ máy đã đầy"
+            "badparameters", "invalidformat" -> "Tham số dữ liệu không hợp lệ ($clean)"
+            else -> clean
+        }
+    }
+
+    /** Trích địa chỉ IPv4 nằm trong gói Webhook JSON của Hikvision (hữu ích khi chạy qua cầu nối/NAT). */
+    fun extractWebhookSourceIp(rawPayload: String): String = runCatching {
+        val slice = extractFirstBalancedJsonObject(rawPayload) ?: return@runCatching ""
+        JSONObject(slice).optString("ipAddress", "").trim()
+    }.getOrDefault("")
 
     private fun parseSingleEvent(raw: JSONObject, seed: String, fallbackNowMs: Long): HikParsedEvent? {
         val major = if (raw.has("major")) raw.optInt("major", 5) else raw.optInt("majorEventType", 5)

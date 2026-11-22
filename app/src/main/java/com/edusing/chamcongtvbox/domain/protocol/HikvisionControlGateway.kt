@@ -19,6 +19,9 @@ interface HikvisionControlGateway {
     suspend fun rebootDevice(device: DeviceConfig): Result<String>
     suspend fun captureSnapshot(device: DeviceConfig): Result<ByteArray>
     suspend fun uploadFacePhoto(device: DeviceConfig, employeeNo: String, jpegBytes: ByteArray): Result<String>
+    suspend fun downloadFacePhoto(device: DeviceConfig, employeeNo: String): Result<ByteArray> =
+        Result.failure(UnsupportedOperationException("Chưa hỗ trợ tải khuôn mặt"))
+    suspend fun fetchUserCards(device: DeviceConfig, employeeNo: String): List<String> = emptyList()
     suspend fun upsertUserWithOptionalFace(
         device: DeviceConfig,
         employeeNo: String,

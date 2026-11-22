@@ -69,14 +69,16 @@ internal class HikvisionIsapiClient(
     fun registerWebhookHost(device: DeviceConfig, listenerIp: String, listenerPort: Int): HikHttpResponse {
         val current = runCatching { request(device, "GET", "/ISAPI/Event/notification/httpHosts/1", timeoutMs = 3_000) }.getOrNull()
         if (current != null && current.isSuccess) {
-            val curIp = Regex("<ipAddress>([^<]*)</ipAddress>", RegexOption.IGNORE_CASE).find(current.body)?.groupValues?.getOrNull(1)?.trim().orEmpty()
-            val curUrl = Regex("<url>([^<]*)</url>", RegexOption.IGNORE_CASE).find(current.body)?.groupValues?.getOrNull(1)?.trim().orEmpty()
-            val isOwnedOrEmpty = curIp.isEmpty() || curIp == "0.0.0.0" || curUrl.equals("/hikvision/event", ignoreCase = true)
+            val cur = HikvisionWebhookApi.parseWebhookXml(current.body)
+            val alreadyMatches = cur.enabled && cur.hostOrIp.equals(listenerIp, true) &&
+                cur.port == listenerPort && cur.url.trimEnd('/').equals("/hikvision/event", true)
+            if (alreadyMatches) return current
+            val isOwnedOrEmpty = !cur.enabled || cur.url.trimEnd('/').equals("/hikvision/event", true)
             if (!isOwnedOrEmpty) return current
         }
         val fullXml = HikvisionWebhookApi.buildWebhookXml("HTTP", "ipaddress", listenerIp, listenerPort, "/hikvision/event", includeSubscribe = true)
         val first = request(device, "PUT", "/ISAPI/Event/notification/httpHosts/1", body = fullXml, contentType = XML_MEDIA, timeoutMs = 4_000)
-        if (first.isSuccess || first.isUnauthorized) return first
+        if ((first.isSuccess && !HikvisionIsapiParser.isIsapiBodyError(first.body)) || first.isUnauthorized) return first
         val simpleXml = HikvisionWebhookApi.buildWebhookXml("HTTP", "ipaddress", listenerIp, listenerPort, "/hikvision/event", includeSubscribe = false)
         return request(device, "PUT", "/ISAPI/Event/notification/httpHosts/1", body = simpleXml, contentType = XML_MEDIA, timeoutMs = 4_000)
     }
@@ -106,13 +108,27 @@ internal class HikvisionIsapiClient(
             ).toString()
             val res = request(device, "POST", "/ISAPI/AccessControl/AcsEvent?format=json", body = payload)
             lastRes = res
-            if (!res.isSuccess) return res to emptyList()
+            if (!res.isSuccess || HikvisionIsapiParser.isIsapiBodyError(res.body)) return res to emptyList()
             val parsed = HikvisionIsapiParser.parseAcsEvents(res.body, device.ip, nowMs)
             collected.addAll(parsed.events)
-            pos += PAGE_SIZE
-            if (pos >= parsed.totalMatches || parsed.totalMatches == 0) break
+            val advance = parsed.pageAdvance
+            if (advance <= 0 || parsed.isExplicitEnd) break
+            pos += advance
+            if (!parsed.hasMoreHint && (parsed.totalMatches == 0 || pos >= parsed.totalMatches)) break
         }
         return lastRes to collected
+    }
+
+    /** Tải ảnh khuôn mặt từ `faceURL` trả về bởi `FDLib/FDSearch` (hỗ trợ cả đường dẫn tương đối lẫn URL đầy đủ). */
+    @Throws(IOException::class)
+    fun downloadFaceUrlBytes(device: DeviceConfig, faceUrl: String, timeoutMs: Int = 10_000): Pair<Int, ByteArray> {
+        val trimmed = faceUrl.trim()
+        val path = if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)) {
+            val afterScheme = trimmed.substringAfter("://")
+            val slash = afterScheme.indexOf('/')
+            if (slash >= 0) afterScheme.substring(slash) else "/"
+        } else if (trimmed.startsWith("/")) trimmed else "/$trimmed"
+        return requestBytes(device, "GET", path, timeoutMs = timeoutMs)
     }
 
     @Throws(IOException::class)

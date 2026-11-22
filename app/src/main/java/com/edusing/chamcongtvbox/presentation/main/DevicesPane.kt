@@ -54,6 +54,7 @@ internal fun DevicesPane(
     onAddDevice: (() -> Unit)? = null,
     onOpenDoor: ((DeviceConfig) -> Unit)? = null,
     onBackfillToday: ((DeviceConfig) -> Unit)? = null,
+    onOpenHikControl: ((DeviceConfig) -> Unit)? = null,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
         Row(
@@ -107,20 +108,13 @@ internal fun DevicesPane(
             }
         } else {
             devices.forEach { item ->
+                val isHikOnline = item.config.isHikvision && item.isConnected
                 TerminalCard(
-                    item = item,
-                    isRunning = isRunning,
-                    isBusy = isBusy,
-                    isTv = isTv,
-                    onRename = { onRename(item.config) },
-                    onReconnect = { onReconnect(item.config) },
-                    onDelete = { onDelete(item.config) },
-                    onOpenDoor = if (item.config.isHikvision && item.isConnected && onOpenDoor != null) {
-                        { onOpenDoor(item.config) }
-                    } else null,
-                    onBackfillToday = if (item.config.isHikvision && item.isConnected && onBackfillToday != null) {
-                        { onBackfillToday(item.config) }
-                    } else null,
+                    item = item, isRunning = isRunning, isBusy = isBusy, isTv = isTv,
+                    onRename = { onRename(item.config) }, onReconnect = { onReconnect(item.config) }, onDelete = { onDelete(item.config) },
+                    onOpenDoor = if (isHikOnline && onOpenDoor != null) ({ onOpenDoor(item.config) }) else null,
+                    onBackfillToday = if (isHikOnline && onBackfillToday != null) ({ onBackfillToday(item.config) }) else null,
+                    onOpenHikControl = if (isHikOnline && onOpenHikControl != null) ({ onOpenHikControl(item.config) }) else null,
                 )
             }
         }
@@ -138,6 +132,7 @@ private fun TerminalCard(
     onDelete: () -> Unit,
     onOpenDoor: (() -> Unit)? = null,
     onBackfillToday: (() -> Unit)? = null,
+    onOpenHikControl: (() -> Unit)? = null,
 ) {
     val (accentColor, pillLabel, pillTone) = when (item.state) {
         DeviceConnectionState.CONNECTED -> Triple(AppColors.GreenBright, "Online", TammiBadgeTone.SUCCESS)
@@ -176,11 +171,12 @@ private fun TerminalCard(
 
         Spacer(Modifier.height(12.dp))
 
-        // Hàng nhanh riêng cho Hikvision online (Mở cửa + Đồng bộ bù hôm nay) để tránh chật nút trên màn hình nhỏ
-        if (onOpenDoor != null || onBackfillToday != null) {
+        // Hàng nhanh riêng cho Hikvision online (Mở cửa + Bù hôm nay + Quản trị phần cứng)
+        if (onOpenDoor != null || onBackfillToday != null || onOpenHikControl != null) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (onOpenDoor != null) TvActionButton(text = "Mở cửa", containerColor = AppColors.Green, enabled = !isBusy, compact = true, onClick = onOpenDoor, modifier = Modifier.weight(1f))
-                if (onBackfillToday != null) TvActionButton(text = "Bù lượt hôm nay", containerColor = AppColors.OrbCobalt, enabled = !isBusy, compact = true, onClick = onBackfillToday, modifier = Modifier.weight(1f))
+                if (onBackfillToday != null) TvActionButton(text = "Bù hôm nay", containerColor = AppColors.OrbCobalt, enabled = !isBusy, compact = true, onClick = onBackfillToday, modifier = Modifier.weight(1.1f))
+                if (onOpenHikControl != null) TammiOutlinedButton(text = "Quản trị", enabled = !isBusy, compact = true, contentColor = AppColors.Primary, onClick = onOpenHikControl, modifier = Modifier.weight(0.95f))
             }
             Spacer(Modifier.height(8.dp))
         }

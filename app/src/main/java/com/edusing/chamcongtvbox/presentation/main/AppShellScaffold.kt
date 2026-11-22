@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -61,6 +62,7 @@ fun AppShellScaffold(
     val ui = rememberDeviceUiSpec()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var isKioskMode by rememberSaveable { mutableStateOf(false) }
+    var hikControlTarget by remember { mutableStateOf<com.edusing.chamcongtvbox.domain.model.DeviceConfig?>(null) }
 
     if (isKioskMode) {
         Kiosk24x7Overlay(
@@ -83,7 +85,7 @@ fun AppShellScaffold(
 
     val tabBody: @Composable () -> Unit = {
         when (selectedTab) {
-            0 -> MainScreen(mainVm, onOpenAddDevice, { selectedTab = 1 }, { selectedTab = 2 }, { isKioskMode = true }, onLoggedOut)
+            0 -> MainScreen(mainVm, onOpenAddDevice, { selectedTab = 1 }, { selectedTab = 2 }, { isKioskMode = true }, onLoggedOut, onOpenHikControl = { hikControlTarget = it })
             1 -> GuardedDeviceTab(mainState.isRunning, mainState.connectedCount, "Đẩy danh sách ${memberTabLabel.lowercase()}", { selectedTab = 0 }) {
                 val pushVm: PushMembersViewModel = viewModel(key = "shell_push_${mainState.activeMode.code}", factory = factory)
                 LaunchedEffect(mainState.connectedCount, mainState.activeMode) { pushVm.refreshTargetsAndLoad() }
@@ -169,6 +171,11 @@ fun AppShellScaffold(
             onSelectMode = { mode -> mainVm.switchMode(mode, onRequireLogin = onLoggedOut) },
             onDismiss = mainVm::dismissModePicker,
         )
+    }
+
+    hikControlTarget?.let { target ->
+        val others = mainState.devices.filter { it.isConnected && it.config.isHikvision && it.config.key != target.key }.map { it.config }
+        HikvisionControlDialog(device = target, otherOnlineHikDevices = others, container = container, onDismiss = { hikControlTarget = null })
     }
 }
 
