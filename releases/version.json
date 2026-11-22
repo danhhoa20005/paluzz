@@ -1,7 +1,7 @@
 {
-  "versionCode": 22,
-  "versionName": "2.9.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.9.0/ChamCong_DiemDanh_v2.9.0.apk",
-  "sha256": "4253a0ee64b6e47041bfed88481c6a8152df33b357e195698d74ed89cf0e76fc",
-  "notes": "Hoàn thiện toàn diện giao diện Apple iOS 26 Liquid Glass: tự thích ứng Sáng (Daylight Crystal) & Tối (Midnight Obsidian) đạt WCAG 2.2 AAA, kính quang học đa tầng có viền khúc xạ & ánh sáng sống, thay toàn bộ AlertDialog/FilterChip mặc định bằng hộp thoại & chip Liquid Glass, nhịp sống Hero 24/7, chuẩn 4/8dp & font >= 12sp, nâng cấp Web quản trị LAN đồng bộ kính mờ Sáng/Tối."
+  "versionCode": 23,
+  "versionName": "2.9.1",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.9.1/ChamCong_DiemDanh_v2.9.1.apk",
+  "sha256": "ad3bbef4f7814e73dac284c1a80795abee1189f993b3392988b949cd64b92a70",
+  "notes": "Chuyển toàn bộ giao diện sang phong cách Clear Liquid Glass Sáng tối giản, ít màu sắc: luôn giữ nền sáng trắng sứ pha lê dịu mắt (không bị tự tối theo máy), bỏ mảng màu sặc sỡ ở Hero/Menu/Chế độ, dùng thấu kính pha lê trắng & mực than chì WCAG 2.2 AAA, đồng bộ Web quản trị LAN sáng tối giản."
 }
