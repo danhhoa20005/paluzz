@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "2.5.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.5.0/ChamCong_DiemDanh_v2.5.0.apk",
-  "sha256": "011edb24e42e0a7b14cb12dea760d95f788fa3f6a1038c8669ed5404087561fd",
-  "notes": "Tự dò 3 lớp 100% không bỏ sót mọi máy Hikvision (SADP Multicast + Subnet Broadcast + Quét thẳng TCP cổng 80/443 ISAPI vượt chặn Multicast Wi-Fi & chặn Ping trên OPPO/Android): bấm Dò LAN ngay trên Trạm trực tự tìm thấy cả DS-K1T320MX lẫn mọi dòng Hikvision khác và hiện thẻ Nhận ngay 1 lần nhập mật khẩu mà không cần nhập IP thủ công."
+  "versionCode": 19,
+  "versionName": "2.6.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.6.0/ChamCong_DiemDanh_v2.6.0.apk",
+  "sha256": "d6cdc1448ac19298842a366cd5d6949d4de78a0bea2243dc12beb511ba43a52f",
+  "notes": "Gói 6 tối ưu toàn diện v2.6.0: (1) Khoá tự nối lại nền khi máy Hikvision báo sai MK 401 chống khoá máy 30 phút, (2) Cache HTTP Digest nonce tăng tốc gấp 2x & giảm 50% tải CPU máy chấm công, (3) Tự giãn poll 10s->28s khi Webhook hoạt động tiết kiệm 3x pin/mạng, (4) Sửa trực tiếp IP/Cổng/Mật khẩu máy trên App & Web LAN, (5) Kiosk TV 24/7 hiển thị 5 lượt chấm công gần nhất + Chờ đẩy bù, (6) Cảnh báo sự cố chủ động Telegram/Webhook & Sao lưu/Khôi phục cấu hình AES-256-GCM 1 chạm."
 }
