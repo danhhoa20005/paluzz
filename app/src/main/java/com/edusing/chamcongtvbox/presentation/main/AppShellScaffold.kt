@@ -71,7 +71,8 @@ fun AppShellScaffold(
             totalCount = mainState.totalDeviceCount,
             isRunning = mainState.isRunning,
             totalToday = mainState.totalCheckInsToday,
-            latestEvent = mainState.events.firstOrNull(),
+            pendingCount = mainState.pendingCheckInCount,
+            recentEvents = mainState.events,
             onExitKiosk = { isKioskMode = false },
         )
         return

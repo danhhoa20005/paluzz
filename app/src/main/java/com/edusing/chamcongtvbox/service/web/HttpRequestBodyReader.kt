@@ -156,7 +156,7 @@ internal object HttpRequestBodyReader {
     }
 
     private fun bodyLimitFor(path: String): Int = when {
-        path == "/api/hikvision/face-upload" || path == "/api/hikvision/quick-enroll" -> MAX_FACE_UPLOAD_BYTES
+        path == "/api/hikvision/face-upload" || path == "/api/hikvision/quick-enroll" || path == "/api/backup/import" -> MAX_FACE_UPLOAD_BYTES
         path.trimEnd('/') == "/hikvision/event" -> MAX_WEBHOOK_BODY_BYTES
         else -> MAX_BODY_BYTES
     }

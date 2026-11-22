@@ -32,6 +32,7 @@ internal class WebConsoleApiHandler(
     private val deleteDeviceUsersUseCase: DeleteDeviceUsersUseCase,
     private val appUpdateCoordinator: AppUpdateCoordinator,
     private val hikHandler: WebConsoleHikvisionHandler? = null,
+    private val backupAlertHelper: WebConsoleBackupAlertHelper? = null,
     private val onLocalHostChanged: () -> Unit = {},
     private val auth: WebConsoleAuth = WebConsoleAuth(persistentSalt = WebConsoleAuth.loadOrCreateDeviceSalt(context)),
     private val startedAtMs: Long = System.currentTimeMillis(),
@@ -51,6 +52,7 @@ internal class WebConsoleApiHandler(
             return WebHttpResponse(401, JSON_TYPE, """{"ok":false,"error":"Chưa đăng nhập quản trị"}""")
         }
         return try {
+            backupAlertHelper?.handle(method, path, query, rawBody)?.let { return it }
             if (path.startsWith("/api/hikvision/") && hikHandler != null) {
                 return hikHandler.handle(method, path, query, rawBody)
             }

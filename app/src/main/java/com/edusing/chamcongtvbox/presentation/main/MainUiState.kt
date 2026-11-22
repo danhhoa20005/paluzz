@@ -31,6 +31,7 @@ data class MainUiState(
     val events: List<LiveEventEntry> = emptyList(),
     val lastPollTimeText: String = "",
     val totalCheckInsToday: Int = 0,
+    val pendingCheckInCount: Int = 0,
     val showStopConfirmDialog: Boolean = false,
     val showLogoutConfirmDialog: Boolean = false,
     val showModePickerDialog: Boolean = false,

@@ -16,7 +16,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,8 +41,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.edusing.chamcongtvbox.domain.model.EventSeverity
 import com.edusing.chamcongtvbox.domain.model.LiveEventEntry
 import com.edusing.chamcongtvbox.domain.repository.InternetStatus
 import com.edusing.chamcongtvbox.presentation.components.TammiBadgeTone
@@ -55,8 +61,8 @@ import java.util.Locale
 
 /**
  * Màn hình Trực 24/7 (Kiosk) tối màu chống lưu ảnh OLED/TV — thuần màu sắc & chữ AAA:
- * - Hỗ trợ nhấn phím **Back** trên điều khiển TV Box để thoát Kiosk tức thì.
- * - Cỡ đồng hồ & thông tin lớn nhìn rõ từ xa 3–5m, tự dịch chuyển nhẹ mỗi phút chống burn-in.
+ * - Đồng hồ lớn tầm nhìn 3–5m, tự dịch chuyển nhẹ mỗi phút chống burn-in.
+ * - Hiển thị **5 lượt chấm công thành công gần nhất** (lọc bỏ log hệ thống) + cảnh báo Chờ đẩy bù khi mất mạng.
  */
 @Composable
 fun Kiosk24x7Overlay(
@@ -67,7 +73,8 @@ fun Kiosk24x7Overlay(
     totalCount: Int,
     isRunning: Boolean,
     totalToday: Int,
-    latestEvent: LiveEventEntry?,
+    pendingCount: Int = 0,
+    recentEvents: List<LiveEventEntry> = emptyList(),
     onExitKiosk: () -> Unit,
 ) {
     BackHandler(onBack = onExitKiosk)
@@ -94,6 +101,9 @@ fun Kiosk24x7Overlay(
     val dateText = "Ngày ${dateFmt.format(Date(nowMs))} • $brandSubtitle"
     val dx = if (shiftStep % 2 == 0) 6.dp else (-6).dp
     val dy = if (shiftStep < 2) 6.dp else (-6).dp
+    val recentCheckIns = remember(recentEvents) {
+        recentEvents.filter { it.cardId.isNotBlank() && it.cardId != "-" && it.severity == EventSeverity.SUCCESS }.take(5)
+    }
 
     Column(
         modifier = Modifier
@@ -114,6 +124,9 @@ fun Kiosk24x7Overlay(
                     label = "$onlineCount/$totalCount máy" + if (isRunning) " • Chờ quét" else " • Tạm dừng",
                     tone = if (onlineCount > 0 && isRunning) TammiBadgeTone.SUCCESS else TammiBadgeTone.WARNING,
                 )
+                if (pendingCount > 0) {
+                    TammiStatusPill(label = "Chờ bù: $pendingCount", tone = TammiBadgeTone.WARNING)
+                }
             }
             Box(
                 modifier = Modifier
@@ -135,22 +148,21 @@ fun Kiosk24x7Overlay(
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(
-                modifier = Modifier.offset(x = dx, y = dy).widthIn(max = if (ui.isTvDevice) 720.dp else 560.dp),
+                modifier = Modifier.offset(x = dx, y = dy).widthIn(max = if (ui.isTvDevice) 780.dp else 560.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(orgName.uppercase(), color = AppColors.KioskTextSecondary, fontSize = if (ui.isTvDevice) 20.sp else 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(TammiSpacing.md))
+                Text(orgName.uppercase(), color = AppColors.KioskTextSecondary, fontSize = if (ui.isTvDevice) 19.sp else 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(TammiSpacing.sm))
                 Text(
                     text = timeText,
                     color = Color.White,
-                    fontSize = if (ui.isTvDevice) 76.sp else 56.sp,
+                    fontSize = if (ui.isTvDevice) 72.sp else 52.sp,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 3.sp,
                 )
-                Spacer(Modifier.height(TammiSpacing.xs))
-                Text(dateText, color = AppColors.KioskTextMuted, fontSize = if (ui.isTvDevice) 16.sp else 14.sp, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(TammiSpacing.xl))
+                Text(dateText, color = AppColors.KioskTextMuted, fontSize = if (ui.isTvDevice) 15.sp else 13.5.sp, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(TammiSpacing.lg))
 
                 Column(
                     modifier = Modifier
@@ -158,31 +170,54 @@ fun Kiosk24x7Overlay(
                         .clip(TammiRadii.cardShape)
                         .background(AppColors.KioskCard)
                         .border(1.2.dp, AppColors.KioskBorder, TammiRadii.cardShape)
-                        .padding(if (ui.isTvDevice) TammiSpacing.xxl else TammiSpacing.xl),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
+                        .padding(if (ui.isTvDevice) TammiSpacing.xl else TammiSpacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = "Đã đồng bộ $totalToday lượt trong phiên trực",
-                        color = AppColors.KioskSuccess,
-                        fontSize = if (ui.isTvDevice) 19.sp else 15.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center,
-                    )
-                    if (latestEvent != null) {
-                        val subject = if (latestEvent.cardId == "-") latestEvent.deviceName else latestEvent.userName.ifBlank { "Thẻ #${latestEvent.cardId}" }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Chấm công gần nhất", color = AppColors.KioskTextSecondary, fontSize = if (ui.isTvDevice) 15.sp else 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Hôm nay: $totalToday lượt", color = AppColors.KioskSuccess, fontSize = if (ui.isTvDevice) 16.sp else 13.5.sp, fontWeight = FontWeight.Black)
+                    }
+                    if (recentCheckIns.isEmpty()) {
                         Text(
-                            text = "${latestEvent.timeText.substringBefore(" ")} • $subject — ${latestEvent.message}",
-                            color = Color.White,
-                            fontSize = if (ui.isTvDevice) 16.sp else 13.5.sp,
+                            text = "Sẵn sàng chờ nhân viên / học sinh quét mặt hoặc quẹt thẻ...",
+                            color = AppColors.KioskTextMuted,
+                            fontSize = if (ui.isTvDevice) 15.sp else 13.sp,
                             textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         )
+                    } else {
+                        recentCheckIns.forEachIndexed { idx, ev ->
+                            if (idx > 0) HorizontalDivider(color = AppColors.KioskBorder.copy(alpha = 0.55f))
+                            val who = ev.userName.ifBlank { "Mã #${ev.cardId}" }
+                            val isLatest = idx == 0
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(if (isLatest) 10.dp else 7.dp).clip(CircleShape).background(if (isLatest) AppColors.KioskSuccess else AppColors.KioskTextMuted))
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = who,
+                                    color = Color.White,
+                                    fontSize = if (isLatest) (if (ui.isTvDevice) 20.sp else 16.sp) else (if (ui.isTvDevice) 15.5.sp else 13.5.sp),
+                                    fontWeight = if (isLatest) FontWeight.Black else FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "${ev.timeText.substringBefore(" ")} • ${ev.deviceName}",
+                                    color = if (isLatest) AppColors.KioskSuccess else AppColors.KioskTextMuted,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = if (ui.isTvDevice) 14.sp else 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
                     }
                 }
 
                 if (ui.isTvDevice) {
-                    Spacer(Modifier.height(TammiSpacing.md))
-                    Text("Nhấn phím Back trên điều khiển TV để thoát chế độ Kiosk", color = AppColors.KioskTextMuted, fontSize = 13.sp)
+                    Spacer(Modifier.height(TammiSpacing.sm))
+                    Text("Nhấn phím Back trên điều khiển TV để thoát chế độ Kiosk", color = AppColors.KioskTextMuted, fontSize = 12.5.sp)
                 }
             }
         }

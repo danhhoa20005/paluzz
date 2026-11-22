@@ -28,6 +28,11 @@ internal class DeviceConnectionManager(
 ) {
     private val connectMutex = Mutex()
     private val handlesByKey = ConcurrentHashMap<String, Int>()
+    /** Khoá tự nối lại nền cho các máy Hikvision trả 401 (sai mật khẩu) để tuyệt đối tránh khoá máy 30 phút. */
+    private val authLockedKeys = ConcurrentHashMap.newKeySet<String>()
+
+    fun clearAuthLock(deviceKey: String) { authLockedKeys.remove(deviceKey) }
+    fun isAuthLocked(deviceKey: String): Boolean = deviceKey in authLockedKeys
 
     fun getHandle(deviceKey: String): Int? = handlesByKey[deviceKey]
     fun getAllHandles(): List<Int> = handlesByKey.values.toList()
@@ -46,6 +51,7 @@ internal class DeviceConnectionManager(
         try {
             for (dev in configRepository.getConfig().devices) {
                 if (handlesByKey.containsKey(dev.key)) continue
+                authLockedKeys.remove(dev.key)
                 connectSingleLocked(dev, maxAttempts = maxAttempts)
             }
             onEachBatchDone()
@@ -57,6 +63,8 @@ internal class DeviceConnectionManager(
     suspend fun connectIfOffline(device: DeviceConfig, maxAttempts: Int, silentFail: Boolean = false): Boolean =
         connectMutex.withLock {
             if (handlesByKey.containsKey(device.key)) return@withLock true
+            if (silentFail && device.key in authLockedKeys) return@withLock false
+            if (!silentFail) authLockedKeys.remove(device.key)
             connectSingleLocked(device, maxAttempts, silentFail)
         }
 
@@ -94,17 +102,20 @@ internal class DeviceConnectionManager(
         waitMs: Long = 1_000L,
         silentFail: Boolean = false,
     ): Boolean = connectMutex.withLock {
+        authLockedKeys.remove(device.key)
         disconnectSingleLocked(device.key)
         delay(waitMs)
         connectSingleLocked(device, maxAttempts, silentFail)
     }
 
     suspend fun disconnectSingle(deviceKey: String) = connectMutex.withLock {
+        authLockedKeys.remove(deviceKey)
         disconnectSingleLocked(deviceKey)
     }
 
     suspend fun disconnectAll() = connectMutex.withLock {
         handlesByKey.clear()
+        authLockedKeys.clear()
         deviceGateway.disconnectAll()
         stateStore.update { snap ->
             snap.copy(devices = snap.devices.map { it.copy(state = DeviceConnectionState.DISCONNECTED, statusText = "Đã ngắt kết nối") })
@@ -158,6 +169,7 @@ internal class DeviceConnectionManager(
         }.getOrElse { err -> FkResult.fail(FkErrorCode.ERR_COMM, err.message) }
         return if (res.isSuccess && res.data != null) {
             val info = res.data
+            authLockedKeys.remove(device.key)
             handlesByKey[device.key] = info.handle
             if (device.isHikvision && info.deviceSerialNumber.isNotBlank() && device.serialNumber != info.deviceSerialNumber) {
                 val updated = configRepository.getConfig().devices.map {
@@ -177,8 +189,14 @@ internal class DeviceConnectionManager(
             true
         } else {
             handlesByKey.remove(device.key)
+            val isAuthError = device.isHikvision && res.code == FkErrorCode.ERR_BAD_PARAM
+            if (isAuthError) authLockedKeys.add(device.key)
             stateStore.updateDevice(device.key) {
-                it.copy(state = DeviceConnectionState.ERROR, statusText = "Mất kết nối (tự nối lại...)", lastError = res.message)
+                it.copy(
+                    state = DeviceConnectionState.ERROR,
+                    statusText = if (isAuthError) "Sai mật khẩu — bấm Sửa để cập nhật" else "Mất kết nối (tự nối lại...)",
+                    lastError = res.message,
+                )
             }
             if (!silentFail || prevState != DeviceConnectionState.ERROR) {
                 stateStore.appendSystemEvent(device.displayName, "-", "Kết nối thất bại: ${res.message}", EventSeverity.ERROR)

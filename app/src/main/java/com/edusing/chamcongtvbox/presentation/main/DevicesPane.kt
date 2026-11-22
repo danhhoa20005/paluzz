@@ -187,7 +187,7 @@ private fun TerminalCard(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TammiOutlinedButton(text = "Nối lại", enabled = !isBusy, compact = true, onClick = onReconnect, modifier = Modifier.weight(1f))
             if (!isRunning) {
-                TammiOutlinedButton(text = "Đổi tên", enabled = !isBusy, compact = true, contentColor = AppColors.Text, onClick = onRename, modifier = Modifier.weight(1f))
+                TammiOutlinedButton(text = "Sửa", enabled = !isBusy, compact = true, contentColor = AppColors.Text, onClick = onRename, modifier = Modifier.weight(1f))
                 TammiOutlinedButton(text = "Xoá", enabled = !isBusy, compact = true, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.30f), onClick = onDelete, modifier = Modifier.weight(0.85f))
             }
         }

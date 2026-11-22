@@ -68,6 +68,7 @@ class MainViewModel(
             events = engine.events,
             lastPollTimeText = engine.lastPollTimeText,
             totalCheckInsToday = engine.totalCheckInsToday,
+            pendingCheckInCount = engine.pendingCheckInCount,
             showStopConfirmDialog = dlg.showStopConfirm,
             showLogoutConfirmDialog = dlg.showLogoutConfirm,
             showModePickerDialog = dlg.showModePicker,
@@ -186,6 +187,12 @@ class MainViewModel(
         val target = dialogs.value.renameTarget ?: return
         dialogs.value = dialogs.value.copy(renameTarget = null)
         viewModelScope.launch { attendanceEngine.renameDevice(target.key, newName) }
+    }
+
+    fun confirmEditDevice(updated: DeviceConfig) {
+        val target = dialogs.value.renameTarget ?: return
+        dialogs.value = dialogs.value.copy(renameTarget = null)
+        viewModelScope.launch { attendanceEngine.updateDevice(target.key, updated) }
     }
 
     fun dismissRenameDialog() { dialogs.value = dialogs.value.copy(renameTarget = null) }

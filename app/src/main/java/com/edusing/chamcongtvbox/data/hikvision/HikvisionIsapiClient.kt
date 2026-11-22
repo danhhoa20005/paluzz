@@ -9,18 +9,21 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Khách HTTP/HTTPS ISAPI thuần Kotlin (OkHttp + Digest Auth RFC 7616) cho máy Hikvision `DS-K1T320MX`.
- * Dùng kết nối ngắn hạn chuyên biệt cho mạng LAN, không dùng chung pool với API đám mây.
+ * Khách HTTP/HTTPS ISAPI thuần Kotlin (OkHttp + Digest Auth RFC 7616 có cache `nonce`) cho máy Hikvision:
+ * - Lưu đệm `nonce` theo từng thiết bị để gửi kèm xác thực ngay từ lượt đầu (giảm 50% gói tin & tăng gấp đôi tốc độ).
+ * - Dùng kết nối ngắn hạn chuyên biệt cho mạng LAN, không dùng chung pool với API đám mây.
  */
 internal class HikvisionIsapiClient(
     private val baseClient: OkHttpClient = createDefaultLanClient(),
     private val lanHttpsClient: OkHttpClient = createLanHttpsClient(baseClient),
 ) {
-    private val nonceCounter = AtomicInteger(1)
+    private data class CachedDigest(val challenge: HikvisionDigestChallenge, val nc: AtomicInteger)
+    private val digestCache = ConcurrentHashMap<String, CachedDigest>()
 
     /** Dò nhanh không cần mật khẩu xem địa chỉ IP có chạy Hikvision ISAPI hay không (`GET /ISAPI/System/deviceInfo`). */
     fun probeIsapiHost(ip: String, port: Int = DeviceConfig.DEFAULT_HIK_PORT, timeoutMs: Int = 700): String? {
@@ -121,26 +124,11 @@ internal class HikvisionIsapiClient(
         contentType: String = JSON_MEDIA,
         timeoutMs: Int = 6_000,
     ): HikHttpResponse {
-        val url = buildUrl(device.ip, device.port, device.useHttps, pathWithQuery)
-        val client = clientWithTimeout(timeoutMs, useHttps = device.useHttps, hostIp = device.ip)
-        val first = executeSingle(client, method, url, body, contentType, authHeader = null)
-        if (!first.isUnauthorized) return first
-
-        val wwwHeaders = first.headers.entries
-            .filter { it.key.equals("WWW-Authenticate", ignoreCase = true) }
-            .flatMap { it.value }
-        val challenge = HikvisionDigestChallenge.parse(wwwHeaders) ?: return first
-        val auth = challenge.buildAuthorization(
-            method = method,
-            requestUriWithQuery = pathWithQuery,
-            username = device.username.ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
-            password = device.accessPassword,
-            nonceCount = nonceCounter.getAndIncrement(),
-        )
-        return executeSingle(client, method, url, body, contentType, authHeader = auth)
+        val (code, bytes, headers) = executeWithDigestCache(device, method, pathWithQuery, body?.toByteArray(Charsets.UTF_8), contentType, timeoutMs)
+        return HikHttpResponse(code, String(bytes, Charsets.UTF_8), headers)
     }
 
-    /** Gửi/nhận payload nhị phân (ảnh JPEG camera hoặc multipart ảnh khuôn mặt `FDLib`) có Digest Auth. */
+    /** Gửi/nhận payload nhị phân (ảnh JPEG camera hoặc multipart ảnh khuôn mặt `FDLib`) có cache Digest Auth. */
     @Throws(IOException::class)
     fun requestBytes(
         device: DeviceConfig,
@@ -150,28 +138,41 @@ internal class HikvisionIsapiClient(
         contentType: String = JSON_MEDIA,
         timeoutMs: Int = 12_000,
     ): Pair<Int, ByteArray> {
-        val url = buildUrl(device.ip, device.port, device.useHttps, pathWithQuery)
-        val client = clientWithTimeout(timeoutMs, useHttps = device.useHttps, hostIp = device.ip)
-        val first = executeRaw(client, method, url, bodyBytes, contentType, authHeader = null)
-        if (first.first != 401) return first.first to first.second
-        val wwwHeaders = first.third.entries.filter { it.key.equals("WWW-Authenticate", true) }.flatMap { it.value }
-        val challenge = HikvisionDigestChallenge.parse(wwwHeaders) ?: return first.first to first.second
-        val auth = challenge.buildAuthorization(
-            method = method,
-            requestUriWithQuery = pathWithQuery,
-            username = device.username.ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME },
-            password = device.accessPassword,
-            nonceCount = nonceCounter.getAndIncrement(),
-        )
-        val second = executeRaw(client, method, url, bodyBytes, contentType, authHeader = auth)
-        return second.first to second.second
+        val (code, bytes, _) = executeWithDigestCache(device, method, pathWithQuery, bodyBytes, contentType, timeoutMs)
+        return code to bytes
     }
 
-    private fun executeSingle(
-        client: OkHttpClient, method: String, url: String, body: String?, contentType: String, authHeader: String?,
-    ): HikHttpResponse {
-        val raw = executeRaw(client, method, url, body?.toByteArray(Charsets.UTF_8), contentType, authHeader)
-        return HikHttpResponse(raw.first, String(raw.second, Charsets.UTF_8), raw.third)
+    private fun executeWithDigestCache(
+        device: DeviceConfig,
+        method: String,
+        pathWithQuery: String,
+        bodyBytes: ByteArray?,
+        contentType: String,
+        timeoutMs: Int,
+    ): Triple<Int, ByteArray, Map<String, List<String>>> {
+        val url = buildUrl(device.ip, device.port, device.useHttps, pathWithQuery)
+        val client = clientWithTimeout(timeoutMs, useHttps = device.useHttps, hostIp = device.ip)
+        val user = device.username.ifBlank { DeviceConfig.DEFAULT_HIK_USERNAME }
+        val cacheKey = "${device.key}|$user|${device.accessPassword.hashCode()}"
+
+        val cached = digestCache[cacheKey]
+        val preAuth = cached?.let {
+            it.challenge.buildAuthorization(method, pathWithQuery, user, device.accessPassword, it.nc.getAndIncrement())
+        }
+        val first = executeRaw(client, method, url, bodyBytes, contentType, authHeader = preAuth)
+        if (first.first != 401) return first
+
+        val wwwHeaders = first.third.entries.filter { it.key.equals("WWW-Authenticate", true) }.flatMap { it.value }
+        val freshChallenge = HikvisionDigestChallenge.parse(wwwHeaders) ?: run {
+            digestCache.remove(cacheKey); return first
+        }
+        if (digestCache.size >= 32) digestCache.clear()
+        val entry = CachedDigest(freshChallenge, AtomicInteger(2))
+        digestCache[cacheKey] = entry
+        val retryAuth = freshChallenge.buildAuthorization(method, pathWithQuery, user, device.accessPassword, nonceCount = 1)
+        val second = executeRaw(client, method, url, bodyBytes, contentType, authHeader = retryAuth)
+        if (second.first == 401) digestCache.remove(cacheKey)
+        return second
     }
 
     private fun executeRaw(

@@ -155,9 +155,14 @@ class AttendanceEngine(
         true
     }
     suspend fun renameDevice(deviceKey: String, newName: String) {
-        val clean = newName.trim()
-        configRepository.updateDevices(configRepository.getConfig().devices.map { if (it.key == deviceKey) it.copy(name = clean) else it })
-        loopRunner.triggerHeartbeatAsync()
+        val cur = configRepository.getConfig().devices.firstOrNull { it.key == deviceKey } ?: return
+        updateDevice(deviceKey, cur.copy(name = newName.trim()))
+    }
+    suspend fun updateDevice(oldKey: String, updated: DeviceConfig) = withContext(Dispatchers.IO) {
+        connManager.disconnectSingle(oldKey); connManager.clearAuthLock(updated.key)
+        configRepository.updateDevices(configRepository.getConfig().devices.map { if (it.key == oldKey) updated else it })
+        val ok = connManager.connectIfOffline(updated, maxAttempts = 2); loopRunner.triggerHeartbeatAsync()
+        if (ok && configRepository.getConfig().autoStartRunning && !state.value.isRunning) startAttendance()
     }
     suspend fun removeDevice(deviceKey: String) {
         connManager.disconnectSingle(deviceKey)
@@ -170,8 +175,7 @@ class AttendanceEngine(
     suspend fun startAttendance(): Boolean = withContext(Dispatchers.IO) {
         startMutex.withLock {
             if (state.value.isRunning) return@withLock true
-            val cfg = configRepository.getConfig()
-            if (!cfg.isLoggedIn) return@withLock false
+            val cfg = configRepository.getConfig(); if (!cfg.isLoggedIn) return@withLock false
             stateStore.update { it.copy(isBusy = true, statusHint = "Đang kiểm tra kết nối & dọn bộ đệm...") }
             try {
                 if (state.value.connectedCount == 0) connManager.connectAll { loopRunner.triggerHeartbeatAsync() }
@@ -179,22 +183,17 @@ class AttendanceEngine(
                     appendLog("Hệ thống", "-", "Chưa kết nối được máy chấm công. Ứng dụng sẽ tự dò & nối lại nền.", EventSeverity.WARNING)
                     return@withLock false
                 }
-                connManager.clearLogsOrReconnectAll(cfg.devices)
-                if (state.value.connectedCount == 0) return@withLock false
+                connManager.clearLogsOrReconnectAll(cfg.devices); if (state.value.connectedCount == 0) return@withLock false
                 pollAttendanceUseCase.clearDedupCache(); configRepository.setAutoStartRunning(true)
                 stateStore.update { it.copy(isRunning = true) }
                 appendLog("Hệ thống", "-", "BẮT ĐẦU CHẤM CÔNG — sẵn sàng chờ quét 24/7 (mỗi ${cfg.pollIntervalMs / 1000}s)", EventSeverity.SUCCESS)
                 loopRunner.startPollLoop(); loopRunner.triggerHeartbeatAsync(); autoPushScheduler.wakeNow()
                 true
-            } catch (ce: CancellationException) {
-                throw ce
-            } catch (t: Throwable) {
+            } catch (ce: CancellationException) { throw ce } catch (t: Throwable) {
                 runCatching { Log.e(TAG, "Lỗi khi bắt đầu chấm công", t) }
                 appendLog("Hệ thống", "-", "Không thể bắt đầu chấm công: ${t.message ?: t.javaClass.simpleName}", EventSeverity.ERROR)
                 false
-            } finally {
-                stateStore.update { it.copy(isBusy = false, statusHint = "") }
-            }
+            } finally { stateStore.update { it.copy(isBusy = false, statusHint = "") } }
         }
     }
 

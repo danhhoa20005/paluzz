@@ -22,6 +22,7 @@ import com.edusing.chamcongtvbox.domain.repository.InternetStatus
 import com.edusing.chamcongtvbox.presentation.MainActivity
 import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
 import com.edusing.chamcongtvbox.service.web.WebConsoleApiHandler
+import com.edusing.chamcongtvbox.service.web.WebConsoleBackupAlertHelper
 import com.edusing.chamcongtvbox.service.web.WebConsoleHikvisionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +67,7 @@ class AttendanceForegroundService : Service() {
                     container.configRepository, engine, container.deviceGateway, container.hikvisionControlGateway,
                     container.backfillHikvisionEventsUseCase, { container.activeWebConsolePort }, container::hikvisionWebhookStats,
                 ),
+                backupAlertHelper = WebConsoleBackupAlertHelper(container.configStore, container.configRepository, engine, container.alertNotifier),
                 onLocalHostChanged = { webConsole?.refreshPublishedUrl() },
             ),
             hostProvider = { "${container.configRepository.getConfig().safeLocalHostName}.local" },

@@ -123,11 +123,9 @@ internal class HikvisionGatewayImpl(
     override suspend fun disconnectAll() { sessions.clear() }
     override suspend fun enableDevice(handle: Int, enable: Boolean): FkResult<Unit> =
         if (sessions.containsKey(handle)) FkResult.ok(Unit) else FkResult.fail(FkErrorCode.ERR_NOT_OPEN)
-
     override suspend fun emptyGeneralLogData(handle: Int): FkResult<Unit> = withContext(Dispatchers.IO) {
         val session = sessions[handle] ?: return@withContext FkResult.fail(FkErrorCode.ERR_NOT_OPEN)
-        val now = clockMillis()
-        session.webhookQueue.clear()
+        val now = clockMillis(); session.webhookQueue.clear()
         runCatching {
             val (res, recent) = client.fetchAccessEvents(session.device, now - SEED_WINDOW_MS, now + CLOCK_DRIFT_GRACE_MS, now, maxPages = 2)
             if (res.isSuccess) synchronized(session.seenKeys) { recent.forEach { recordSeenLocked(session, it.eventKey) } }
@@ -140,6 +138,12 @@ internal class HikvisionGatewayImpl(
         val session = sessions[handle] ?: return@withContext FkResult.fail(FkErrorCode.ERR_NOT_OPEN)
         val now = clockMillis()
         if (now - session.lastClearedAtMs < 1_500L && session.webhookQueue.isEmpty()) return@withContext FkResult.fail(FkErrorCode.ERR_LOG_END)
+        // Thích ứng nhịp quét khi Webhook đang đẩy trực tiếp ổn định (<90s): giãn poll nền lên ~28s giảm 3x tải pin/mạng
+        val webhookActive = lastWebhookAtMs > 0L && (now - lastWebhookAtMs) < WEBHOOK_LIVE_WINDOW_MS &&
+            (lastWebhookIp.equals(session.device.ip, true) || sessions.size == 1)
+        if (webhookActive && session.webhookQueue.isEmpty() && (now - session.lastPollMs) < WEBHOOK_FALLBACK_POLL_MS) {
+            return@withContext FkResult.fail(FkErrorCode.ERR_LOG_END)
+        }
         try {
             val collected = mutableListOf<HikParsedEvent>()
             while (true) { collected.add(session.webhookQueue.poll() ?: break) }
@@ -156,9 +160,7 @@ internal class HikvisionGatewayImpl(
                 AttendanceLog(enrollInt, ev.minor, 0, ev.year, ev.month, ev.day, ev.hour, ev.minute, ev.second, rawCardId = ev.employeeNo)
             }
             if (freshLogs.isEmpty()) FkResult.fail(FkErrorCode.ERR_LOG_END) else FkResult.ok(freshLogs)
-        } catch (e: IOException) {
-            FkResult.fail(FkErrorCode.ERR_COMM, "Mất kết nối Hikvision: ${e.message ?: e.javaClass.simpleName}")
-        }
+        } catch (e: IOException) { FkResult.fail(FkErrorCode.ERR_COMM, "Mất kết nối Hikvision: ${e.message ?: e.javaClass.simpleName}") }
     }
 
     override suspend fun readAllUserIds(handle: Int): FkResult<List<FkUserCredential>> = withContext(Dispatchers.IO) {
@@ -195,9 +197,7 @@ internal class HikvisionGatewayImpl(
                 val detail = HikvisionIsapiParser.extractErrorDetail(res.body)
                 FkResult.fail(code, "Nạp nhân sự Hikvision lỗi HTTP ${res.statusCode}${if (detail.isNotBlank()) " ($detail)" else ""}")
             }
-        } catch (e: IOException) {
-            FkResult.fail(FkErrorCode.ERR_COMM, "Mất kết nối Hikvision: ${e.message ?: e.javaClass.simpleName}")
-        }
+        } catch (e: IOException) { FkResult.fail(FkErrorCode.ERR_COMM, "Mất kết nối Hikvision: ${e.message ?: e.javaClass.simpleName}") }
     }
 
     override suspend fun saveEnrollData(handle: Int): FkResult<Unit> = withContext(Dispatchers.IO) {
@@ -207,9 +207,7 @@ internal class HikvisionGatewayImpl(
             try {
                 val res = enrollment.upsertUserAndCard(session.device, enrollNo.toString(), "NV $enrollNo", cardNo)
                 if (!res.isSuccess) return@withContext FkResult.fail(FkErrorCode.ERR_DEVICE_FAIL, "Lưu #$enrollNo lỗi HTTP ${res.statusCode}")
-            } catch (e: IOException) {
-                return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Mất kết nối Hikvision: ${e.message ?: e.javaClass.simpleName}")
-            }
+            } catch (e: IOException) { return@withContext FkResult.fail(FkErrorCode.ERR_COMM, "Mất kết nối Hikvision: ${e.message ?: e.javaClass.simpleName}") }
         }
         FkResult.ok(Unit)
     }
@@ -221,9 +219,7 @@ internal class HikvisionGatewayImpl(
             val res = enrollment.deleteUser(session.device, enrollNumber.toString())
             if (res.isSuccess) { session.userNames.remove(enrollNumber); FkResult.ok(Unit) }
             else FkResult.fail(FkErrorCode.ERR_DEVICE_FAIL, "Xoá nhân sự Hikvision lỗi HTTP ${res.statusCode}")
-        } catch (e: IOException) {
-            FkResult.fail(FkErrorCode.ERR_COMM, "Mất kết nối Hikvision: ${e.message ?: e.javaClass.simpleName}")
-        }
+        } catch (e: IOException) { FkResult.fail(FkErrorCode.ERR_COMM, "Mất kết nối Hikvision: ${e.message ?: e.javaClass.simpleName}") }
     }
 
     override suspend fun getUserName(handle: Int, enrollNumber: Int): FkResult<String> =
@@ -242,9 +238,8 @@ internal class HikvisionGatewayImpl(
 
     companion object {
         const val HANDLE_OFFSET = 100_000
-        private const val POLL_OVERLAP_MS = 20_000L
-        private const val CLOCK_DRIFT_GRACE_MS = 60_000L
-        private const val SEED_WINDOW_MS = 120_000L
-        private const val MAX_SEEN_KEYS = 2_000
+        private const val POLL_OVERLAP_MS = 20_000L; private const val CLOCK_DRIFT_GRACE_MS = 60_000L
+        private const val SEED_WINDOW_MS = 120_000L; private const val MAX_SEEN_KEYS = 2_000
+        private const val WEBHOOK_LIVE_WINDOW_MS = 90_000L; private const val WEBHOOK_FALLBACK_POLL_MS = 28_000L
     }
 }

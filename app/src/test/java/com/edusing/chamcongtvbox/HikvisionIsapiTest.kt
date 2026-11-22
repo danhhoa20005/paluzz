@@ -261,7 +261,8 @@ class HikvisionIsapiTest {
             assertEquals(FkErrorCode.ERR_NO_MORE_DATA, gw.deleteEnrollData(handle, 9001, 1).code)
 
             gw.disconnect(handle)
-            assertTrue(authChallengeHits >= 4 && authorizedHits >= 4)
+            // Nhờ cache Digest nonce, chỉ cần <= 2 lượt challenge 401 ban đầu cho toàn bộ >= 6 lệnh ISAPI kế tiếp!
+            assertTrue("Mong đợi cache nonce giảm 401 xuống <=3 nhưng là $authChallengeHits (auth=$authorizedHits)", authChallengeHits in 1..3 && authorizedHits >= 6)
             assertTrue(handledPaths.any { it.startsWith("/ISAPI/System/time") })
         } finally {
             runCatching { server.close() }

@@ -241,6 +241,35 @@
     </div>
 
     <div class="card">
+      <div class="row sp">
+        <h3>Cảnh báo sự cố (Telegram / Webhook) &amp; Sao lưu nhân bản TV Box</h3>
+        <button class="ghost" onclick="loadAlerts()">Tải cấu hình</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="row"><input id="alOn" type="checkbox" style="width:auto" /> Bật cảnh báo tự động</label>
+        <label class="row"><span class="sub">Báo sau khi mất máy (phút):</span><input id="alMin" type="number" min="1" max="120" value="5" style="width:74px" /></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="alTgTok" placeholder="Telegram Bot Token (tuỳ chọn)" style="flex:1;min-width:170px" />
+        <input id="alTgChat" placeholder="Telegram Chat ID" style="width:160px" />
+        <input id="alWhUrl" placeholder="Hoặc Webhook URL ngoài (https://...)" style="flex:1;min-width:170px" />
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button onclick="saveAlerts()">Lưu cảnh báo</button>
+        <button class="ghost" onclick="postAction('/api/alerts/test')">Gửi tin thử</button>
+      </div>
+      <div class="row sp" style="margin-top:12px;padding-top:10px;border-top:1px solid #e2eaf6">
+        <div class="sub">Sao lưu mã hoá AES-256 (toàn bộ tài khoản, danh sách máy, lịch đẩy) để nhân bản sang TV Box mới trong 5 giây:</div>
+        <div class="row">
+          <input id="bkPass" type="password" placeholder="Mật khẩu sao lưu (để trống = MK quản trị)" style="width:230px" />
+          <button class="ok" onclick="exportBackup()">Tải sao lưu (.json)</button>
+          <button class="ghost" onclick="document.getElementById('bkFile').click()">Khôi phục từ tệp</button>
+          <input id="bkFile" type="file" accept=".json,application/json" class="hide" onchange="importBackupFile(event)" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <h3>Tài khoản & Chế độ hoạt động</h3>
       <div class="row" style="margin-top:10px">
         <select id="modeSel" style="flex:1;min-width:160px">
@@ -279,7 +308,52 @@ async function api(path, method='GET', body=null){
   return res.json();
 }
 function showLogin(){document.getElementById('loginBox').classList.remove('hide');document.getElementById('appBox').classList.add('hide');}
-function showApp(){document.getElementById('loginBox').classList.add('hide');document.getElementById('appBox').classList.remove('hide');refresh();}
+function showApp(){document.getElementById('loginBox').classList.add('hide');document.getElementById('appBox').classList.remove('hide');refresh();loadAlerts();}
+async function loadAlerts(){
+  try{
+    const r=await api('/api/alerts/get'); if(!r.ok) return;
+    document.getElementById('alOn').checked=!!r.enabled;
+    document.getElementById('alMin').value=r.offlineThresholdMin||5;
+    document.getElementById('alTgTok').value=r.telegramBotToken||'';
+    document.getElementById('alTgChat').value=r.telegramChatId||'';
+    document.getElementById('alWhUrl').value=r.webhookUrl||'';
+  }catch(_){}
+}
+function saveAlerts(){
+  postAction('/api/alerts/save',{
+    enabled:document.getElementById('alOn').checked,
+    offlineThresholdMin:parseInt(document.getElementById('alMin').value||'5',10),
+    telegramBotToken:document.getElementById('alTgTok').value.trim(),
+    telegramChatId:document.getElementById('alTgChat').value.trim(),
+    webhookUrl:document.getElementById('alWhUrl').value.trim(),
+  });
+}
+function exportBackup(){
+  const pass=document.getElementById('bkPass').value||'';
+  window.open('/api/backup/export?pass='+encodeURIComponent(pass)+'&token='+encodeURIComponent(token),'_blank');
+}
+async function importBackupFile(ev){
+  const f=ev.target.files[0]; ev.target.value=''; if(!f) return;
+  if(!confirm('Khôi phục toàn bộ tài khoản & danh sách máy từ tệp "'+f.name+'"?')) return;
+  try{
+    const backupText=await f.text();
+    const passphrase=document.getElementById('bkPass').value||'';
+    const r=await api('/api/backup/import','POST',{backupText,passphrase});
+    toast(r.message||r.error||'Xong'); if(r.ok){refresh();loadAlerts();}
+  }catch(e){toast(e.message);}
+}
+async function editDevicePrompt(key, curName, curIp, curPort, isHik){
+  const name=prompt('Tên máy mới:', curName); if(name===null) return;
+  const ip=prompt('Địa chỉ IP:', curIp); if(!ip) return;
+  const portStr=prompt('Cổng (Hikvision: 80/443, FK: 5005):', String(curPort)); if(!portStr) return;
+  const body={oldKey:key,name:name.trim(),ip:ip.trim(),port:parseInt(portStr,10)||curPort,useHttps:parseInt(portStr,10)===443};
+  if(isHik){
+    const pass=prompt('Mật khẩu thiết bị Hikvision (để trống = giữ nguyên mật khẩu cũ):', '');
+    if(pass===null) return;
+    if(pass) body.accessPassword=pass;
+  }
+  postAction('/api/devices/update', body);
+}
 async function doConsoleLogin(){
   const pw=document.getElementById('pw').value;document.getElementById('loginErr').textContent='';
   try{
@@ -584,6 +658,7 @@ async function refresh(){
     dBox.innerHTML = s.devices.length ? s.devices.map(d =>
       `<div class="dev"><div><b>${esc(d.name)}</b> <span class="sub">${esc(d.ip)}:${d.port}${d.protocol==='HIKVISION'?' • Hikvision':''}</span><div><span class="pill ${d.connected?'ok':'warn'}">${esc(d.statusText)}</span></div></div>
       <div class="row">${d.protocol==='HIKVISION'&&d.connected?`<button class="ok" onclick="postAction('/api/hikvision/door',{key:'${esc(d.key)}',cmd:'open'})">Mở cửa</button>`:''}
+      <button class="ghost" onclick="editDevicePrompt('${esc(d.key)}','${esc(d.name)}','${esc(d.ip)}',${d.port},${d.protocol==='HIKVISION'})">Sửa</button>
       <button class="ghost" onclick="postAction('/api/devices/reconnect',{key:'${esc(d.key)}'})">Nối lại</button>
       <button class="err" onclick="postAction('/api/devices/remove',{key:'${esc(d.key)}'})">Xoá</button></div></div>`
     ).join('') : '<div class="sub">Chưa có máy nào — bấm "Quét máy LAN" hoặc thêm IP bên dưới.</div>';

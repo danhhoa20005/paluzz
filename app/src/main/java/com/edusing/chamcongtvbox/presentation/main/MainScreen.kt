@@ -16,7 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.edusing.chamcongtvbox.presentation.components.RenameDeviceDialog
+import com.edusing.chamcongtvbox.presentation.components.EditDeviceDialog
 import com.edusing.chamcongtvbox.presentation.components.TammiQuickAction
 import com.edusing.chamcongtvbox.presentation.components.TammiQuickActionDock
 import com.edusing.chamcongtvbox.presentation.components.TvSafeConfirmDialog
@@ -193,7 +193,7 @@ fun MainScreen(
     }
 
     state.renameTarget?.let { target ->
-        RenameDeviceDialog(target.name, target.ip, viewModel::confirmRenameDevice, viewModel::dismissRenameDialog)
+        EditDeviceDialog(target, viewModel::confirmEditDevice, viewModel::dismissRenameDialog)
     }
 
     state.deleteTarget?.let { target ->

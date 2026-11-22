@@ -6,6 +6,7 @@ import com.edusing.chamcongtvbox.data.hikvision.HikvisionControlApi
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionGatewayImpl
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionIsapiClient
 import com.edusing.chamcongtvbox.data.hikvision.HikvisionSadpScanner
+import com.edusing.chamcongtvbox.data.local.AlertConfigStore
 import com.edusing.chamcongtvbox.data.local.HikvisionSyncWatermarkStore
 import com.edusing.chamcongtvbox.data.local.PendingCheckInStoreImpl
 import com.edusing.chamcongtvbox.data.local.SecureConfigStore
@@ -52,10 +53,12 @@ import com.edusing.chamcongtvbox.domain.usecase.ScanLanDevicesUseCase
 import com.edusing.chamcongtvbox.domain.usecase.SendHeartbeatUseCase
 import com.edusing.chamcongtvbox.domain.usecase.SuggestFreeIpUseCase
 import com.edusing.chamcongtvbox.domain.usecase.ValidateCredentialsUseCase
+import com.edusing.chamcongtvbox.service.AlertNotifier
 import com.edusing.chamcongtvbox.service.AppUpdateCoordinator
 import com.edusing.chamcongtvbox.service.AttendanceEngine
 import com.edusing.chamcongtvbox.service.AttendanceVoiceAnnouncer
 import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
+import kotlinx.coroutines.launch
 
 /**
  * Gốc khởi tạo phụ thuộc (Composition Root) theo kiến trúc Clean Architecture.
@@ -66,8 +69,9 @@ class AppContainer(appContext: Context) {
     private val defaultMode: AppMode = AppMode.fromCode(BuildConfig.DEFAULT_MODE)
 
     // Nguồn dữ liệu cấu hình động theo chế độ (tách riêng phiên & tài khoản cho từng chế độ)
-    private val configStore = SecureConfigStore(appContext, defaultMode = defaultMode)
+    internal val configStore = SecureConfigStore(appContext, defaultMode = defaultMode)
     val configRepository: ConfigRepository = ConfigRepositoryImpl(configStore)
+    internal val alertNotifier = AlertNotifier(AlertConfigStore(appContext))
 
     /** Trả về cấu hình thương hiệu hiện hành (tự động đổi ngay khi chuyển chế độ). */
     val brandingConfig: BrandingConfig get() = configRepository.getBranding()
@@ -106,6 +110,12 @@ class AppContainer(appContext: Context) {
     )
 
     fun handleHikvisionWebhook(remoteIp: String, rawBody: String): Boolean {
+        if (rawBody.contains("antiDismantle", true) || rawBody.contains("tamper", true)) {
+            val org = configRepository.getConfig().orgName
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                alertNotifier.notifyAlert(org, "Cảnh báo CẬY VỎ / XÂM NHẬP máy chấm công!", "Máy Hikvision ($remoteIp) vừa phát tín hiệu chống tháo gỡ!", remoteIp, "CRITICAL")
+            }
+        }
         val ok = hikvisionGateway.onWebhookEvent(remoteIp, rawBody)
         if (ok) attendanceEngine.wakePollLoopNow()
         return ok
