@@ -78,7 +78,7 @@ internal fun PushGroupHeaderRow(
     }
 }
 
-/** Dòng thành viên chuẩn AAA: 2 dòng gọn trên Điện thoại, 1 hàng căn cột trên TV Box. */
+/** Dòng thành viên phẳng sạch chuẩn Apple HIG (không lồng khung trong khung): 2 dòng gọn trên Điện thoại, 1 hàng căn cột trên TV Box. */
 @Composable
 internal fun PushMemberRowItem(
     row: MemberDisplayRow,
@@ -87,64 +87,58 @@ internal fun PushMemberRowItem(
 ) {
     var focused by remember { mutableStateOf(false) }
     val pushable = row.isPushableOnTarget
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = if (isCompact) 6.dp else 16.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (row.isSelected) AppColors.GreenSoft else AppColors.SurfaceSubtle)
-            .border(1.dp, if (row.isSelected) AppColors.Green else AppColors.Border.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
-            .onFocusChanged { focused = it.isFocused }
-            .tvFocusRing(focused, 10)
-            .clickable(enabled = pushable, onClick = onToggle)
-            .padding(horizontal = 8.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(checked = row.isSelected, enabled = pushable, onCheckedChange = { if (pushable) onToggle() })
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = if (isCompact) 4.dp else 12.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (row.isSelected) AppColors.GreenSoft.copy(alpha = 0.72f) else Color.Transparent)
+                .onFocusChanged { focused = it.isFocused }
+                .tvFocusRing(focused, 10)
+                .clickable(enabled = pushable, onClick = onToggle)
+                .padding(horizontal = 6.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = row.isSelected, enabled = pushable, onCheckedChange = { if (pushable) onToggle() })
 
-        if (isCompact) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (isCompact) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = row.member.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = if (pushable) AppColors.Text else AppColors.Muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (pushable) {
+                        val preview = row.previewShortName.takeIf { it.isNotBlank() && it != row.member.name }
+                        val meta = if (preview != null) "#${row.pushKey} • Tên máy: $preview" else "#${row.pushKey}"
+                        Text(meta, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, fontSize = 12.sp, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    } else {
+                        Text("Mã thẻ chưa hợp lệ (${row.member.rawCard.ifBlank { "trống" }})", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AppColors.Red)
+                    }
+                }
+            } else {
                 Text(
                     text = row.member.name,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.5.sp,
+                    fontSize = 14.sp,
                     color = if (pushable) AppColors.Text else AppColors.Muted,
+                    modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (pushable) {
-                        MemberBadge("#${row.pushKey}", AppColors.PrimarySoft, AppColors.Primary)
-                        MemberBadge(row.previewShortName.ifBlank { "-" }, AppColors.InfoSoft, AppColors.Info)
-                    } else {
-                        MemberBadge("Mã lỗi (${row.member.rawCard.ifBlank { "trống" }})", AppColors.RedSoft, AppColors.Red)
-                    }
+                if (pushable) {
+                    Text("#${row.pushKey}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Primary, modifier = Modifier.width(140.dp))
+                    MemberBadge(row.previewShortName.ifBlank { "-" }, AppColors.PrimarySoft, AppColors.Primary)
+                } else {
+                    MemberBadge("Mã lỗi (${row.member.rawCard.ifBlank { "trống" }})", AppColors.RedSoft, AppColors.Red)
                 }
             }
-        } else {
-            Text(
-                text = row.member.name,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = if (pushable) AppColors.Text else AppColors.Muted,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (pushable) {
-                Text(
-                    text = "#${row.pushKey}",
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = AppColors.Primary,
-                    modifier = Modifier.width(140.dp),
-                )
-                MemberBadge(row.previewShortName.ifBlank { "-" }, AppColors.PrimarySoft, AppColors.Primary)
-            } else {
-                MemberBadge("Mã lỗi (${row.member.rawCard.ifBlank { "trống" }})", AppColors.RedSoft, AppColors.Red)
-            }
         }
+        HorizontalDivider(color = AppColors.Border.copy(alpha = 0.30f), modifier = Modifier.padding(start = 48.dp))
     }
 }
 

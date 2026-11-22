@@ -201,19 +201,22 @@ internal fun GatewayHeroPanel(
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             HeroStatusDot(dotColor, sizeDp = 9)
-                            Text(headline, fontSize = 19.5.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(headline, fontSize = 19.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         Text(state.statusHint.ifBlank { statsLine }, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = AppColors.HeroSubtitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    TvActionButton(
-                        text = ctaText,
-                        containerColor = Color.White,
-                        contentColor = ctaTextColor,
-                        enabled = !state.isBusy || isWifiOff,
-                        onDarkSurface = true,
-                        onClick = ctaAction,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TvActionButton(
+                            text = ctaText,
+                            containerColor = Color.White,
+                            contentColor = ctaTextColor,
+                            enabled = !state.isBusy || isWifiOff,
+                            onDarkSurface = true,
+                            onClick = ctaAction,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TammiOutlinedButton("Kiosk", onOpenKiosk, contentColor = AppColors.Primary, onDarkSurface = true)
+                    }
                 }
             }
         }

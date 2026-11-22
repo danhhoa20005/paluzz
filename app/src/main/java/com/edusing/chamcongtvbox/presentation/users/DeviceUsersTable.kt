@@ -1,7 +1,6 @@
 package com.edusing.chamcongtvbox.presentation.users
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,8 +85,7 @@ internal fun DeviceUsersTableCard(
                 }
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 ) {
                     items(state.filteredUsers, key = { it.uniqueKey }) { user ->
                         DeviceUserRow(
@@ -97,6 +96,7 @@ internal fun DeviceUsersTableCard(
                             onToggleSelect = { onToggleSelect(user.uniqueKey) },
                             onDeleteSingle = { onDeleteSingle(user) },
                         )
+                        HorizontalDivider(color = AppColors.Border.copy(alpha = 0.30f), modifier = Modifier.padding(start = 48.dp))
                     }
                 }
             }
@@ -119,40 +119,34 @@ private fun DeviceUserRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(if (isSelected) AppColors.RedSoft else AppColors.SurfaceSubtle)
-            .border(1.dp, if (isSelected) AppColors.Red else AppColors.Border.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+            .background(if (isSelected) AppColors.RedSoft.copy(alpha = 0.72f) else Color.Transparent)
             .onFocusChanged { rowFocused = it.isFocused }
             .tvFocusRing(rowFocused, 10)
             .clickable(enabled = enabled, onClick = onToggleSelect)
-            .padding(horizontal = 8.dp, vertical = 7.dp),
+            .padding(horizontal = 6.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = isSelected, enabled = enabled, onCheckedChange = { if (enabled) onToggleSelect() })
 
         if (isCompact) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            val primaryTitle = user.serverFullName?.takeIf { it.isNotBlank() } ?: user.deviceName.ifBlank { "Mã #${user.displayCardId}" }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(primaryTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("#${user.displayCardId}", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Primary)
-                    Box(Modifier.clip(RoundedCornerShape(6.dp)).background(AppColors.PrimarySoft).padding(horizontal = 7.dp, vertical = 2.dp)) {
-                        Text(user.deviceName.ifBlank { "(Trống)" }, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = AppColors.PrimaryDark)
+                    val sub = buildString {
+                        append("#${user.displayCardId}")
+                        if (!user.className.isNullOrBlank()) append(" • ${user.className}")
                     }
+                    Text(sub, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, fontSize = 12.sp, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (user.faceCount >= 0) {
                         val hasFace = user.faceCount > 0
-                        Box(Modifier.clip(RoundedCornerShape(6.dp)).background(if (hasFace) AppColors.GreenSoft else AppColors.AmberSoft).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                            Text(if (hasFace) "Mặt:${user.faceCount}" else "Chưa mặt", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = if (hasFace) AppColors.GreenText else AppColors.AmberText)
-                        }
+                        Text(
+                            text = if (hasFace) "• Có mặt" else "• Chưa mặt",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = if (hasFace) AppColors.GreenText else AppColors.AmberText,
+                        )
                     }
-                }
-                Text(
-                    text = user.serverFullName ?: "Chưa có trên web",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = if (user.serverFullName != null) AppColors.Text else AppColors.Muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (!user.className.isNullOrBlank()) {
-                    Text(user.className, fontSize = 11.5.sp, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         } else {
@@ -170,7 +164,7 @@ private fun DeviceUserRow(
             enabled = enabled,
             compact = true,
             contentColor = AppColors.Red,
-            borderColor = AppColors.Red.copy(alpha = 0.36f),
+            borderColor = AppColors.Red.copy(alpha = 0.28f),
         )
     }
 }

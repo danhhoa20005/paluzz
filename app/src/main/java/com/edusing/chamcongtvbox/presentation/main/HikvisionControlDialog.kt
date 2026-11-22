@@ -49,6 +49,8 @@ import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.util.TimeZone
 
 /**
  * Trung tâm quản trị phần cứng chuyên sâu cho máy Hikvision (`DS-K1T320MX` / `MFWX`) ngay trên App TV Box & Điện thoại:
@@ -165,33 +167,29 @@ internal fun HikvisionControlDialog(
             }
 
             HorizontalDivider(color = AppColors.Line.copy(alpha = 0.5f))
-            Text("Điều khiển phần cứng", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppColors.Text)
+            Text("Thao tác nhanh", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppColors.Text)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TvActionButton(
-                    text = "Mở cửa", containerColor = AppColors.Green, enabled = !busy, compact = true, modifier = Modifier.weight(1f),
-                    onClick = { runAction { ctrl.controlDoor(device, HikvisionDoorCommand.OPEN) } },
-                )
-                TammiOutlinedButton(
-                    text = "Đồng bộ giờ VN", enabled = !busy, compact = true, contentColor = AppColors.Primary, modifier = Modifier.weight(1f),
-                    onClick = { runAction { ctrl.syncVietnamTime(device) } },
-                )
+                TvActionButton("Mở cửa", AppColors.Green, { runAction { ctrl.controlDoor(device, HikvisionDoorCommand.OPEN) } }, Modifier.weight(1f), !busy, compact = true)
+                TvActionButton("Bù hôm nay", AppColors.OrbCobalt, {
+                    runAction {
+                        val cfg = container.configRepository.getConfig()
+                        val now = container.attendanceEngine.currentServerTimeMillis()
+                        val start = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh")).apply {
+                            timeInMillis = now; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                        val domain = container.configRepository.getBranding().normalizeApiDomain(cfg.apiDomain)
+                        container.attendanceEngine.withDeviceIoLock { container.backfillHikvisionEventsUseCase(device, domain, cfg.accountId, start, now + 60_000L, cfg.dedupSeconds) }.map { it.message }
+                    }
+                }, Modifier.weight(1f), !busy, compact = true)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TammiOutlinedButton(
-                    text = "Khoá IP tĩnh", enabled = !busy, compact = true, contentColor = AppColors.OrbCobalt, modifier = Modifier.weight(1f),
-                    onClick = { runAction { ctrl.lockStaticIp(device) } },
-                )
-                if (confirmReboot) {
-                    TvActionButton(
-                        text = "Xác nhận khởi động lại", containerColor = AppColors.Red, enabled = !busy, compact = true, modifier = Modifier.weight(1f),
-                        onClick = { runAction { ctrl.rebootDevice(device) } },
-                    )
-                } else {
-                    TammiOutlinedButton(
-                        text = "Khởi động lại", enabled = !busy, compact = true, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.35f), modifier = Modifier.weight(1f),
-                        onClick = { confirmReboot = true },
-                    )
-                }
+                TammiOutlinedButton("Đồng bộ giờ VN", { runAction { ctrl.syncVietnamTime(device) } }, Modifier.weight(1f), !busy, compact = true, contentColor = AppColors.Primary)
+                TammiOutlinedButton("Khoá IP tĩnh", { runAction { ctrl.lockStaticIp(device) } }, Modifier.weight(1f), !busy, compact = true, contentColor = AppColors.OrbCobalt)
+            }
+            if (confirmReboot) {
+                TvActionButton("Xác nhận khởi động lại máy", AppColors.Red, { runAction { ctrl.rebootDevice(device) } }, Modifier.fillMaxWidth(), !busy, compact = true)
+            } else {
+                TammiOutlinedButton("Khởi động lại máy chấm công", { confirmReboot = true }, Modifier.fillMaxWidth(), !busy, compact = true, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.35f))
             }
 
             if (otherOnlineHikDevices.isNotEmpty()) {

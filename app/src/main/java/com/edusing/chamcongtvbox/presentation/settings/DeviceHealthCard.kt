@@ -6,17 +6,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -49,9 +42,8 @@ import com.edusing.chamcongtvbox.service.TvAutoBootHelper
 import java.util.Locale
 
 /**
- * Thẻ sức khoẻ vận hành 24/7 & tự khởi động TV Box **Liquid Glass 3D** thuần màu & chữ:
- * - Hiển thị thiết bị, IP LAN, pin, thông báo và trạng thái tự mở app sau khi mất điện có điện lại.
- * - Hỗ trợ bật 1 chạm cả 2 lớp tự khởi động TV Box (Màn hình chính TV Box & Quyền tự mở màn hình Android 10+).
+ * Thẻ **Vận hành 24/7 & Web quản trị LAN** tinh gọn:
+ * chỉ hiện nút hành động khi thiếu quyền quan trọng; mọi thiết lập TV Launcher chuyên sâu tách sang mục Nâng cao.
  */
 @Composable
 internal fun DeviceHealthCard(
@@ -70,16 +62,13 @@ internal fun DeviceHealthCard(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    TammiGlassPanel(
-        modifier = modifier.fillMaxWidth(),
-        padding = PaddingValues(TammiSpacing.lg),
-    ) {
+    val allReady = health.ignoringBatteryOptimizations && health.canAutoOpenUiOnBoot
+
+    TammiGlassPanel(modifier = modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.lg)) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(AppColors.OrbTeal))
-                Spacer(Modifier.width(10.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Tối ưu 24/7 & Tự mở khi có điện", fontWeight = FontWeight.Black, fontSize = 15.sp, color = AppColors.Text)
+                    Text("Vận hành 24/7", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AppColors.Text)
                     Text(
                         text = "${health.networkLabel} • ${health.localIp}",
                         fontSize = 12.sp,
@@ -89,128 +78,101 @@ internal fun DeviceHealthCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                TammiOutlinedButton(
-                    text = "Làm mới",
-                    onClick = { health = readDeviceHealthInfo(context) },
-                    compact = true,
-                    contentColor = AppColors.Primary,
+                TammiStatusPill(
+                    label = if (allReady) "Sẵn sàng" else "Cần cấp quyền",
+                    tone = if (allReady) TammiBadgeTone.SUCCESS else TammiBadgeTone.WARNING,
                 )
             }
 
-            Text("${health.formFactorLabel} • ${health.modelAndOs}", fontSize = 12.5.sp, color = AppColors.TextSecondary, fontWeight = FontWeight.Medium)
-
-            HealthBadgeRow(
-                label = "Không giới hạn pin",
-                statusText = if (health.ignoringBatteryOptimizations) "Đã bật" else "Đang hạn chế",
-                tone = if (health.ignoringBatteryOptimizations) TammiBadgeTone.SUCCESS else TammiBadgeTone.WARNING,
-            )
-            HealthBadgeRow(
-                label = "Thông báo nền",
-                statusText = if (health.notificationGranted) "Đã bật" else "Chưa bật",
-                tone = if (health.notificationGranted) TammiBadgeTone.SUCCESS else TammiBadgeTone.WARNING,
-            )
-            HealthBadgeRow(
-                label = "Tự bật màn hình khi có điện",
-                statusText = when {
-                    health.isDefaultHomeLauncher -> "Màn hình chính TV"
-                    health.canAutoOpenUiOnBoot -> "Sẵn sàng"
-                    else -> "Cần cấp quyền"
-                },
-                tone = if (health.canAutoOpenUiOnBoot) TammiBadgeTone.SUCCESS else TammiBadgeTone.WARNING,
-            )
-            HealthBadgeRow(
-                label = "Chế độ Màn hình chính TV Box",
-                statusText = when {
-                    health.isDefaultHomeLauncher -> "Đang bật (100%)"
-                    health.isTvHomeLauncherEnabled -> "Chưa chọn mặc định"
-                    else -> "Chưa bật"
-                },
-                tone = when {
-                    health.isDefaultHomeLauncher -> TammiBadgeTone.SUCCESS
-                    health.isTvHomeLauncherEnabled -> TammiBadgeTone.WARNING
-                    else -> TammiBadgeTone.NEUTRAL
-                },
-            )
-            HealthBadgeRow(
-                label = "Web quản trị từ xa (LAN)",
-                statusText = webConsoleUrl.removePrefix("http://").ifBlank { "Đang chờ IP LAN" },
-                tone = if (webConsoleUrl.isNotBlank()) TammiBadgeTone.INFO else TammiBadgeTone.NEUTRAL,
-            )
+            if (webConsoleUrl.isNotBlank()) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Web quản trị LAN", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.TextSecondary)
+                    Text(
+                        text = webConsoleUrl.removePrefix("http://"),
+                        fontSize = 12.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.Primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
 
             if (!health.ignoringBatteryOptimizations) {
                 TvActionButton(
-                    text = "Bỏ giới hạn pin ngay",
+                    text = "Bỏ giới hạn pin để chạy nền 24/7",
                     containerColor = AppColors.Amber,
                     compact = true,
                     onClick = { openBatteryOptimizationWhitelist(context) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-
             if (!health.canAutoOpenUiOnBoot) {
-                TvActionButton(
-                    text = "Cấp quyền tự mở khi có điện",
-                    containerColor = AppColors.Primary,
+                TammiOutlinedButton(
+                    text = "Cấp quyền tự mở màn hình khi có điện",
+                    contentColor = AppColors.Primary,
                     compact = true,
                     onClick = { TvAutoBootHelper.openOverlayPermissionSettings(context) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-
-            HorizontalDivider(color = AppColors.Line.copy(alpha = 0.55f))
-
-            Text(
-                text = "TV Box chuyên dụng: đặt làm Màn hình chính để mất điện có lại vào thẳng app (100% mọi Android 7–15).",
-                fontSize = 12.sp,
-                color = AppColors.TextSecondary,
-                lineHeight = 17.sp,
-            )
-
-            if (!health.isDefaultHomeLauncher) {
-                TvActionButton(
-                    text = if (health.isTvHomeLauncherEnabled) "Chọn làm Màn hình chính mặc định" else "Đặt làm Màn hình chính TV Box",
-                    containerColor = AppColors.Green,
-                    compact = true,
-                    onClick = {
-                        TvAutoBootHelper.enableTvHomeLauncherAndPrompt(context)
-                        health = readDeviceHealthInfo(context)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            if (health.isTvHomeLauncherEnabled) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TammiOutlinedButton(
-                        text = "Tắt màn hình chính",
-                        onClick = {
-                            TvAutoBootHelper.disableTvHomeLauncher(context)
-                            health = readDeviceHealthInfo(context)
-                        },
-                        compact = true,
-                        contentColor = AppColors.Red,
-                        borderColor = AppColors.Red.copy(alpha = 0.34f),
-                        modifier = Modifier.weight(1f),
-                    )
-                    TammiOutlinedButton(
-                        text = "Cài đặt Android",
-                        onClick = { TvAutoBootHelper.openSystemSettings(context) },
-                        compact = true,
-                        contentColor = AppColors.Primary,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
         }
     }
 }
 
+/** Khối cấu hình Màn hình chính TV Box (đặt gọn trong mục Nâng cao để người dùng phổ thông không bị rối). */
 @Composable
-private fun HealthBadgeRow(label: String, statusText: String, tone: TammiBadgeTone) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Text, modifier = Modifier.weight(1f))
-        TammiStatusPill(label = statusText, tone = tone)
+internal fun TvHomeLauncherAdvancedSection() {
+    val context = LocalContext.current
+    var health by remember { mutableStateOf(readDeviceHealthInfo(context)) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HorizontalDivider(color = AppColors.Border.copy(alpha = 0.5f))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Màn hình chính TV Box", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = AppColors.Text)
+                Text("Mất điện có lại tự mở thẳng ứng dụng", fontSize = 12.sp, color = AppColors.TextSecondary)
+            }
+            TammiStatusPill(
+                label = if (health.isDefaultHomeLauncher) "Đang bật" else "Chưa bật",
+                tone = if (health.isDefaultHomeLauncher) TammiBadgeTone.SUCCESS else TammiBadgeTone.NEUTRAL,
+            )
+        }
+        if (!health.isDefaultHomeLauncher) {
+            TammiOutlinedButton(
+                text = if (health.isTvHomeLauncherEnabled) "Chọn làm Màn hình chính mặc định" else "Bật chế độ Màn hình chính TV Box",
+                contentColor = AppColors.Green,
+                compact = true,
+                onClick = {
+                    TvAutoBootHelper.enableTvHomeLauncherAndPrompt(context)
+                    health = readDeviceHealthInfo(context)
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (health.isTvHomeLauncherEnabled) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TammiOutlinedButton(
+                    text = "Tắt màn hình chính",
+                    onClick = {
+                        TvAutoBootHelper.disableTvHomeLauncher(context)
+                        health = readDeviceHealthInfo(context)
+                    },
+                    compact = true,
+                    contentColor = AppColors.Red,
+                    borderColor = AppColors.Red.copy(alpha = 0.34f),
+                    modifier = Modifier.weight(1f),
+                )
+                TammiOutlinedButton(
+                    text = "Cài đặt Android",
+                    onClick = { TvAutoBootHelper.openSystemSettings(context) },
+                    compact = true,
+                    contentColor = AppColors.Primary,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 

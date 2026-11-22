@@ -1,7 +1,6 @@
 package com.edusing.chamcongtvbox.presentation.login
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +16,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -43,6 +41,7 @@ import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
 import com.edusing.chamcongtvbox.presentation.components.TammiOfflineBanner
 import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
+import com.edusing.chamcongtvbox.presentation.components.TammiSwitchRow
 import com.edusing.chamcongtvbox.presentation.components.TvActionButton
 import com.edusing.chamcongtvbox.presentation.components.orbColor
 import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
@@ -67,24 +66,16 @@ internal fun LoginFormCard(
         modifier = modifier,
         padding = PaddingValues(if (isCompact) TammiSpacing.lg else TammiSpacing.xl),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(accent))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (isCompact) state.activeMode.shortLabel else "Đăng nhập",
-                    fontSize = if (isCompact) 17.sp else 19.sp,
-                    fontWeight = FontWeight.Black,
-                    color = AppColors.Text,
-                )
-                Text(
-                    text = "Tài khoản quản trị ${state.orgLabel.lowercase()} trên web tổng",
-                    fontSize = 12.5.sp,
-                    color = AppColors.TextSecondary,
-                )
+        if (!isCompact) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(accent))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Đăng nhập", fontSize = 19.sp, fontWeight = FontWeight.Black, color = AppColors.Text)
+                    Text("Tài khoản quản trị ${state.orgLabel.lowercase()} trên web tổng", fontSize = 12.5.sp, color = AppColors.TextSecondary)
+                }
             }
+            Spacer(Modifier.height(TammiSpacing.md))
         }
-
-        Spacer(Modifier.height(TammiSpacing.md))
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!state.noticeBanner.isNullOrBlank()) {
@@ -146,30 +137,24 @@ internal fun LoginFormCard(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                var rememberFocused by remember { mutableStateOf(false) }
+            TammiSwitchRow(
+                title = "Ghi nhớ đăng nhập",
+                subtitle = "Tự động kết nối ở các lần mở sau",
+                checked = state.rememberAccount,
+                onCheckedChange = viewModel::onRememberChange,
+            )
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 var serverFocused by remember { mutableStateOf(false) }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .onFocusChanged { rememberFocused = it.isFocused }
-                        .tvFocusRing(rememberFocused, 10)
-                        .clickable { viewModel.onRememberChange(!state.rememberAccount) },
-                ) {
-                    Checkbox(checked = state.rememberAccount, onCheckedChange = viewModel::onRememberChange)
-                    Text("Lưu tài khoản & mật khẩu (Tự đăng nhập)", fontSize = 12.5.sp, color = AppColors.Text, fontWeight = FontWeight.Medium)
-                }
                 TextButton(
                     onClick = viewModel::toggleAdvancedServer,
                     modifier = Modifier.onFocusChanged { serverFocused = it.isFocused }.tvFocusRing(serverFocused, 10),
                 ) {
                     Text(
-                        text = if (state.showAdvancedServer) "Ẩn máy chủ" else "Máy chủ",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = AppColors.Primary,
+                        text = if (state.showAdvancedServer) "Ẩn tuỳ chọn máy chủ" else "Tuỳ chọn máy chủ",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.TextSecondary,
                     )
                 }
             }

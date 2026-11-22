@@ -139,7 +139,10 @@ class SettingsViewModel(
     fun onDedupSecChange(v: String) = _uiState.update { it.copy(dedupSeconds = v.filter(Char::isDigit), savedBanner = null) }
     fun onHeartbeatSecChange(v: String) = _uiState.update { it.copy(heartbeatIntervalSec = v.filter(Char::isDigit), savedBanner = null) }
     fun onMaxNameBytesChange(v: String) = _uiState.update { it.copy(maxNameBytes = v.filter(Char::isDigit), savedBanner = null) }
-    fun onAutoStartOnBootChange(v: Boolean) = _uiState.update { it.copy(autoStartOnBoot = v, savedBanner = null) }
+    fun onAutoStartOnBootChange(v: Boolean) {
+        _uiState.update { it.copy(autoStartOnBoot = v, savedBanner = null) }
+        viewModelScope.launch { configRepository.saveConfig(configRepository.getConfig().copy(autoStartOnBoot = v)) }
+    }
     fun onVoiceGreetingChange(v: Boolean) {
         _uiState.update { it.copy(voiceGreetingEnabled = v, savedBanner = null) }
         viewModelScope.launch { configRepository.saveConfig(configRepository.getConfig().copy(voiceGreetingEnabled = v)) }

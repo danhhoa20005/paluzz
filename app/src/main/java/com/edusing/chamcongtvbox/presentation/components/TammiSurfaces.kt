@@ -2,6 +2,7 @@ package com.edusing.chamcongtvbox.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,19 +12,28 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +47,7 @@ import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
 import com.edusing.chamcongtvbox.presentation.theme.TammiRadii
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
+import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
 /** Bảng màu ô nhập liệu kính sáng thanh thoát chuẩn WCAG AAA dùng chung toàn ứng dụng. */
 @Composable
@@ -98,16 +109,11 @@ fun TammiStatusPill(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .clip(TammiRadii.badgeShape)
-            .background(bg)
-            .border(1.dp, fg.copy(alpha = 0.26f), TammiRadii.badgeShape)
+            .clip(TammiRadii.badgeShape).background(bg).border(1.dp, fg.copy(alpha = 0.26f), TammiRadii.badgeShape)
             .padding(horizontal = 10.dp, vertical = 5.dp),
     ) {
-        Box(
-            modifier = Modifier.size(11.dp).clip(CircleShape).background(dot.copy(alpha = 0.24f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(modifier = Modifier.size(6.5.dp).clip(CircleShape).background(dot))
+        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(dot.copy(alpha = 0.24f)), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(dot))
         }
         Spacer(Modifier.width(6.dp))
         Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -130,12 +136,9 @@ fun TammiEmptyStateView(
         verticalArrangement = Arrangement.Center,
     ) {
         Box(
-            modifier = Modifier
-                .width(44.dp)
-                .height(5.dp)
+            modifier = Modifier.width(44.dp).height(5.dp)
                 .shadow(4.dp, CircleShape, ambientColor = accentColor.copy(alpha = 0.40f), spotColor = accentColor.copy(alpha = 0.40f))
-                .clip(CircleShape)
-                .background(Brush.horizontalGradient(listOf(accentColor, accentColor.copy(alpha = 0.55f)))),
+                .clip(CircleShape).background(Brush.horizontalGradient(listOf(accentColor, accentColor.copy(alpha = 0.55f)))),
         )
         Spacer(Modifier.height(TammiSpacing.md))
         Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppColors.Text, textAlign = TextAlign.Center)
@@ -152,14 +155,9 @@ fun TammiEmptyStateView(
 @Composable
 fun TammiOfflineBanner(message: String, modifier: Modifier = Modifier, onRetry: (() -> Unit)? = null) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(TammiRadii.inputShape)
-            .background(AppColors.AmberSoft)
-            .border(1.1.dp, AppColors.Amber.copy(alpha = 0.30f), TammiRadii.inputShape)
-            .padding(horizontal = TammiSpacing.md, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
+        modifier = modifier.fillMaxWidth().clip(TammiRadii.inputShape).background(AppColors.AmberSoft)
+            .border(1.1.dp, AppColors.Amber.copy(alpha = 0.30f), TammiRadii.inputShape).padding(horizontal = TammiSpacing.md, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm),
     ) {
         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AppColors.Amber))
         Text(message, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.AmberText, modifier = Modifier.weight(1f))
@@ -179,10 +177,7 @@ fun TammiErrorStateCard(message: String, modifier: Modifier = Modifier, onRetry:
     }
 }
 
-/**
- * Thanh công cụ/thao tác nổi **Chrome Liquid Glass** đồng bộ cả Điện thoại & TV Box:
- * luôn là thẻ kính bo tròn nổi thoáng thay vì dải chữ nhật phẳng đè chồng lên thanh viên thuốc đáy.
- */
+/** Thanh công cụ/thao tác nổi **Chrome Liquid Glass** đồng bộ cả Điện thoại & TV Box. */
 @Composable
 fun TammiAdaptiveBar(
     floating: Boolean,
@@ -193,11 +188,38 @@ fun TammiAdaptiveBar(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     TammiGlassPanel(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = horizontalPadding, vertical = if (floating) 0.dp else 4.dp),
-        padding = PaddingValues(horizontal = 12.dp, vertical = 9.dp),
-        tier = LiquidGlassTier.CHROME,
-        content = content,
+        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = if (floating) 0.dp else 4.dp),
+        padding = PaddingValues(horizontal = 12.dp, vertical = 9.dp), tier = LiquidGlassTier.CHROME, content = content,
     )
+}
+
+/** Dòng công tắc Switch mềm mại chuẩn Apple HIG / Liquid Glass + D-Pad TV Box (`touchMin >= 48dp`). */
+@Composable
+fun TammiSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = TammiSpacing.touchMin).clip(RoundedCornerShape(12.dp))
+            .onFocusChanged { focused = it.isFocused }.tvFocusRing(focused, 12)
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }.padding(horizontal = 4.dp, vertical = 4.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = AppColors.Text)
+            if (!subtitle.isNullOrBlank()) Text(subtitle, fontSize = 12.sp, color = AppColors.TextSecondary, lineHeight = 16.sp)
+        }
+        Switch(
+            checked = checked, onCheckedChange = onCheckedChange, enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White, checkedTrackColor = AppColors.Primary,
+                uncheckedThumbColor = Color.White, uncheckedTrackColor = AppColors.Border, uncheckedBorderColor = Color.Transparent,
+            ),
+        )
+    }
 }

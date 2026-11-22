@@ -16,15 +16,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,11 +41,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.edusing.chamcongtvbox.presentation.components.TammiAdaptiveBar
 import com.edusing.chamcongtvbox.presentation.components.TammiErrorStateCard
 import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
 import com.edusing.chamcongtvbox.presentation.components.TammiModeSwitcherCard
 import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
+import com.edusing.chamcongtvbox.presentation.components.TammiSwitchRow
 import com.edusing.chamcongtvbox.presentation.components.TvActionButton
 import com.edusing.chamcongtvbox.presentation.components.TvSubScreenHeader
 import com.edusing.chamcongtvbox.presentation.components.tammiFieldColors
@@ -59,9 +57,9 @@ import com.edusing.chamcongtvbox.presentation.theme.rememberDeviceUiSpec
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
 /**
- * Màn hình Cấu hình **Liquid Glass 3D** thoáng gọn (không chồng 2 thanh đáy, không trùng nút Đổi TK):
- * - Điện thoại: cuộn xuyên sáng liền mạch dưới thanh viên thuốc đáy, nút Lưu cấu hình nằm gọn cuối danh sách.
- * - TV Box / Tablet: 2 cột cân đối + thanh Lưu nổi kính căn thẳng hàng với Sidebar.
+ * Màn hình Cấu hình **Liquid Glass 3D** tinh gọn theo chuẩn Progressive Disclosure:
+ * - **Cơ bản (tự lưu tức thì)**: Chế độ hệ thống, 3 công tắc hằng ngày (Loa, Tự chạy, Tự đẩy), Cập nhật & Vận hành 24/7.
+ * - **Nâng cao (mặc định thu gọn)**: Khung giờ đẩy thứ 4, chu kỳ quét/chống trùng, TV Launcher & thông số kỹ thuật FK/API.
  */
 @Composable
 fun SettingsScreen(
@@ -98,19 +96,15 @@ fun SettingsScreen(
             Row(modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = ui.horizontalPadding, vertical = ui.verticalPadding), horizontalArrangement = Arrangement.spacedBy(ui.cardSpacing)) {
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(ui.cardSpacing)) {
                     TammiModeSwitcherCard(activeMode = state.activeMode, onSelectMode = { viewModel.switchMode(it, onModeSwitchRequireLogin) })
-                    DeviceHealthCard(webConsoleUrl = state.webConsoleUrl)
-                    AppUpdateCard(state.updateState, viewModel::onAutoUpdateEnabledChange, viewModel::checkAppUpdateNow, viewModel::installAppUpdateNow)
+                    DailyEssentialsCard(state, viewModel)
+                    if (onLogoutClick != null) {
+                        TammiOutlinedButton("Đổi tài khoản", onLogoutClick, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.34f), modifier = Modifier.fillMaxWidth())
+                    }
                 }
                 Column(modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(ui.cardSpacing)) {
-                    AutoPushScheduleCard(state, viewModel)
-                    EssentialRuntimeCard(state, viewModel)
-                    AdvancedTechCard(state, viewModel, expanded = showAdvanced, onToggle = { showAdvanced = !showAdvanced })
-                }
-            }
-            TammiAdaptiveBar(floating = true, horizontalPadding = ui.horizontalPadding) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                    if (onLogoutClick != null) TammiOutlinedButton("Đổi TK", onLogoutClick, compact = false, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.34f))
-                    TvActionButton("Lưu cấu hình", AppColors.Primary, onClick = viewModel::saveSettings, modifier = Modifier.weight(1f))
+                    AppUpdateCard(state.updateState, viewModel::onAutoUpdateEnabledChange, viewModel::checkAppUpdateNow, viewModel::installAppUpdateNow)
+                    DeviceHealthCard(webConsoleUrl = state.webConsoleUrl)
+                    AdvancedSettingsAccordion(state, viewModel, expanded = showAdvanced, onToggle = { showAdvanced = !showAdvanced })
                 }
             }
         } else {
@@ -119,12 +113,10 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(ui.cardSpacing),
             ) {
                 TammiModeSwitcherCard(activeMode = state.activeMode, onSelectMode = { viewModel.switchMode(it, onModeSwitchRequireLogin) })
-                AutoPushScheduleCard(state, viewModel)
+                DailyEssentialsCard(state, viewModel)
                 AppUpdateCard(state.updateState, viewModel::onAutoUpdateEnabledChange, viewModel::checkAppUpdateNow, viewModel::installAppUpdateNow)
                 DeviceHealthCard(webConsoleUrl = state.webConsoleUrl)
-                EssentialRuntimeCard(state, viewModel)
-                AdvancedTechCard(state, viewModel, expanded = showAdvanced, onToggle = { showAdvanced = !showAdvanced })
-                TvActionButton("Lưu cấu hình", AppColors.Primary, onClick = viewModel::saveSettings, modifier = Modifier.fillMaxWidth())
+                AdvancedSettingsAccordion(state, viewModel, expanded = showAdvanced, onToggle = { showAdvanced = !showAdvanced })
                 if (bottomInset.value > 0f) Spacer(Modifier.height(bottomInset))
             }
         }
@@ -132,69 +124,81 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun EssentialRuntimeCard(state: SettingsUiState, viewModel: SettingsViewModel) {
+private fun DailyEssentialsCard(state: SettingsUiState, viewModel: SettingsViewModel) {
     TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.lg)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(AppColors.OrbCobalt))
-            Text("Chu kỳ chấm công", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AppColors.Text)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Tiện ích hằng ngày", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AppColors.Text)
+            Spacer(Modifier.height(4.dp))
+            TammiSwitchRow(
+                title = "Đọc lời chào qua loa",
+                subtitle = "Phát tiếng Việt mỗi khi có người chấm công",
+                checked = state.voiceGreetingEnabled,
+                onCheckedChange = viewModel::onVoiceGreetingChange,
+            )
+            HorizontalDivider(color = AppColors.Border.copy(alpha = 0.42f))
+            TammiSwitchRow(
+                title = "Tự mở khi bật nguồn",
+                subtitle = "Tự khởi chạy lại sau khi cúp điện có lại",
+                checked = state.autoStartOnBoot,
+                onCheckedChange = viewModel::onAutoStartOnBootChange,
+            )
+            HorizontalDivider(color = AppColors.Border.copy(alpha = 0.42f))
+            TammiSwitchRow(
+                title = "Tự đẩy ${state.personLower} (06:00 • 12:00 • 20:00)",
+                subtitle = if (state.autoPushEnabled) "Lịch kế tiếp: ${state.nextAutoPushText} • Chỉ đẩy người mới" else "Đang tạm tắt lịch tự động",
+                checked = state.autoPushEnabled,
+                onCheckedChange = viewModel::onAutoPushEnabledChange,
+            )
+            if (state.connectedDeviceCount > 0) {
+                Spacer(Modifier.height(6.dp))
+                TammiOutlinedButton(
+                    text = if (state.isAutoPushing) "Đang đồng bộ..." else "Đẩy ${state.personLower} ngay (${state.connectedDeviceCount} máy)",
+                    enabled = !state.isAutoPushing,
+                    compact = true,
+                    contentColor = AppColors.Primary,
+                    onClick = viewModel::triggerAutoPushNow,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
-        Spacer(Modifier.size(TammiSpacing.sm))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NumField("Quét máy (giây)", state.pollIntervalSec, viewModel::onPollSecChange, Modifier.weight(1f))
-            NumField("Chống trùng (giây)", state.dedupSeconds, viewModel::onDedupSecChange, Modifier.weight(1f))
-        }
-        Spacer(Modifier.size(TammiSpacing.sm))
-        SettingsCheckboxRow("Tự chạy lại app khi bật nguồn", state.autoStartOnBoot, viewModel::onAutoStartOnBootChange)
-        SettingsCheckboxRow("Đọc lời chào tiếng Việt qua loa khi chấm công", state.voiceGreetingEnabled, viewModel::onVoiceGreetingChange)
     }
 }
 
 @Composable
-private fun AdvancedTechCard(state: SettingsUiState, viewModel: SettingsViewModel, expanded: Boolean, onToggle: () -> Unit) {
+private fun AdvancedSettingsAccordion(state: SettingsUiState, viewModel: SettingsViewModel, expanded: Boolean, onToggle: () -> Unit) {
     var toggleFocused by remember { mutableStateOf(false) }
-    TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.md)) {
+    TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.lg)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .onFocusChanged { toggleFocused = it.isFocused }
-                .tvFocusRing(toggleFocused, 10)
-                .clickable(onClick = onToggle)
-                .padding(vertical = 4.dp, horizontal = 4.dp),
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                .onFocusChanged { toggleFocused = it.isFocused }.tvFocusRing(toggleFocused, 10)
+                .clickable(onClick = onToggle).padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(AppColors.OrbViolet))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Thông số kỹ thuật nâng cao", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = AppColors.Text)
-                Text("TCP/UDP • Cổng ${state.defaultPort} • Báo sống ${state.heartbeatIntervalSec}s", fontSize = 12.sp, color = AppColors.TextSecondary)
+                Text("Cài đặt nâng cao", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = AppColors.Text)
+                Text("Giờ đẩy thứ 4 • Chu kỳ quét • TV Launcher • Kỹ thuật FK", fontSize = 12.sp, color = AppColors.TextSecondary)
             }
-            Text(text = if (expanded) "Ẩn" else "Mở", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Primary)
+            Text(text = if (expanded) "Thu gọn" else "Mở", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, color = AppColors.Primary)
         }
 
         AnimatedVisibility(visible = expanded) {
             Column(modifier = Modifier.fillMaxWidth().padding(top = TammiSpacing.md), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                AutoPushCustomSlotSection(state, viewModel)
+                HorizontalDivider(color = AppColors.Border.copy(alpha = 0.5f))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    NumField("Quét máy (giây)", state.pollIntervalSec, viewModel::onPollSecChange, Modifier.weight(1f))
+                    NumField("Chống trùng (giây)", state.dedupSeconds, viewModel::onDedupSecChange, Modifier.weight(1f))
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    var tcpFocused by remember { mutableStateOf(false) }
-                    var udpFocused by remember { mutableStateOf(false) }
-                    Text("Giao thức:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Text)
-                    FilterChip(
-                        selected = !state.udpMode,
-                        onClick = { viewModel.onUdpModeChange(false) },
-                        label = { Text("TCP (Chuẩn)") },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AppColors.Primary, selectedLabelColor = Color.White),
-                        modifier = Modifier.onFocusChanged { tcpFocused = it.isFocused }.tvFocusRing(tcpFocused, 8),
-                    )
-                    FilterChip(
-                        selected = state.udpMode,
-                        onClick = { viewModel.onUdpModeChange(true) },
-                        label = { Text("UDP") },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AppColors.Primary, selectedLabelColor = Color.White),
-                        modifier = Modifier.onFocusChanged { udpFocused = it.isFocused }.tvFocusRing(udpFocused, 8),
-                    )
+                    var tcpFocused by remember { mutableStateOf(false) }; var udpFocused by remember { mutableStateOf(false) }
+                    Text("Máy FK:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = AppColors.Text)
+                    val chipColors = FilterChipDefaults.filterChipColors(selectedContainerColor = AppColors.Primary, selectedLabelColor = Color.White)
+                    FilterChip(!state.udpMode, { viewModel.onUdpModeChange(false) }, { Text("TCP") }, colors = chipColors, modifier = Modifier.onFocusChanged { tcpFocused = it.isFocused }.tvFocusRing(tcpFocused, 8))
+                    FilterChip(state.udpMode, { viewModel.onUdpModeChange(true) }, { Text("UDP") }, colors = chipColors, modifier = Modifier.onFocusChanged { udpFocused = it.isFocused }.tvFocusRing(udpFocused, 8))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    NumField("Cổng (5005)", state.defaultPort, viewModel::onPortChange, Modifier.weight(1f))
+                    NumField("Cổng FK (5005)", state.defaultPort, viewModel::onPortChange, Modifier.weight(1f))
                     NumField("Số máy (1)", state.defaultMachineNo, viewModel::onMachineNoChange, Modifier.weight(1f))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -207,14 +211,11 @@ private fun AdvancedTechCard(state: SettingsUiState, viewModel: SettingsViewMode
                 }
                 NumField("Timeout kết nối (ms)", state.connectTimeoutMs, viewModel::onTimeoutChange, Modifier.fillMaxWidth())
                 OutlinedTextField(
-                    value = state.apiDomain,
-                    onValueChange = viewModel::onApiDomainChange,
-                    label = { Text("Địa chỉ API") },
-                    singleLine = true,
-                    shape = TammiRadii.inputShape,
-                    colors = tammiFieldColors(),
-                    modifier = Modifier.fillMaxWidth(),
+                    value = state.apiDomain, onValueChange = viewModel::onApiDomainChange, label = { Text("Địa chỉ API") },
+                    singleLine = true, shape = TammiRadii.inputShape, colors = tammiFieldColors(), modifier = Modifier.fillMaxWidth(),
                 )
+                TvActionButton("Lưu thông số nâng cao", AppColors.Primary, onClick = viewModel::saveSettings, compact = true, modifier = Modifier.fillMaxWidth())
+                TvHomeLauncherAdvancedSection()
             }
         }
     }
@@ -223,13 +224,8 @@ private fun AdvancedTechCard(state: SettingsUiState, viewModel: SettingsViewMode
 @Composable
 private fun NumField(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier) {
     OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label, maxLines = 1) },
-        singleLine = true,
-        shape = TammiRadii.inputShape,
-        colors = tammiFieldColors(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = modifier,
+        value = value, onValueChange = onChange, label = { Text(label, maxLines = 1) }, singleLine = true,
+        shape = TammiRadii.inputShape, colors = tammiFieldColors(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = modifier,
     )
 }

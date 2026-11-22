@@ -70,25 +70,25 @@ internal fun DevicesPane(
                 modifier = Modifier.weight(1f),
             )
             if (showQuickToolbar && !isRunning) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     TammiOutlinedButton(
                         text = if (isDiscovering) "Đang dò..." else "Dò LAN",
                         enabled = !isBusy,
                         compact = true,
-                        contentColor = AppColors.OrbCobalt,
+                        contentColor = AppColors.Primary,
                         onClick = onDiscover,
                     )
                     if (onAddDevice != null) {
                         TvActionButton(
-                            text = "Thêm & Nhận",
-                            containerColor = AppColors.OrbTeal,
+                            text = "+ Thêm",
+                            containerColor = AppColors.Primary,
                             enabled = !isBusy,
                             compact = true,
                             onClick = onAddDevice,
                         )
                     }
-                    if (devices.size > 1) {
-                        TammiOutlinedButton(text = "Nối lại hết", enabled = !isBusy, compact = true, onClick = onReconnectAll)
+                    if (isTv && devices.size > 1) {
+                        TammiOutlinedButton(text = "Nối hết", enabled = !isBusy, compact = true, onClick = onReconnectAll)
                     }
                 }
             } else if (devices.size > 1 && !isRunning) {
@@ -169,22 +169,20 @@ private fun TerminalCard(
             Text(item.lastError, fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = AppColors.Red, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
 
-        // Hàng nhanh riêng cho Hikvision online (Mở cửa + Bù hôm nay + Quản trị phần cứng)
-        if (onOpenDoor != null || onBackfillToday != null || onOpenHikControl != null) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (onOpenDoor != null) TvActionButton(text = "Mở cửa", containerColor = AppColors.Green, enabled = !isBusy, compact = true, onClick = onOpenDoor, modifier = Modifier.weight(1f))
-                if (onBackfillToday != null) TvActionButton(text = "Bù hôm nay", containerColor = AppColors.OrbCobalt, enabled = !isBusy, compact = true, onClick = onBackfillToday, modifier = Modifier.weight(1.1f))
-                if (onOpenHikControl != null) TammiOutlinedButton(text = "Quản trị", enabled = !isBusy, compact = true, contentColor = AppColors.Primary, onClick = onOpenHikControl, modifier = Modifier.weight(0.95f))
-            }
-            Spacer(Modifier.height(8.dp))
-        }
+        // Đúng 1 hàng nút gọn gàng, 1 hành động chính rõ ràng (mọi công cụ sâu của Hikvision gói gọn trong Quản trị)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TammiOutlinedButton(text = "Nối lại", enabled = !isBusy, compact = true, onClick = onReconnect, modifier = Modifier.weight(1f))
+            when {
+                onOpenHikControl != null -> TvActionButton("Quản trị", AppColors.Primary, onOpenHikControl, Modifier.weight(1.15f), !isBusy, compact = true)
+                !item.isConnected -> TvActionButton("Nối lại", AppColors.Primary, onReconnect, Modifier.weight(1.15f), !isBusy, compact = true)
+                else -> TammiOutlinedButton("Nối lại", onReconnect, Modifier.weight(1f), !isBusy, compact = true)
+            }
             if (!isRunning) {
-                TammiOutlinedButton(text = "Sửa", enabled = !isBusy, compact = true, contentColor = AppColors.Text, onClick = onRename, modifier = Modifier.weight(1f))
-                TammiOutlinedButton(text = "Xoá", enabled = !isBusy, compact = true, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.30f), onClick = onDelete, modifier = Modifier.weight(0.85f))
+                TammiOutlinedButton("Sửa", onRename, Modifier.weight(0.95f), !isBusy, compact = true, contentColor = AppColors.Text)
+                TammiOutlinedButton("Xoá", onDelete, Modifier.weight(0.8f), !isBusy, compact = true, contentColor = AppColors.Red, borderColor = AppColors.Red.copy(alpha = 0.28f))
+            } else if (onOpenDoor != null) {
+                TvActionButton("Mở cửa", AppColors.Green, onOpenDoor, Modifier.weight(1f), !isBusy, compact = true)
             }
         }
     }
@@ -192,53 +190,29 @@ private fun TerminalCard(
 
 /** Bảng thông số trực 24/7 tầm nhìn xa 3m dành riêng cho TV Box (không lồng khung trong khung). */
 @Composable
-internal fun TvLiveStatusPane(
-    state: MainUiState,
-    modifier: Modifier = Modifier,
-) {
+internal fun TvLiveStatusPane(state: MainUiState, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
         TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.lg), borderColor = AppColors.Green.copy(alpha = 0.34f)) {
             Text("Lượt chấm hôm nay", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = AppColors.TextSecondary)
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = "${state.totalCheckInsToday}",
-                fontSize = 44.sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = (-1).sp,
-                color = AppColors.Green,
-            )
+            Text("${state.totalCheckInsToday}", fontSize = 44.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace, letterSpacing = (-1).sp, color = AppColors.Green)
             val pollShort = state.lastPollTimeText.substringBefore(" ")
-            Text(
-                text = if (pollShort.isNotBlank()) "Quét gần nhất: $pollShort" else "Đang lắng nghe máy chấm công...",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = AppColors.TextSecondary,
-            )
+            Text(if (pollShort.isNotBlank()) "Quét gần nhất: $pollShort" else "Đang lắng nghe máy chấm công...", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = AppColors.TextSecondary)
         }
-
         TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = PaddingValues(TammiSpacing.lg)) {
             Text("Thiết bị đang trực (${state.connectedCount}/${state.totalDeviceCount})", fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = AppColors.Text)
             Spacer(Modifier.height(10.dp))
             state.devices.forEachIndexed { idx, dev ->
                 if (idx > 0) HorizontalDivider(color = AppColors.Border.copy(alpha = 0.42f))
                 val dot = if (dev.isConnected) AppColors.GreenBright else AppColors.Red
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(dot))
                     Spacer(Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(dev.config.displayName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(dev.config.ip, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = AppColors.TextSecondary)
                     }
-                    Text(
-                        text = if (dev.isConnected) "Online" else "Offline",
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (dev.isConnected) AppColors.Green else AppColors.Red,
-                    )
+                    Text(if (dev.isConnected) "Online" else "Offline", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = if (dev.isConnected) AppColors.Green else AppColors.Red)
                 }
             }
         }

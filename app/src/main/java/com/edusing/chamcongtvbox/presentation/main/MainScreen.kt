@@ -17,17 +17,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edusing.chamcongtvbox.presentation.components.EditDeviceDialog
-import com.edusing.chamcongtvbox.presentation.components.TammiQuickAction
-import com.edusing.chamcongtvbox.presentation.components.TammiQuickActionDock
 import com.edusing.chamcongtvbox.presentation.components.TvSafeConfirmDialog
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.LocalFloatingNavBottomInset
 import com.edusing.chamcongtvbox.presentation.theme.rememberDeviceUiSpec
 
 /**
- * Màn hình Trạm Trực **Liquid Glass 3D** gọn sạch, không trùng lặp thao tác:
- * - **TV Box / Tablet (`isTwoPane`)**: Hero lệnh nhanh phía trên + 2 cột điều khiển 16:9.
- * - **Điện thoại**: Hero → 3 phím thao tác độc nhất (`Dò LAN`, `Thêm máy`, `Kiosk 24/7`) → Máy chấm công → Nhật ký.
+ * Màn hình Trạm Trực **Liquid Glass 3D** gọn sạch, 1 ánh nhìn nắm trọn:
+ * - **TV Box / Tablet (`isTwoPane`)**: Hero lệnh nhanh + 2 cột cân xứng 16:9.
+ * - **Điện thoại**: Hero (Bắt đầu + Kiosk) → Máy chấm công (kèm Dò LAN & + Thêm gọn) → Nhật ký trực tiếp.
  */
 @Composable
 fun MainScreen(
@@ -43,28 +41,6 @@ fun MainScreen(
     val ui = rememberDeviceUiSpec()
 
     LaunchedEffect(Unit) { viewModel.onEnterMainScreen() }
-
-    // 3 phím tắt độc nhất trên Điện thoại (không lặp lại tab Nhân sự / Học sinh đã có ở thanh đáy)
-    val phoneQuickActions = listOf(
-        TammiQuickAction(
-            label = if (state.isDiscovering) "Đang dò" else "Dò LAN",
-            baseColor = AppColors.OrbCobalt,
-            enabled = !state.isRunning && !state.isBusy,
-            onClick = viewModel::onDiscoverDevicesClicked,
-        ),
-        TammiQuickAction(
-            label = "Nhận máy",
-            baseColor = AppColors.OrbTeal,
-            enabled = !state.isRunning && !state.isBusy,
-            onClick = onOpenAddDevice,
-        ),
-        TammiQuickAction(
-            label = "Kiosk 24/7",
-            baseColor = AppColors.OrbAmber,
-            enabled = true,
-            onClick = onOpenKiosk,
-        ),
-    )
 
     Column(modifier = Modifier.fillMaxSize()) {
         if (ui.isTwoPane) {
@@ -139,13 +115,13 @@ fun MainScreen(
                 verticalArrangement = Arrangement.spacedBy(ui.cardSpacing),
             ) {
                 GatewayHeroPanel(state, ui, onStartStop = viewModel::onStartOrStopClicked, onOpenKiosk = onOpenKiosk)
-                TammiQuickActionDock(actions = phoneQuickActions, isTv = false)
                 UnpairedHikvisionCard(state.unpairedHikvisionDevices, state.isPairingHikvision, state.pairHikvisionError, viewModel::pairDiscoveredHikvision)
                 DevicesPane(
                     devices = state.devices,
                     isRunning = false,
                     isBusy = state.isBusy,
                     isDiscovering = state.isDiscovering,
+                    showQuickToolbar = true,
                     onDiscover = viewModel::onDiscoverDevicesClicked,
                     onAddDevice = onOpenAddDevice,
                     onReconnectAll = viewModel::onConnectAllClicked,

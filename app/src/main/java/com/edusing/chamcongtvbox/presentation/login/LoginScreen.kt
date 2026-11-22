@@ -54,7 +54,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
             .fillMaxSize()
             .imePadding()
             .padding(horizontal = ui.horizontalPadding, vertical = ui.verticalPadding),
-        contentAlignment = if (ui.isTwoPane) Alignment.Center else Alignment.TopCenter,
+        contentAlignment = Alignment.Center,
     ) {
         if (ui.isTwoPane) {
             Row(
@@ -125,12 +125,12 @@ private fun CompactLiquidBrandBanner(mode: AppMode, title: String, orgLabel: Str
             .fillMaxWidth()
             .stainedLiquidGlass(shape = TammiRadii.panelShape, baseColor = accent, shadowElevation = 14.dp),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 15.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(AppColors.GreenBright).border(1.5.dp, Color.White, CircleShape))
                 Text(title, fontSize = 17.5.sp, fontWeight = FontWeight.Black, color = Color.White)
             }
-            Text("Trạm cầu nối 3-trong-1 • Đồng bộ web $orgLabel 24/7", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = AppColors.HeroSubtitle)
+            Text("Đăng nhập 1 lần — tự động kết nối máy chấm công 24/7", fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = AppColors.HeroSubtitle)
         }
     }
 }

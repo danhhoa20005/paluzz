@@ -17,6 +17,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -30,11 +35,13 @@ import com.edusing.chamcongtvbox.presentation.components.TammiBadgeTone
 import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
 import com.edusing.chamcongtvbox.presentation.components.TammiOutlinedButton
 import com.edusing.chamcongtvbox.presentation.components.TammiStatusPill
+import com.edusing.chamcongtvbox.presentation.components.TvSegmentedTabs
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 
 /**
- * Khung Nhật ký trực tiếp **Liquid Glass 3D** thanh thoát (tách dòng bằng hairline mảnh, KHÔNG lồng khung trong khung).
+ * Khung Nhật ký trực tiếp **Liquid Glass 3D** thanh thoát:
+ * mặc định ưu tiên hiển thị lượt chấm công thực & lỗi quan trọng (bỏ nhiễu log hệ thống), có chuyển nhanh sang `Tất cả`.
  */
 @Composable
 internal fun LiveActivityPane(
@@ -46,6 +53,12 @@ internal fun LiveActivityPane(
     onClearLogs: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var onlyCheckIns by rememberSaveable { mutableStateOf(true) }
+    val checkInEvents = remember(events) {
+        events.filter { it.cardId != "-" || it.severity == EventSeverity.ERROR }
+    }
+    val displayed = if (onlyCheckIns) checkInEvents else events
+
     TammiGlassPanel(
         modifier = modifier,
         padding = PaddingValues(if (isTv) TammiSpacing.lg else TammiSpacing.md),
@@ -57,7 +70,7 @@ internal fun LiveActivityPane(
         ) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = "Nhật ký trực tiếp (${events.size})",
+                    text = "Nhật ký trực tiếp",
                     fontWeight = FontWeight.Bold,
                     fontSize = if (isTv) 17.sp else 15.sp,
                     color = AppColors.Text,
@@ -65,12 +78,12 @@ internal fun LiveActivityPane(
                     overflow = TextOverflow.Ellipsis,
                 )
                 val pollShort = lastPollTime.substringBefore(" ")
-                val meta = if (pollShort.isNotBlank()) "Thành công: $totalToday • Quét $pollShort" else "Thành công: $totalToday lượt"
+                val meta = if (pollShort.isNotBlank()) "Hôm nay: $totalToday lượt • Quét $pollShort" else "Hôm nay: $totalToday lượt"
                 Text(meta, fontSize = if (isTv) 13.sp else 12.sp, fontWeight = FontWeight.Medium, color = AppColors.Primary)
             }
             if (events.isNotEmpty()) {
                 TammiOutlinedButton(
-                    text = "Xoá log",
+                    text = "Xoá",
                     onClick = onClearLogs,
                     compact = true,
                     contentColor = AppColors.TextSecondary,
@@ -79,28 +92,41 @@ internal fun LiveActivityPane(
         }
 
         Spacer(Modifier.height(TammiSpacing.sm))
-        HorizontalDivider(color = AppColors.Border.copy(alpha = 0.45f))
+        TvSegmentedTabs(
+            tabs = listOf("Chấm công (${checkInEvents.size})", "Hệ thống (${events.size})"),
+            selectedIndex = if (onlyCheckIns) 0 else 1,
+            onSelect = { onlyCheckIns = (it == 0) },
+        )
+        Spacer(Modifier.height(TammiSpacing.sm))
+        HorizontalDivider(color = AppColors.Border.copy(alpha = 0.42f))
 
-        if (events.isEmpty()) {
+        if (displayed.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = TammiSpacing.xl), contentAlignment = Alignment.Center) {
-                Text("Chưa có lượt chấm công nào.", color = AppColors.TextSecondary, fontSize = if (isTv) 14.5.sp else 13.sp, textAlign = TextAlign.Center)
+                Text(
+                    text = if (onlyCheckIns && events.isNotEmpty()) "Chưa có lượt chấm công nào.\nChạm tab Hệ thống để xem log kết nối."
+                    else "Chưa có lượt chấm công nào.",
+                    color = AppColors.TextSecondary,
+                    fontSize = if (isTv) 14.5.sp else 13.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 19.sp,
+                )
             }
         } else if (scrollable) {
             val listState = rememberLazyListState()
-            val topId = events.firstOrNull()?.id
+            val topId = displayed.firstOrNull()?.id
             LaunchedEffect(topId) {
                 if (topId != null && listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
             }
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(events, key = { _, it -> it.id }) { idx, ev ->
-                    if (idx > 0) HorizontalDivider(color = AppColors.Border.copy(alpha = 0.36f))
+                itemsIndexed(displayed, key = { _, it -> it.id }) { idx, ev ->
+                    if (idx > 0) HorizontalDivider(color = AppColors.Border.copy(alpha = 0.34f))
                     LiveEventItemRow(ev, isTv)
                 }
             }
         } else {
             Column {
-                events.take(30).forEachIndexed { idx, ev ->
-                    if (idx > 0) HorizontalDivider(color = AppColors.Border.copy(alpha = 0.36f))
+                displayed.take(25).forEachIndexed { idx, ev ->
+                    if (idx > 0) HorizontalDivider(color = AppColors.Border.copy(alpha = 0.34f))
                     LiveEventItemRow(ev, isTv)
                 }
             }
