@@ -1,7 +1,7 @@
 {
-  "versionCode": 20,
-  "versionName": "2.7.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.7.0/ChamCong_DiemDanh_v2.7.0.apk",
-  "sha256": "714996d54cdc8ec88609102979b0019c96083f661bf042ad3780ca77126f504c",
-  "notes": "Chuẩn hoá toàn diện Hikvision ISAPI: sửa phân trang AcsEvent, nén ảnh khuôn mặt chuẩn <200KB, nhân bản khuôn mặt giữa nhiều máy Hikvision, Trung tâm Quản trị Hikvision ngay trên App, chống khoá 401 tức thì và sửa AutoPush mã chữ/10 số"
+  "versionCode": 21,
+  "versionName": "2.8.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.8.0/ChamCong_DiemDanh_v2.8.0.apk",
+  "sha256": "fbea5b3184d8f87c413115ce83071e211196682490bf254edb1d720c47d11602",
+  "notes": "Tối ưu hoàn chỉnh giao diện Liquid Glass 3D: tinh gọn Trạm trực 1 hàng nút, tách gọn Cài đặt nâng cao, chuyển công tắc Switch tự lưu tức thì, lọc Nhật ký Chấm công/Hệ thống và danh sách phẳng không lồng khung"
 }
