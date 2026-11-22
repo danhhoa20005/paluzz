@@ -1,7 +1,7 @@
 {
-  "versionCode": 19,
-  "versionName": "2.6.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.6.0/ChamCong_DiemDanh_v2.6.0.apk",
-  "sha256": "d6cdc1448ac19298842a366cd5d6949d4de78a0bea2243dc12beb511ba43a52f",
-  "notes": "Gói 6 tối ưu toàn diện v2.6.0: (1) Khoá tự nối lại nền khi máy Hikvision báo sai MK 401 chống khoá máy 30 phút, (2) Cache HTTP Digest nonce tăng tốc gấp 2x & giảm 50% tải CPU máy chấm công, (3) Tự giãn poll 10s->28s khi Webhook hoạt động tiết kiệm 3x pin/mạng, (4) Sửa trực tiếp IP/Cổng/Mật khẩu máy trên App & Web LAN, (5) Kiosk TV 24/7 hiển thị 5 lượt chấm công gần nhất + Chờ đẩy bù, (6) Cảnh báo sự cố chủ động Telegram/Webhook & Sao lưu/Khôi phục cấu hình AES-256-GCM 1 chạm."
+  "versionCode": 20,
+  "versionName": "2.7.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.7.0/ChamCong_DiemDanh_v2.7.0.apk",
+  "sha256": "714996d54cdc8ec88609102979b0019c96083f661bf042ad3780ca77126f504c",
+  "notes": "Chuẩn hoá toàn diện Hikvision ISAPI: sửa phân trang AcsEvent, nén ảnh khuôn mặt chuẩn <200KB, nhân bản khuôn mặt giữa nhiều máy Hikvision, Trung tâm Quản trị Hikvision ngay trên App, chống khoá 401 tức thì và sửa AutoPush mã chữ/10 số"
 }
