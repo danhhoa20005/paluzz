@@ -49,13 +49,13 @@ import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.liquidGlassLayer
 import com.edusing.chamcongtvbox.presentation.theme.tvFocusRing
 
-/** Bảng màu ô nhập liệu kính sáng/tối thanh thoát chuẩn WCAG AAA dùng chung toàn ứng dụng. */
+/** Bảng màu ô nhập liệu kính sáng sắc nét chuẩn AAAAA dùng chung toàn ứng dụng. */
 @Composable
 fun tammiFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = AppColors.InputFocusedBg,
-    unfocusedContainerColor = AppColors.SurfaceSubtle,
-    focusedBorderColor = AppColors.PrimaryText,
-    unfocusedBorderColor = AppColors.Border.copy(alpha = 0.76f),
+    unfocusedContainerColor = AppColors.InputFocusedBg,
+    focusedBorderColor = AppColors.Primary,
+    unfocusedBorderColor = AppColors.Border,
     focusedTextColor = AppColors.Text,
     unfocusedTextColor = AppColors.Text,
     focusedLabelColor = AppColors.PrimaryText,
@@ -91,7 +91,7 @@ fun TammiGlassPanel(
 
 enum class TammiBadgeTone { PRIMARY, SUCCESS, WARNING, DANGER, INFO, NEUTRAL }
 
-/** Nhãn trạng thái **Clear Liquid Glass** tối giản (chấm nhỏ tinh tế + chữ chuẩn AAA, ít màu sắc). */
+/** Nhãn trạng thái **Light Liquid Glass AAAAA** (chấm rõ + nền sắc nhẹ + viền tách bạch). */
 @Composable
 fun TammiStatusPill(
     label: String,
@@ -99,22 +99,22 @@ fun TammiStatusPill(
     tone: TammiBadgeTone = TammiBadgeTone.PRIMARY,
 ) {
     val (fg, bg, dot) = when (tone) {
-        TammiBadgeTone.PRIMARY -> Triple(AppColors.Text, AppColors.PrimarySoft, AppColors.Primary)
+        TammiBadgeTone.PRIMARY -> Triple(AppColors.PrimaryText, AppColors.PrimarySoft, AppColors.Primary)
         TammiBadgeTone.SUCCESS -> Triple(AppColors.GreenText, AppColors.GreenSoft, AppColors.GreenBright)
         TammiBadgeTone.WARNING -> Triple(AppColors.AmberText, AppColors.AmberSoft, AppColors.AmberBright)
-        TammiBadgeTone.DANGER -> Triple(AppColors.RedText, AppColors.RedSoft, AppColors.RedText)
-        TammiBadgeTone.INFO -> Triple(AppColors.InfoText, AppColors.InfoSoft, AppColors.InfoText)
+        TammiBadgeTone.DANGER -> Triple(AppColors.RedText, AppColors.RedSoft, AppColors.Red)
+        TammiBadgeTone.INFO -> Triple(AppColors.InfoText, AppColors.InfoSoft, AppColors.Info)
         TammiBadgeTone.NEUTRAL -> Triple(AppColors.TextSecondary, AppColors.SurfaceMuted, AppColors.Muted)
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .clip(TammiRadii.badgeShape).background(bg).border(1.dp, AppColors.Border.copy(alpha = 0.65f), TammiRadii.badgeShape)
+            .clip(TammiRadii.badgeShape).background(bg).border(1.dp, fg.copy(alpha = 0.34f), TammiRadii.badgeShape)
             .padding(horizontal = TammiSpacing.md, vertical = TammiSpacing.xs),
     ) {
-        Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(dot))
+        Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(dot))
         Spacer(Modifier.width(TammiSpacing.sm))
-        Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

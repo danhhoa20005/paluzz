@@ -135,59 +135,62 @@ internal fun GatewayHeroPanel(
         else -> AppColors.Primary
     }
     val ctaAction: () -> Unit = if (isWifiOff) ({ openWifiQuickPanel(context) }) else onStartStop
-    val dotColor = when {
-        isWifiOff || isLanLost || isNetOffline -> AppColors.AmberBright
-        state.isRunning || state.connectedCount > 0 -> AppColors.GreenBright
-        else -> AppColors.Muted
+    val vis = when {
+        isWifiOff || isLanLost || isNetOffline -> HeroVisual(AppColors.AmberBright, AppColors.AmberBright, "Cảnh báo", TammiBadgeTone.WARNING)
+        state.isRunning -> HeroVisual(AppColors.GreenBright, AppColors.GreenBright, "Đang trực", TammiBadgeTone.SUCCESS)
+        state.connectedCount > 0 -> HeroVisual(AppColors.Primary, AppColors.Primary, "Sẵn sàng", TammiBadgeTone.PRIMARY)
+        else -> HeroVisual(AppColors.AmberBright, AppColors.Primary, "Đang dò", TammiBadgeTone.INFO)
     }
-    val borderAccent = when {
-        isWifiOff || isLanLost || isNetOffline -> AppColors.Amber.copy(alpha = 0.28f)
-        state.isRunning -> AppColors.Green.copy(alpha = 0.26f)
-        else -> null
-    }
+    val borderAccent = vis.barColor.copy(alpha = 0.38f)
     val pulseLive = state.isRunning && !isWifiOff && !isLanLost && !isNetOffline && !reducedMotion
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .liquidGlassLayer(
                 shape = TammiRadii.panelShape,
                 tier = LiquidGlassTier.CHROME,
                 borderOverride = borderAccent,
-                shadowElevation = 12.dp,
+                shadowElevation = 14.dp,
             ),
     ) {
+        // Dải chỉ báo trạng thái mảnh 4dp trên đỉnh giúp nhận diện trạng thái trong 0.1 giây mà vẫn giữ toàn khung sáng sạch
+        Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(vis.barColor))
         Box(modifier = Modifier.padding(horizontal = if (ui.isCompact) TammiSpacing.lg else TammiSpacing.xxl, vertical = TammiSpacing.lg)) {
             if (ui.isTwoPane) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.md)) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
-                            HeroStatusDot(dotColor, sizeDp = 10, pulse = pulseLive)
+                            HeroStatusDot(vis.dotColor, sizeDp = 10, pulse = pulseLive)
                             Text(headline, fontSize = if (ui.isTvDevice) 21.sp else 19.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            TammiStatusPill(vis.badgeLabel, tone = vis.badgeTone)
                         }
-                        Text(state.statusHint.ifBlank { statsLine }, fontSize = if (ui.isTvDevice) 14.sp else 13.sp, fontWeight = FontWeight.Medium, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(state.statusHint.ifBlank { statsLine }, fontSize = if (ui.isTvDevice) 14.sp else 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     TvActionButton(ctaText, ctaBgColor, ctaAction, enabled = !state.isBusy || isWifiOff)
-                    TammiOutlinedButton("Kiosk 24/7", onOpenKiosk, contentColor = AppColors.Text)
+                    TammiOutlinedButton("Kiosk 24/7", onOpenKiosk, contentColor = AppColors.Primary, borderColor = AppColors.Primary.copy(alpha = 0.42f))
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(TammiSpacing.lg)) {
                     Column(verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
-                            HeroStatusDot(dotColor, sizeDp = 10, pulse = pulseLive)
-                            Text(headline, fontSize = 19.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
+                            HeroStatusDot(vis.dotColor, sizeDp = 10, pulse = pulseLive)
+                            Text(headline, fontSize = 18.5.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.4).sp, color = AppColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            TammiStatusPill(vis.badgeLabel, tone = vis.badgeTone)
                         }
-                        Text(state.statusHint.ifBlank { statsLine }, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(state.statusHint.ifBlank { statsLine }, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm), verticalAlignment = Alignment.CenterVertically) {
                         TvActionButton(ctaText, ctaBgColor, ctaAction, Modifier.weight(1f), enabled = !state.isBusy || isWifiOff)
-                        TammiOutlinedButton("Kiosk", onOpenKiosk, contentColor = AppColors.Text)
+                        TammiOutlinedButton("Kiosk", onOpenKiosk, contentColor = AppColors.Primary, borderColor = AppColors.Primary.copy(alpha = 0.42f))
                     }
                 }
             }
         }
     }
 }
+
+private data class HeroVisual(val dotColor: Color, val barColor: Color, val badgeLabel: String, val badgeTone: TammiBadgeTone)
 
 private fun openWifiQuickPanel(context: Context) {
     val opened = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

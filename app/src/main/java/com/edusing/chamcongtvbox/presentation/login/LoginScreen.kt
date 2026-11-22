@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -105,20 +106,26 @@ fun LoginScreen(viewModel: LoginViewModel) {
     }
 }
 
-/** Thẻ tiêu đề **Clear Liquid Glass Sáng** tinh giản (không khối màu đậm). */
+/** Thẻ tiêu đề **Light Liquid Glass AAAAA**: nền kính trắng sáng + dải nhấn Xanh Apple mảnh sắc nét. */
 @Composable
 private fun CompactLiquidBrandBanner(mode: AppMode, title: String, orgLabel: String) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .liquidGlassLayer(shape = TammiRadii.panelShape, tier = LiquidGlassTier.CHROME, shadowElevation = 10.dp),
+            .liquidGlassLayer(
+                shape = TammiRadii.panelShape,
+                tier = LiquidGlassTier.CHROME,
+                borderOverride = AppColors.Primary.copy(alpha = 0.34f),
+                shadowElevation = 12.dp,
+            ),
     ) {
+        Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(AppColors.Primary))
         Column(modifier = Modifier.padding(horizontal = TammiSpacing.lg, vertical = TammiSpacing.md), verticalArrangement = Arrangement.spacedBy(TammiSpacing.xs)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(TammiSpacing.sm)) {
-                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(AppColors.GreenBright))
-                Text(title, fontSize = 17.5.sp, fontWeight = FontWeight.Black, color = AppColors.Text)
+                Box(modifier = Modifier.size(9.dp).clip(CircleShape).background(AppColors.Primary))
+                Text(title, fontSize = 18.sp, fontWeight = FontWeight.Black, color = AppColors.Text)
             }
-            Text("Đăng nhập 1 lần — tự động kết nối máy chấm công 24/7", fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = AppColors.TextSecondary)
+            Text("Đăng nhập 1 lần — tự động kết nối máy chấm công 24/7", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppColors.TextSecondary)
         }
     }
 }

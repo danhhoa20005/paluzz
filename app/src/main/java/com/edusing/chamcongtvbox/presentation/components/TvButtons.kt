@@ -158,7 +158,8 @@ fun TammiOutlinedButton(
         else -> Modifier.liquidGlassLayer(
             shape = TammiRadii.buttonShape,
             tier = LiquidGlassTier.CHROME,
-            borderOverride = borderColor,
+            tintOverride = Color.White.copy(alpha = 0.94f),
+            borderOverride = borderColor ?: AppColors.Border,
             shadowElevation = if (compact) 4.dp else 8.dp,
         )
     }
@@ -211,7 +212,13 @@ fun LiquidGlassChip(
     val surfaceMod = if (selected) {
         Modifier.stainedLiquidGlass(shape = CircleShape, baseColor = selectedColor, shadowElevation = 8.dp)
     } else {
-        Modifier.liquidGlassLayer(shape = CircleShape, tier = LiquidGlassTier.CHROME, shadowElevation = 4.dp)
+        Modifier.liquidGlassLayer(
+            shape = CircleShape,
+            tier = LiquidGlassTier.CHROME,
+            tintOverride = Color.White.copy(alpha = 0.94f),
+            borderOverride = AppColors.Border,
+            shadowElevation = 4.dp,
+        )
     }
 
     Box(
