@@ -1,11 +1,5 @@
 package com.edusing.chamcongtvbox.presentation.settings
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,8 +32,8 @@ import com.edusing.chamcongtvbox.presentation.components.TvActionButton
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.TammiSpacing
 import com.edusing.chamcongtvbox.presentation.theme.readDeviceHealthInfo
+import com.edusing.chamcongtvbox.service.StartupPermissionsHelper
 import com.edusing.chamcongtvbox.service.TvAutoBootHelper
-import java.util.Locale
 
 /**
  * Thẻ **Vận hành 24/7 & Web quản trị LAN** tinh gọn:
@@ -104,7 +98,7 @@ internal fun DeviceHealthCard(
                     text = "Bỏ giới hạn pin để chạy nền 24/7",
                     containerColor = AppColors.Amber,
                     compact = true,
-                    onClick = { openBatteryOptimizationWhitelist(context) },
+                    onClick = { StartupPermissionsHelper.openBatteryOptimizationSettings(context) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -173,32 +167,5 @@ internal fun TvHomeLauncherAdvancedSection() {
                 )
             }
         }
-    }
-}
-
-@SuppressLint("BatteryLife")
-private fun openBatteryOptimizationWhitelist(context: Context) {
-    val mfg = Build.MANUFACTURER.orEmpty().lowercase(Locale.ROOT)
-    if (mfg.contains("oppo") || mfg.contains("realme") || mfg.contains("oneplus")) {
-        val opened = runCatching {
-            context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
-            true
-        }.getOrDefault(false)
-        if (opened) return
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        val direct = runCatching {
-            context.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}")))
-            true
-        }.getOrDefault(false)
-        if (direct) return
-    }
-    runCatching {
-        val fallback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-        } else {
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
-        }
-        context.startActivity(fallback)
     }
 }

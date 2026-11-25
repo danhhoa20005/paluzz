@@ -1,7 +1,6 @@
 package com.edusing.chamcongtvbox.presentation
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
 import android.os.Build
 import android.os.Bundle
@@ -26,29 +25,33 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.edusing.chamcongtvbox.AttendanceTvApp
 import com.edusing.chamcongtvbox.di.AppContainer
 import com.edusing.chamcongtvbox.di.AppViewModelFactory
+import com.edusing.chamcongtvbox.domain.model.StartupPermissionType
+import com.edusing.chamcongtvbox.domain.model.StartupPermissionsSnapshot
 import com.edusing.chamcongtvbox.presentation.adddevice.AddDeviceScreen
 import com.edusing.chamcongtvbox.presentation.adddevice.AddDeviceViewModel
 import com.edusing.chamcongtvbox.presentation.components.AutoUpdateCountdownDialog
 import com.edusing.chamcongtvbox.presentation.login.LoginScreen
 import com.edusing.chamcongtvbox.presentation.login.LoginViewModel
 import com.edusing.chamcongtvbox.presentation.main.AppShellScaffold
+import com.edusing.chamcongtvbox.presentation.permissions.StartupPermissionsScreen
 import com.edusing.chamcongtvbox.presentation.theme.AppTvTheme
 import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassBackdrop
 import com.edusing.chamcongtvbox.presentation.theme.detectIsTvDevice
 import com.edusing.chamcongtvbox.service.AttendanceForegroundService
+import com.edusing.chamcongtvbox.service.StartupPermissionsHelper
 import com.edusing.chamcongtvbox.service.TvAutoBootHelper
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-/** Các màn hình cấp gốc của ứng dụng Tammi Clean 3D. */
+/** Các màn hình cấp gốc của ứng dụng sau khi đã cấp đủ quyền bắt buộc lúc khởi động. */
 private sealed interface AppScreen {
     data class Login(val notice: String? = null) : AppScreen
     data object Shell : AppScreen
@@ -57,17 +60,19 @@ private sealed interface AppScreen {
 
 /**
  * Activity gốc:
- * - Khởi chạy dịch vụ nền 24/7 (`AttendanceForegroundService`).
- * - Tự bật `FLAG_KEEP_SCREEN_ON` khi đang chấm công và nối lại nhẹ khi quay lại ứng dụng.
- * - Tương thích vùng an toàn tai thỏ / thanh trạng thái / điều hướng trên cả điện thoại và TV Box.
+ * - Chặn tại cổng **Cấp quyền bắt buộc** ngay khi vừa mở app (Tự động bật app, Bỏ giới hạn pin, Thông báo, OTA)
+ *   trước khi vào màn hình Đăng nhập / Trạm trực.
+ * - Khởi chạy dịch vụ nền 24/7 (`AttendanceForegroundService`) và giữ màn hình sáng khi đang trực.
  */
 class MainActivity : ComponentActivity() {
+
+    private val permissionsState = MutableStateFlow<StartupPermissionsSnapshot?>(null)
+    private var notificationRequestedOnce = false
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {
-        // Sau khi hỏi quyền thông báo (Android 13+), tiếp tục kiểm tra quyền tự bật màn hình cho Android 10+
-        promptOverlayPermissionIfNeeded()
+        refreshStartupPermissions()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,7 +81,7 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT),
         )
-        requestStartupPermissionsIfNeeded()
+        refreshStartupPermissions()
         AttendanceForegroundService.start(applicationContext, fromBoot = false)
 
         val container = (application as AttendanceTvApp).container
@@ -85,8 +90,8 @@ class MainActivity : ComponentActivity() {
         observeKeepScreenOn(container, isTv)
 
         setContent {
+            val perms by permissionsState.collectAsStateWithLifecycle()
             AppTvTheme {
-                // Nền quang học Liquid Glass tràn viền toàn màn hình (xuyên sau thanh trạng thái & cử chỉ)
                 LiquidGlassBackdrop {
                     Box(
                         modifier = Modifier
@@ -95,14 +100,22 @@ class MainActivity : ComponentActivity() {
                             .navigationBarsPadding()
                             .displayCutoutPadding(),
                     ) {
-                        AttendanceTvRoot(
-                            container = container,
-                            onMoveToBackground = {
-                                if (!TvAutoBootHelper.isDefaultHomeLauncher(this@MainActivity)) {
-                                    moveTaskToBack(true)
-                                }
-                            },
-                        )
+                        val snap = perms ?: StartupPermissionsHelper.evaluate(this@MainActivity)
+                        if (!snap.allMandatoryGranted) {
+                            StartupPermissionsScreen(
+                                snapshot = snap,
+                                onRequestPermission = ::requestMandatoryPermission,
+                                onEnableTvHomeLauncher = { TvAutoBootHelper.enableTvHomeLauncherAndPrompt(this@MainActivity) },
+                                onRecheckNow = ::refreshStartupPermissions,
+                            )
+                        } else {
+                            AttendanceTvRoot(
+                                container = container,
+                                onMoveToBackground = {
+                                    if (!TvAutoBootHelper.isDefaultHomeLauncher(this@MainActivity)) moveTaskToBack(true)
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -112,14 +125,42 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         TvAutoBootHelper.setAppInForeground(true)
+        refreshStartupPermissions()
         val c = (application as AttendanceTvApp).container
         c.attendanceEngine.onAppResumed()
         c.appUpdateCoordinator.triggerBackgroundCheckIfDue()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) refreshStartupPermissions()
+    }
+
     override fun onPause() {
         TvAutoBootHelper.setAppInForeground(false)
         super.onPause()
+    }
+
+    private fun refreshStartupPermissions() {
+        permissionsState.value = StartupPermissionsHelper.evaluate(this)
+    }
+
+    private fun requestMandatoryPermission(type: StartupPermissionType) {
+        when (type) {
+            StartupPermissionType.AUTO_LAUNCH_ON_BOOT -> StartupPermissionsHelper.openAutoLaunchSettings(this)
+            StartupPermissionType.BATTERY_UNRESTRICTED -> StartupPermissionsHelper.openBatteryOptimizationSettings(this)
+            StartupPermissionType.INSTALL_UPDATES -> StartupPermissionsHelper.openInstallUnknownAppsSettings(this)
+            StartupPermissionType.NOTIFICATIONS -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    if (StartupPermissionsHelper.shouldOpenNotificationSettingsDirectly(this, notificationRequestedOnce)) {
+                        StartupPermissionsHelper.openNotificationSettings(this)
+                    } else {
+                        notificationRequestedOnce = true
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+            }
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -142,19 +183,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-    private fun requestStartupPermissionsIfNeeded() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            return
-        }
-        promptOverlayPermissionIfNeeded()
-    }
-
-    private fun promptOverlayPermissionIfNeeded() =
-        TvAutoBootHelper.promptOverlayPermissionOnLaunchIfNeeded(this, isTvDevice = detectIsTvDevice(this, resources.configuration))
 }
 
 @Composable
@@ -176,12 +204,8 @@ private fun AttendanceTvRoot(container: AppContainer, onMoveToBackground: () -> 
         }
     }
 
-    BackHandler(enabled = screen is AppScreen.AddDevice) {
-        screen = AppScreen.Shell
-    }
-    BackHandler(enabled = screen is AppScreen.Shell && engineSnap.isRunning) {
-        onMoveToBackground()
-    }
+    BackHandler(enabled = screen is AppScreen.AddDevice) { screen = AppScreen.Shell }
+    BackHandler(enabled = screen is AppScreen.Shell && engineSnap.isRunning) { onMoveToBackground() }
 
     when (val dest = screen) {
         is AppScreen.Login -> {
@@ -189,10 +213,7 @@ private fun AttendanceTvRoot(container: AppContainer, onMoveToBackground: () -> 
             LaunchedEffect(dest.notice) { dest.notice?.let(vm::setNoticeBanner) }
             LaunchedEffect(suppressAutoLogin) { if (!suppressAutoLogin) vm.startAutoLoginIfSaved() }
             LaunchedEffect(vm) {
-                vm.loginSuccessEvent.collect {
-                    suppressAutoLogin = false
-                    screen = AppScreen.Shell
-                }
+                vm.loginSuccessEvent.collect { suppressAutoLogin = false; screen = AppScreen.Shell }
             }
             LoginScreen(viewModel = vm)
         }
@@ -202,10 +223,7 @@ private fun AttendanceTvRoot(container: AppContainer, onMoveToBackground: () -> 
                 container = container,
                 factory = factory,
                 onOpenAddDevice = { screen = AppScreen.AddDevice(++subScreenCounter) },
-                onLoggedOut = {
-                    suppressAutoLogin = true
-                    screen = AppScreen.Login()
-                },
+                onLoggedOut = { suppressAutoLogin = true; screen = AppScreen.Login() },
             )
         }
 

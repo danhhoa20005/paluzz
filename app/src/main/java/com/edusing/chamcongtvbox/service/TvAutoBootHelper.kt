@@ -21,30 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 object TvAutoBootHelper {
 
     private const val TV_HOME_ALIAS_CLASS = "com.edusing.chamcongtvbox.TvHomeLauncherAlias"
-    private const val PREFS_AUTO_BOOT = "tv_auto_boot_prefs"
-    private const val KEY_OVERLAY_PROMPTED_ONCE = "overlay_prompted_once_v1"
 
     private val foregroundFlag = AtomicBoolean(false)
-    private val overlayPromptedThisProcess = AtomicBoolean(false)
-
-    /**
-     * Xin quyền "Hiển thị trên ứng dụng khác" (SYSTEM_ALERT_WINDOW) khi mở app trên Android 10+:
-     * - Mấu chốt để `BootReceiver` được phép tự mở `MainActivity` sau khi mất điện có điện lại.
-     * - Chống vòng lặp nếu người dùng bấm Quay lại: trên TV Box nhắc tối đa 1 lần mỗi lần mở app;
-     *   trên điện thoại chỉ tự mở trang cấp quyền đúng 1 lần đầu cài đặt.
-     */
-    fun promptOverlayPermissionOnLaunchIfNeeded(context: Context, isTvDevice: Boolean) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        if (hasOverlayPermission(context) || isDefaultHomeLauncher(context)) return
-        if (!overlayPromptedThisProcess.compareAndSet(false, true)) return
-
-        if (!isTvDevice) {
-            val prefs = context.applicationContext.getSharedPreferences(PREFS_AUTO_BOOT, Context.MODE_PRIVATE)
-            if (prefs.getBoolean(KEY_OVERLAY_PROMPTED_ONCE, false)) return
-            prefs.edit().putBoolean(KEY_OVERLAY_PROMPTED_ONCE, true).apply()
-        }
-        openOverlayPermissionSettings(context)
-    }
 
     fun setAppInForeground(inForeground: Boolean) {
         foregroundFlag.set(inForeground)
