@@ -1,7 +1,7 @@
 {
-  "versionCode": 25,
-  "versionName": "2.10.0",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.10.0/ChamCong_DiemDanh_v2.10.0.apk",
-  "sha256": "c33de165c5fa6dd3d2ff4217b69eb14030da5a863130d21a3dd1dcc1f68ac39b",
-  "notes": "Bổ sung cổng cấp quyền bắt buộc ngay khi vừa mở ứng dụng (trước cả Đăng nhập): yêu cầu cấp quyền Tự động bật app khi mở máy (kèm nút đặt Màn hình chính TV 1 chạm), Bỏ giới hạn pin 24/7, Thông báo và Cài cập nhật OTA; chặn bỏ qua cho tới khi đủ quyền và tự mở vào ứng dụng ngay sau khi cấp xong; tự khởi chạy app sau mất điện ngay cả trước khi đăng nhập."
+  "versionCode": 26,
+  "versionName": "2.11.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.11.0/ChamCong_DiemDanh_v2.11.0.apk",
+  "sha256": "1f093a2625def61444fcd7f4409869a63fc65c707ec9c77ad633413bc8686d9b",
+  "notes": "Hoàn thiện điều khiển 100% từ xa qua Web LAN ngay khi khởi động: tự bật Web LAN ngay khi TV Box có điện (kể cả trước khi đăng nhập), hiển thị địa chỉ Web LAN + mã 1234 ngay màn Cấp quyền & Đăng nhập; thêm bảng Khởi động 24/7 & Quyền hệ thống trên Web LAN (bật/tắt tự mở khi có điện, tự chạy chấm công, Màn hình chính TV, đưa app lên màn hình, mở trực tiếp từng trang cấp quyền trên TV); bổ sung đẩy nhân sự chọn lọc từ Web tổng, thông số kỹ thuật đầy đủ, lọc/xoá nhật ký và đăng xuất từ xa."
 }
