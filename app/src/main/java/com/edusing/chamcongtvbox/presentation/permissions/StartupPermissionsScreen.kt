@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,8 @@ import com.edusing.chamcongtvbox.presentation.theme.rememberDeviceUiSpec
 @Composable
 fun StartupPermissionsScreen(
     snapshot: StartupPermissionsSnapshot,
+    webConsoleUrl: String = "",
+    showDefaultPinHint: Boolean = false,
     onRequestPermission: (StartupPermissionType) -> Unit,
     onEnableTvHomeLauncher: () -> Unit,
     onRecheckNow: () -> Unit,
@@ -112,6 +115,17 @@ fun StartupPermissionsScreen(
                     fontWeight = FontWeight.Medium,
                     color = AppColors.TextSecondary,
                 )
+                if (webConsoleUrl.isNotBlank()) {
+                    Spacer(Modifier.height(TammiSpacing.sm))
+                    val pinText = if (showDefaultPinHint) " • Mã mặc định: 1234" else ""
+                    Text(
+                        text = "Web quản trị LAN đang mở: $webConsoleUrl$pinText",
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.PrimaryText,
+                    )
+                }
             }
         }
     }

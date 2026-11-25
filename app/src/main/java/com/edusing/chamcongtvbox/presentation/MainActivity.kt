@@ -91,30 +91,24 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val perms by permissionsState.collectAsStateWithLifecycle()
+            val eng by container.attendanceEngine.state.collectAsStateWithLifecycle()
             AppTvTheme {
                 LiquidGlassBackdrop {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .statusBarsPadding()
-                            .navigationBarsPadding()
-                            .displayCutoutPadding(),
-                    ) {
+                    Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().displayCutoutPadding()) {
                         val snap = perms ?: StartupPermissionsHelper.evaluate(this@MainActivity)
                         if (!snap.allMandatoryGranted) {
                             StartupPermissionsScreen(
                                 snapshot = snap,
+                                webConsoleUrl = eng.webConsoleUrl,
+                                showDefaultPinHint = !container.configRepository.getConfig().isLoggedIn,
                                 onRequestPermission = ::requestMandatoryPermission,
                                 onEnableTvHomeLauncher = { TvAutoBootHelper.enableTvHomeLauncherAndPrompt(this@MainActivity) },
                                 onRecheckNow = ::refreshStartupPermissions,
                             )
                         } else {
-                            AttendanceTvRoot(
-                                container = container,
-                                onMoveToBackground = {
-                                    if (!TvAutoBootHelper.isDefaultHomeLauncher(this@MainActivity)) moveTaskToBack(true)
-                                },
-                            )
+                            AttendanceTvRoot(container) {
+                                if (!TvAutoBootHelper.isDefaultHomeLauncher(this@MainActivity)) moveTaskToBack(true)
+                            }
                         }
                     }
                 }
@@ -215,7 +209,7 @@ private fun AttendanceTvRoot(container: AppContainer, onMoveToBackground: () -> 
             LaunchedEffect(vm) {
                 vm.loginSuccessEvent.collect { suppressAutoLogin = false; screen = AppScreen.Shell }
             }
-            LoginScreen(viewModel = vm)
+            LoginScreen(viewModel = vm, webConsoleUrl = engineSnap.webConsoleUrl)
         }
 
         AppScreen.Shell -> {

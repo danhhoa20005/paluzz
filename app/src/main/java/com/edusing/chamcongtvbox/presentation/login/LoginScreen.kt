@@ -21,11 +21,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.edusing.chamcongtvbox.domain.model.AppMode
+import com.edusing.chamcongtvbox.presentation.components.TammiGlassPanel
 import com.edusing.chamcongtvbox.presentation.components.TammiModeSwitcherCard
 import com.edusing.chamcongtvbox.presentation.theme.AppColors
 import com.edusing.chamcongtvbox.presentation.theme.LiquidGlassTier
@@ -40,7 +42,7 @@ import com.edusing.chamcongtvbox.presentation.theme.rememberDeviceUiSpec
  * - **Điện thoại**: Thẻ tiêu đề 3D theo màu chế độ → Thanh chuyển 3 chế độ → Form đăng nhập → Tài khoản đã lưu.
  */
 @Composable
-fun LoginScreen(viewModel: LoginViewModel) {
+fun LoginScreen(viewModel: LoginViewModel, webConsoleUrl: String = "") {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val ui = rememberDeviceUiSpec()
 
@@ -73,6 +75,7 @@ fun LoginScreen(viewModel: LoginViewModel) {
                     } else {
                         LoginHeroPanel(mode = state.activeMode, title = state.title, orgLabel = state.orgLabel)
                     }
+                    if (webConsoleUrl.isNotBlank()) WebLanSetupHintCard(webConsoleUrl)
                 }
                 LoginFormCard(
                     state = state,
@@ -101,8 +104,17 @@ fun LoginScreen(viewModel: LoginViewModel) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                if (webConsoleUrl.isNotBlank()) WebLanSetupHintCard(webConsoleUrl)
             }
         }
+    }
+}
+
+@Composable
+private fun WebLanSetupHintCard(url: String) {
+    TammiGlassPanel(modifier = Modifier.fillMaxWidth(), padding = androidx.compose.foundation.layout.PaddingValues(TammiSpacing.md)) {
+        Text("Điều khiển & Đăng nhập từ xa qua Web LAN", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = AppColors.Text)
+        Text("$url  •  Mã mặc định: 1234", fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = AppColors.PrimaryText)
     }
 }
 

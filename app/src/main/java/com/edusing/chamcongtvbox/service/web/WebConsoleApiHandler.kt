@@ -33,6 +33,7 @@ internal class WebConsoleApiHandler(
     private val appUpdateCoordinator: AppUpdateCoordinator,
     private val hikHandler: WebConsoleHikvisionHandler? = null,
     private val backupAlertHelper: WebConsoleBackupAlertHelper? = null,
+    private val startupMembersHelper: WebConsoleStartupAndMembersHelper? = null,
     private val onLocalHostChanged: () -> Unit = {},
     private val auth: WebConsoleAuth = WebConsoleAuth(persistentSalt = WebConsoleAuth.loadOrCreateDeviceSalt(context)),
     private val startedAtMs: Long = System.currentTimeMillis(),
@@ -48,14 +49,11 @@ internal class WebConsoleApiHandler(
                 .put("orgName", authCfg.orgName.ifBlank { authCfg.username }).put("mode", authCfg.mode.shortLabel).toString()
             return jsonOk(body)
         }
-        if (!isAuthed) {
-            return WebHttpResponse(401, JSON_TYPE, """{"ok":false,"error":"Chưa đăng nhập quản trị"}""")
-        }
+        if (!isAuthed) return WebHttpResponse(401, JSON_TYPE, """{"ok":false,"error":"Chưa đăng nhập quản trị"}""")
         return try {
+            startupMembersHelper?.handle(method, path, rawBody)?.let { return it }
             backupAlertHelper?.handle(method, path, query, rawBody)?.let { return it }
-            if (path.startsWith("/api/hikvision/") && hikHandler != null) {
-                return hikHandler.handle(method, path, query, rawBody)
-            }
+            if (path.startsWith("/api/hikvision/") && hikHandler != null) return hikHandler.handle(method, path, query, rawBody)
             when {
                 path == "/api/status" && method == "GET" -> jsonOk(
                     WebConsoleStatusSerializer.buildStatusJson(
@@ -169,14 +167,23 @@ internal class WebConsoleApiHandler(
         val j = JSONObject(rawBody); val cur = configRepository.getConfig()
         val newHost = AppConfig.sanitizeLocalHost(j.optString("localHostName", cur.safeLocalHostName))
         val newRepo = AppConfig.sanitizeRepoSlug(j.optString("updateRepoSlug", cur.safeUpdateRepoSlug))
+        val newDomain = j.optString("apiDomain", cur.apiDomain).trim().ifBlank { cur.apiDomain }
         configRepository.saveConfig(
             cur.copy(
+                apiDomain = newDomain,
                 localHostName = newHost,
                 pollIntervalMs = j.optLong("pollIntervalSec", cur.pollIntervalMs / 1000L).coerceIn(3L, 60L) * 1000L,
                 dedupSeconds = j.optLong("dedupSeconds", cur.dedupSeconds).coerceIn(0L, 3600L),
                 udpMode = j.optBoolean("udpMode", cur.udpMode),
                 defaultPort = j.optInt("defaultPort", cur.defaultPort).coerceIn(1, 65535),
+                defaultMachineNo = j.optInt("defaultMachineNo", cur.defaultMachineNo).coerceIn(1, 255),
+                defaultPassword = j.optInt("defaultPassword", cur.defaultPassword).coerceAtLeast(0),
+                defaultLicense = j.optInt("defaultLicense", cur.defaultLicense).coerceAtLeast(0),
+                heartbeatIntervalMs = j.optLong("heartbeatIntervalSec", cur.heartbeatIntervalMs / 1000L).coerceIn(10L, 600L) * 1000L,
+                connectTimeoutMs = j.optInt("connectTimeoutMs", cur.connectTimeoutMs).coerceIn(1500, 30_000),
+                maxDeviceNameBytes = j.optInt("maxDeviceNameBytes", cur.maxDeviceNameBytes).coerceIn(8, 32),
                 autoStartOnBoot = j.optBoolean("autoStartOnBoot", cur.autoStartOnBoot),
+                autoStartRunning = j.optBoolean("autoStartRunning", cur.autoStartRunning),
                 voiceGreetingEnabled = j.optBoolean("voiceGreetingEnabled", cur.voiceGreetingEnabled),
                 autoUpdateEnabled = j.optBoolean("autoUpdateEnabled", cur.autoUpdateEnabled),
                 updateRepoSlug = newRepo,

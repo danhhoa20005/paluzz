@@ -21,9 +21,7 @@ import com.edusing.chamcongtvbox.R
 import com.edusing.chamcongtvbox.domain.repository.InternetStatus
 import com.edusing.chamcongtvbox.presentation.MainActivity
 import com.edusing.chamcongtvbox.service.web.LocalWebConsoleServer
-import com.edusing.chamcongtvbox.service.web.WebConsoleApiHandler
-import com.edusing.chamcongtvbox.service.web.WebConsoleBackupAlertHelper
-import com.edusing.chamcongtvbox.service.web.WebConsoleHikvisionHandler
+import com.edusing.chamcongtvbox.service.web.WebConsoleStatusSerializer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -60,16 +58,7 @@ class AttendanceForegroundService : Service() {
         networkObserver = NetworkStateObserver(this, engine).also { it.register() }
         webConsole = LocalWebConsoleServer(
             context = this,
-            apiHandler = WebConsoleApiHandler(
-                this, container.configRepository, engine, container.loginUseCase,
-                container.readDeviceUsersUseCase, container.deleteDeviceUsersUseCase, container.appUpdateCoordinator,
-                hikHandler = WebConsoleHikvisionHandler(
-                    container.configRepository, engine, container.deviceGateway, container.hikvisionControlGateway,
-                    container.backfillHikvisionEventsUseCase, { container.activeWebConsolePort }, container::hikvisionWebhookStats, container.syncHikvisionFacesUseCase,
-                ),
-                backupAlertHelper = WebConsoleBackupAlertHelper(container.configStore, container.configRepository, engine, container.alertNotifier),
-                onLocalHostChanged = { webConsole?.refreshPublishedUrl() },
-            ),
+            apiHandler = WebConsoleStatusSerializer.createApiHandler(this, container) { webConsole?.refreshPublishedUrl() },
             hostProvider = { "${container.configRepository.getConfig().safeLocalHostName}.local" },
             onHikvisionWebhook = container::handleHikvisionWebhook,
             onPortBound = { port -> container.activeWebConsolePort = port },
@@ -111,7 +100,7 @@ class AttendanceForegroundService : Service() {
                         runCatching { container.validateCredentialsUseCase() }
                         cfg = container.configRepository.getConfig()
                     }
-                    if (cfg.autoStartOnBoot && cfg.isLoggedIn) {
+                    if (cfg.autoStartOnBoot) {
                         serviceScope.launch {
                             if (!TvAutoBootHelper.isAppInForeground()) TvAutoBootHelper.launchMainActivitySafe(applicationContext)
                             delay(BOOT_LAUNCHER_GUARD_DELAY_MS)
@@ -119,7 +108,7 @@ class AttendanceForegroundService : Service() {
                                 TvAutoBootHelper.launchMainActivitySafe(applicationContext)
                             }
                         }
-                        engine.autoDiscoverConnectAndReady(fromInternetRecovery = false)
+                        if (cfg.isLoggedIn) engine.autoDiscoverConnectAndReady(fromInternetRecovery = false)
                     }
                 }
                 ACTION_STOP_SERVICE -> {
@@ -137,8 +126,7 @@ class AttendanceForegroundService : Service() {
         // Nếu bị gạt tác vụ hoặc Android TV thu hồi tiến trình UI, tự hẹn khởi chạy lại sau 2 giây để giữ 24/7
         runCatching {
             val cfg = (application as AttendanceTvApp).container.configRepository.getConfig()
-            val hasSaved = cfg.isLoggedIn || (cfg.rememberAccount && cfg.username.isNotBlank() && cfg.password.isNotBlank())
-            if (cfg.autoStartOnBoot && hasSaved) {
+            if (cfg.autoStartOnBoot) {
                 val restart = Intent(applicationContext, AttendanceForegroundService::class.java).apply { action = ACTION_BOOT_AUTOSTART }
                 val flags = PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
                 val pi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

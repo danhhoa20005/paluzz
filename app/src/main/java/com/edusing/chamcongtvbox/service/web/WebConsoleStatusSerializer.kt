@@ -3,6 +3,7 @@ package com.edusing.chamcongtvbox.service.web
 import android.content.Context
 import android.os.Build
 import com.edusing.chamcongtvbox.BuildConfig
+import com.edusing.chamcongtvbox.di.AppContainer
 import com.edusing.chamcongtvbox.domain.model.AppConfig
 import com.edusing.chamcongtvbox.domain.model.UpdateStateSnapshot
 import com.edusing.chamcongtvbox.service.CrashRecoveryHandler
@@ -84,7 +85,14 @@ internal object WebConsoleStatusSerializer {
             .put("dedupSeconds", cfg.dedupSeconds)
             .put("udpMode", cfg.udpMode)
             .put("defaultPort", cfg.defaultPort)
+            .put("defaultMachineNo", cfg.defaultMachineNo)
+            .put("defaultPassword", cfg.defaultPassword)
+            .put("defaultLicense", cfg.defaultLicense)
+            .put("heartbeatIntervalSec", (cfg.heartbeatIntervalMs / 1000L).coerceIn(10L, 600L))
+            .put("connectTimeoutMs", cfg.connectTimeoutMs)
+            .put("maxDeviceNameBytes", cfg.maxDeviceNameBytes)
             .put("autoStartOnBoot", cfg.autoStartOnBoot)
+            .put("autoStartRunning", cfg.autoStartRunning)
             .put("voiceGreetingEnabled", cfg.voiceGreetingEnabled)
             .put("autoUpdateEnabled", cfg.autoUpdateEnabled)
             .put("updateRepoSlug", cfg.safeUpdateRepoSlug)
@@ -94,7 +102,30 @@ internal object WebConsoleStatusSerializer {
             .put("updateError", updateSnap.errorMessage.orEmpty())
             .put("hasSavedHikAuth", cfg.resolvedHikPassword.isNotBlank())
             .put("savedHikUser", cfg.resolvedHikUsername)
+            .put("startup", WebConsoleStartupAndMembersHelper.buildStartupJson(context, cfg))
             .put("devices", devicesArr)
             .put("events", eventsArr)
     }
+
+    /** Khởi tạo trọn bộ [WebConsoleApiHandler] với đầy đủ module Hikvision, Sao lưu, Khởi động & Nhân sự. */
+    fun createApiHandler(context: Context, container: AppContainer, onLocalHostChanged: () -> Unit): WebConsoleApiHandler =
+        WebConsoleApiHandler(
+            context = context,
+            configRepository = container.configRepository,
+            attendanceEngine = container.attendanceEngine,
+            loginUseCase = container.loginUseCase,
+            readDeviceUsersUseCase = container.readDeviceUsersUseCase,
+            deleteDeviceUsersUseCase = container.deleteDeviceUsersUseCase,
+            appUpdateCoordinator = container.appUpdateCoordinator,
+            hikHandler = WebConsoleHikvisionHandler(
+                container.configRepository, container.attendanceEngine, container.deviceGateway, container.hikvisionControlGateway,
+                container.backfillHikvisionEventsUseCase, { container.activeWebConsolePort }, container::hikvisionWebhookStats, container.syncHikvisionFacesUseCase,
+            ),
+            backupAlertHelper = WebConsoleBackupAlertHelper(container.configStore, container.configRepository, container.attendanceEngine, container.alertNotifier),
+            startupMembersHelper = WebConsoleStartupAndMembersHelper(
+                context, container.configRepository, container.attendanceEngine,
+                container.loadMembersTreeUseCase, container.pushMembersToDevicesUseCase, container.logoutUseCase,
+            ),
+            onLocalHostChanged = onLocalHostChanged,
+        )
 }

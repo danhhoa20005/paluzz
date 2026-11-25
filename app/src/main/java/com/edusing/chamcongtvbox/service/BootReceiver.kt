@@ -21,10 +21,8 @@ class BootReceiver : BroadcastReceiver() {
 
         val app = appCtx as? AttendanceTvApp ?: return
         val cfg = app.container.configRepository.getConfig()
-        val hasSavedSession = cfg.isLoggedIn ||
-            (cfg.rememberAccount && cfg.username.isNotBlank() && cfg.password.isNotBlank())
         if (cfg.autoStartOnBoot) {
-            if (hasSavedSession) AttendanceForegroundService.start(appCtx, fromBoot = true)
+            AttendanceForegroundService.start(appCtx, fromBoot = true)
             TvAutoBootHelper.launchMainActivitySafe(appCtx)
         }
     }
