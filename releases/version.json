@@ -1,7 +1,7 @@
 {
-  "versionCode": 24,
-  "versionName": "2.9.2",
-  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.9.2/ChamCong_DiemDanh_v2.9.2.apk",
-  "sha256": "e282ad6461ddd7fc26bf6eb7b28542b22dec78df37145b7c122322d548785ea0",
-  "notes": "Nâng cấp giao diện Light Liquid Glass siêu sắc nét chuẩn AAA+ (12/12 cặp màu đạt 7.09:1 đến 18.89:1): nền sáng sương dịu tách bạch thẻ kính trắng tinh, 1 màu nhấn chủ đạo Xanh Apple sắc nét cho tab/chế độ/nút chính giúp nhìn rõ trong 0.1 giây mà không rực màu cầu vồng, dải chỉ báo trạng thái trên thẻ Hero & viền rõ nét cho máy Online/Offline, đồng bộ Web LAN."
+  "versionCode": 25,
+  "versionName": "2.10.0",
+  "apkUrl": "https://github.com/danhhoa20005/paluzz/releases/download/v2.10.0/ChamCong_DiemDanh_v2.10.0.apk",
+  "sha256": "c33de165c5fa6dd3d2ff4217b69eb14030da5a863130d21a3dd1dcc1f68ac39b",
+  "notes": "Bổ sung cổng cấp quyền bắt buộc ngay khi vừa mở ứng dụng (trước cả Đăng nhập): yêu cầu cấp quyền Tự động bật app khi mở máy (kèm nút đặt Màn hình chính TV 1 chạm), Bỏ giới hạn pin 24/7, Thông báo và Cài cập nhật OTA; chặn bỏ qua cho tới khi đủ quyền và tự mở vào ứng dụng ngay sau khi cấp xong; tự khởi chạy app sau mất điện ngay cả trước khi đăng nhập."
 }
